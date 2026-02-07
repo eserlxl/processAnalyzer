@@ -18,18 +18,8 @@ void printUsage() {
               << "  help            Show this help message\n";
 }
 
-int main(int argc, char* argv[]) {
-    if (argc < 2) {
-        printUsage();
-        return 0;
-    }
-
-    std::string command = argv[1];
-    ProcessAnalyzer analyzer("/proc"); // Explicitly pass proc path
-
-    if (command == "list") {
-        // Using snapshot to replace deprecated printAllProcesses
-        auto processes = analyzer.snapshot();
+void printProcessTable(const std::vector<ProcessInfo>& processes, bool fullDetails) {
+    if (fullDetails) {
         std::cout << std::left << std::setw(8) << "PID" 
                   << std::setw(15) << "User"
                   << std::setw(20) << "Name" 
@@ -38,7 +28,7 @@ int main(int argc, char* argv[]) {
                   << std::setw(10) << "VM(KB)"
                   << std::setw(10) << "Threads"
                   << "Cmdline" << std::endl;
-        std::cout << std::string(103, '-') << std::endl; // Adjust width
+        std::cout << std::string(103, '-') << std::endl;
 
         for (const auto& info : processes) {
             std::cout << std::left << std::setw(8) << info.pid 
@@ -50,6 +40,35 @@ int main(int argc, char* argv[]) {
                       << std::setw(10) << info.threadCount
                       << info.cmdline.substr(0, 40) << (info.cmdline.length() > 40 ? "..." : "") << std::endl;
         }
+    } else {
+        std::cout << std::left << std::setw(8) << "PID" 
+                  << std::setw(15) << "User"
+                  << std::setw(20) << "Name" 
+                  << std::setw(20) << "State" 
+                  << std::setw(10) << "RSS(KB)" << std::endl;
+        std::cout << std::string(73, '-') << std::endl;
+        for (const auto& info : processes) {
+            std::cout << std::left << std::setw(8) << info.pid 
+                      << std::setw(15) << info.username.substr(0, 14)
+                      << std::setw(20) << info.name.substr(0, 19) 
+                      << std::setw(20) << info.state.substr(0, 19) 
+                      << std::setw(10) << info.residentMemory << std::endl;
+        }
+    }
+}
+
+int main(int argc, char* argv[]) {
+    if (argc < 2) {
+        printUsage();
+        return 0;
+    }
+
+    std::string command = argv[1];
+    ProcessAnalyzer analyzer("/proc"); // Explicitly pass proc path
+
+    if (command == "list") {
+        auto processes = analyzer.snapshot();
+        printProcessTable(processes, true);
     } else if (command == "pid") {
         if (argc < 3) {
             std::cerr << "Error: PID required.\n";
@@ -88,19 +107,7 @@ int main(int argc, char* argv[]) {
             std::cout << "No processes found with name: " << processName << "\n";
         } else {
             std::cout << "Processes with name '" << processName << "':\n";
-            std::cout << std::left << std::setw(8) << "PID" 
-                      << std::setw(15) << "User"
-                      << std::setw(20) << "Name" 
-                      << std::setw(20) << "State" 
-                      << std::setw(10) << "RSS(KB)" << std::endl;
-            std::cout << std::string(73, '-') << std::endl;
-            for (const auto& info : processes) {
-                std::cout << std::left << std::setw(8) << info.pid 
-                          << std::setw(15) << info.username.substr(0, 14)
-                          << std::setw(20) << info.name.substr(0, 19) 
-                          << std::setw(20) << info.state.substr(0, 19) 
-                          << std::setw(10) << info.residentMemory << std::endl;
-            }
+            printProcessTable(processes, false);
         }
     } else if (command == "user") { // New command
         if (argc < 3) {
@@ -113,19 +120,7 @@ int main(int argc, char* argv[]) {
             std::cout << "No processes found for user: " << username << "\n";
         } else {
             std::cout << "Processes for user '" << username << "':\n";
-            std::cout << std::left << std::setw(8) << "PID" 
-                      << std::setw(15) << "User"
-                      << std::setw(20) << "Name" 
-                      << std::setw(20) << "State" 
-                      << std::setw(10) << "RSS(KB)" << std::endl;
-            std::cout << std::string(73, '-') << std::endl;
-            for (const auto& info : processes) {
-                std::cout << std::left << std::setw(8) << info.pid 
-                          << std::setw(15) << info.username.substr(0, 14)
-                          << std::setw(20) << info.name.substr(0, 19) 
-                          << std::setw(20) << info.state.substr(0, 19) 
-                          << std::setw(10) << info.residentMemory << std::endl;
-            }
+            printProcessTable(processes, false);
         }
     }
     else {
