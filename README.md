@@ -2,12 +2,26 @@
 
 ![License](https://img.shields.io/badge/License-GPLv3-blue.svg)
 
+## Table of Contents
+* [Features](#features)
+* [Quick Start](#quick-start)
+  * [Prerequisites](#prerequisites)
+  * [Building from Source](#building-from-source)
+  * [Running the Analyzer](#running-the-analyzer)
+* [Usage](#usage)
+* [Project Structure](#project-structure)
+* [Utility Library (`Utils` Namespace)](#utility-library-utils-namespace)
+* [Contributing](#contributing)
+* [License](#license)
+* [Copyright](#copyright)
+
 A powerful and lightweight C++ command-line tool designed for in-depth analysis of running processes on your system. `processAnalyzer` provides a robust interface to inspect process details, offering insights into system resource usage and process behavior.
 
 ## Features
 
 *   **List Processes**: Enumerate all running processes with key information.
 *   **Process Details**: Obtain comprehensive details for a specific process ID (PID).
+*   **Process Filtering**: Filter processes by various criteria such as name or user.
 *   **Utility Library**: Leverages a robust C++ utility library for common tasks like file system operations, string manipulation, and system interaction.
 
 ## Quick Start

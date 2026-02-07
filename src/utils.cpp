@@ -50,33 +50,23 @@ Result<std::string> readTextFile(const std::filesystem::path& path) {
         if (ec) return std::unexpected(ec);
         return std::unexpected(make_error_code(UtilsError::FileNotFound));
     }
-    if (!std::filesystem::is_regular_file(path, ec)) {
-        if (ec) return std::unexpected(ec);
-        return std::unexpected(make_error_code(UtilsError::IOError));
-    }
-
-    std::ifstream file(path, std::ios::in | std::ios::binary);
+    // Removed is_regular_file check as it can be problematic for /proc pseudo-files
+    
+    std::ifstream file(path); 
     if (!file.is_open()) {
+        // More specific error for permission issues
         return std::unexpected(make_error_code(UtilsError::PermissionDenied));
     }
 
-    std::string content;
-    try {
-        file.seekg(0, std::ios::end);
-        std::streamsize size = file.tellg();
-        file.seekg(0, std::ios::beg);
+    // Read file content using iterators for robustness with pseudo-files
+    std::string content((std::istreambuf_iterator<char>(file)),
+                        std::istreambuf_iterator<char>());
 
-        if (size < 0) return std::unexpected(make_error_code(UtilsError::IOError));
-        
-        content.resize(static_cast<size_t>(size));
-        if (file.read(content.data(), size)) {
-             return content;
-        } else {
-             return std::unexpected(make_error_code(UtilsError::IOError));
-        }
-    } catch (...) {
+    if (file.bad()) { // Check for I/O errors during reading
         return std::unexpected(make_error_code(UtilsError::IOError));
     }
+    
+    return content;
 }
 
 Result<void> writeTextFile(const std::filesystem::path& path, std::string_view content) {
