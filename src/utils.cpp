@@ -3,10 +3,9 @@
 
 #include "utils.h"
 #include <fstream>
-#include <sstream>
 #include <algorithm>
 #include <charconv>
-#include <iostream>
+#include <cctype> // for std::isdigit
 
 namespace Utils {
 
@@ -36,23 +35,6 @@ const UtilsErrorCategory& utils_category() {
 
 std::error_code make_error_code(UtilsError e) {
     return {static_cast<int>(e), utils_category()};
-}
-
-// Existing APIs
-std::string readFile(const std::string& path) {
-    auto result = readTextFile(path);
-    if (result) {
-        return *result;
-    }
-    return "";
-}
-
-std::vector<std::string> split(const std::string& s, char delimiter) {
-    return split(std::string_view(s), delimiter, false);
-}
-
-bool isNumeric(const std::string& s) {
-    return isInteger(s);
 }
 
 // --- NEW APIs ---
@@ -231,30 +213,6 @@ std::optional<double> toDouble(std::string_view s) {
         return val;
     }
     return std::nullopt;
-}
-
-std::filesystem::path parentPath(const std::filesystem::path& path) {
-    return path.parent_path();
-}
-
-std::filesystem::path fileName(const std::filesystem::path& path) {
-    return path.filename();
-}
-
-std::filesystem::path stem(const std::filesystem::path& path) {
-    return path.stem();
-}
-
-std::filesystem::path extension(const std::filesystem::path& path) {
-    return path.extension();
-}
-
-std::filesystem::path joinPaths(const std::filesystem::path& p1, const std::filesystem::path& p2) {
-    return p1 / p2;
-}
-
-std::filesystem::path joinPaths(const std::filesystem::path& p1, const std::filesystem::path& p2, const std::filesystem::path& p3) {
-    return p1 / p2 / p3;
 }
 
 } // namespace Utils

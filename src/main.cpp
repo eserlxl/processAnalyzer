@@ -3,7 +3,7 @@
 
 #include <iostream>
 #include <string>
-#include "process_analyzer.h"
+#include "Analyzer.h"
 
 void printUsage() {
     std::cout << "Usage: processAnalyzer [option]\n"

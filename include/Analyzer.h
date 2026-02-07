@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright (c) 2026 Eser KUBALI
 
-#ifndef PROCESS_ANALYZER_H
-#define PROCESS_ANALYZER_H
+#ifndef ANALYZER_H
+#define ANALYZER_H
 
 #include <string>
 #include <vector>

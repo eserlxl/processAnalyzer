@@ -239,49 +239,6 @@ TEST(UtilsTest, ToDouble) {
     EXPECT_DOUBLE_EQ(Utils::toDouble("1e-2").value_or(0.0), 0.01);
 }
 
-TEST(UtilsTest, ParentPath) {
-    EXPECT_EQ(Utils::parentPath("/a/b/c.txt").string(), "/a/b");
-    EXPECT_EQ(Utils::parentPath("/a/b").string(), "/a");
-    EXPECT_EQ(Utils::parentPath("/a").string(), "/");
-    EXPECT_EQ(Utils::parentPath("a.txt").string(), "");
-    EXPECT_EQ(Utils::parentPath("").string(), "");
-}
-
-TEST(UtilsTest, FileName) {
-    EXPECT_EQ(Utils::fileName("/a/b/c.txt").string(), "c.txt");
-    EXPECT_EQ(Utils::fileName("/a/b/").string(), "");
-    EXPECT_EQ(Utils::fileName("c.txt").string(), "c.txt");
-    EXPECT_EQ(Utils::fileName("").string(), "");
-}
-
-TEST(UtilsTest, Stem) {
-    EXPECT_EQ(Utils::stem("/a/b/c.txt").string(), "c");
-    EXPECT_EQ(Utils::stem("/a/b/c").string(), "c");
-    EXPECT_EQ(Utils::stem("c.txt").string(), "c");
-    EXPECT_EQ(Utils::stem("c").string(), "c");
-    EXPECT_EQ(Utils::stem(".profile").string(), ".profile");
-    EXPECT_EQ(Utils::stem("").string(), "");
-}
-
-TEST(UtilsTest, Extension) {
-    EXPECT_EQ(Utils::extension("/a/b/c.txt").string(), ".txt");
-    EXPECT_EQ(Utils::extension("/a/b/c").string(), "");
-    EXPECT_EQ(Utils::extension("c.txt").string(), ".txt");
-    EXPECT_EQ(Utils::extension("c").string(), "");
-    EXPECT_EQ(Utils::extension(".profile").string(), ""); // A dotfile has no extension
-    EXPECT_EQ(Utils::extension("").string(), "");
-}
-
-TEST(UtilsTest, JoinPathsTwo) {
-    EXPECT_EQ(Utils::joinPaths("/a", "b").string(), "/a/b");
-    // EXPECT_EQ(Utils::joinPaths("/a/", "b").string(), "/a/b"); // depends on OS path separator handling, skipping to be safe
-    EXPECT_EQ(Utils::joinPaths("a", "b").string(), "a/b");
-}
-
-TEST(UtilsTest, JoinPathsThree) {
-    EXPECT_EQ(Utils::joinPaths("/a", "b", "c").string(), "/a/b/c");
-}
-
 int main(int argc, char **argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

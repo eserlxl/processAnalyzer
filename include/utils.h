@@ -25,13 +25,9 @@ enum class UtilsError {
 
 std::error_code make_error_code(UtilsError e);
 
+
 template <typename T>
 using Result = std::expected<T, std::error_code>;
-
-// Existing APIs
-std::string readFile(const std::string& path);
-std::vector<std::string> split(const std::string& s, char delimiter);
-bool isNumeric(const std::string& s);
 
 // --- NEW APIs ---
 
@@ -57,15 +53,6 @@ bool isFloatingPoint(std::string_view s);
 std::optional<long> toLong(std::string_view s);
 std::optional<double> toDouble(std::string_view s);
 
-// Path Manipulation
-std::filesystem::path parentPath(const std::filesystem::path& path);
-std::filesystem::path fileName(const std::filesystem::path& path);
-std::filesystem::path stem(const std::filesystem::path& path);
-std::filesystem::path extension(const std::filesystem::path& path);
-std::filesystem::path joinPaths(const std::filesystem::path& p1, const std::filesystem::path& p2);
-std::filesystem::path joinPaths(const std::filesystem::path& p1, const std::filesystem::path& p2, const std::filesystem::path& p3);
-
-} // namespace Utils
 
 // Specialize std::is_error_code_enum
 namespace std {

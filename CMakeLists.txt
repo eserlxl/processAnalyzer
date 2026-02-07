@@ -12,7 +12,7 @@ include_directories(include)
 
 # Create a library for the core logic to be shared with tests
 add_library(processAnalyzerLib STATIC
-    src/process_analyzer.cpp
+    src/Analyzer.cpp
     src/utils.cpp
 )
 

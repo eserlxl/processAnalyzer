@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright (c) 2026 Eser KUBALI
 
-#include "process_analyzer.h"
+#include "Analyzer.h"
 #include "utils.h"
 #include <iostream>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
+#include <sstream>
 
 namespace fs = std::filesystem;
 
@@ -24,7 +25,7 @@ std::vector<int> ProcessAnalyzer::getPids() {
         for (const auto& entry : fs::directory_iterator(proc_dir)) {
             if (entry.is_directory()) {
                 std::string filename = entry.path().filename().string();
-                if (Utils::isNumeric(filename)) {
+                if (Utils::isInteger(filename)) {
                     pids.push_back(std::stoi(filename));
                 }
             }
@@ -52,8 +53,9 @@ ProcessInfo ProcessAnalyzer::getProcessDetails(int pid) {
         return info;
     }
 
-    std::string content = Utils::readFile(statusPath);
-    if (content.empty()) return info;
+    auto result = Utils::readTextFile(statusPath);
+    if (!result) return info;
+    std::string content = *result;
 
     std::vector<std::string> lines = Utils::split(content, '\n');
     for (const auto& line : lines) {

@@ -3,12 +3,12 @@
 
 cmake_minimum_required(VERSION 3.10)
 
-add_executable(utils_test utils_test.cpp)
+add_executable(UtilsTest Utils.cpp)
 
 # Link against the library we created, and GTest
-target_link_libraries(utils_test PRIVATE processAnalyzerLib GTest::gtest_main GTest::gtest)
+target_link_libraries(UtilsTest PRIVATE processAnalyzerLib GTest::gtest_main GTest::gtest)
 
 # Set output directory
-set_target_properties(utils_test PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
+set_target_properties(UtilsTest PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
 
-add_test(NAME UtilsTests COMMAND $<TARGET_FILE:utils_test>)
+add_test(NAME UtilsTests COMMAND $<TARGET_FILE:UtilsTest>)
