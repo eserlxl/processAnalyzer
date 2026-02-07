@@ -37,12 +37,21 @@ Result<void> writeTextFile(const std::filesystem::path& path, std::string_view c
 bool exists(const std::filesystem::path& path);
 bool isFile(const std::filesystem::path& path);
 bool isDirectory(const std::filesystem::path& path);
+Result<void> appendToFile(const std::filesystem::path& path, std::string_view content);
+Result<std::vector<std::string>> readLines(const std::filesystem::path& path);
+Result<void> createDirectories(const std::filesystem::path& path);
+Result<void> remove(const std::filesystem::path& path, bool recursive = false);
+Result<std::vector<std::filesystem::path>> listDirectory(const std::filesystem::path& path);
 
 // String Manipulation
 std::string trim(std::string_view s);
 bool startsWith(std::string_view s, std::string_view prefix);
 bool endsWith(std::string_view s, std::string_view suffix);
 bool contains(std::string_view s, std::string_view substring);
+std::string toLower(std::string_view s);
+std::string toUpper(std::string_view s);
+std::string replace(std::string_view s, std::string_view target, std::string_view replacement);
+std::string join(const std::vector<std::string>& parts, std::string_view delimiter);
 
 std::vector<std::string> split(std::string_view s, char delimiter, bool skipEmpty = false);
 std::vector<std::string> split(std::string_view s, std::string_view delimiter, bool skipEmpty = false);
@@ -53,6 +62,12 @@ bool isFloatingPoint(std::string_view s);
 std::optional<long> toLong(std::string_view s);
 std::optional<double> toDouble(std::string_view s);
 
+// System Interaction
+std::optional<std::string> getEnv(const std::string& name);
+
+
+
+} // namespace Utils
 
 // Specialize std::is_error_code_enum
 namespace std {
@@ -61,3 +76,4 @@ struct is_error_code_enum<Utils::UtilsError> : true_type {};
 }
 
 #endif // UTILS_H
+
