@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# Copyright (c) 2026 Eser KUBALI
+
 cmake_minimum_required(VERSION 3.10)
 
 add_executable(utils_test utils_test.cpp)
