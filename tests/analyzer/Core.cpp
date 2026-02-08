@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <ranges>
+#include <filesystem> // Added for std::filesystem::path
 
 namespace {
     constexpr int kSocketFd = 10;
@@ -82,6 +83,8 @@ protected:
 
         // Stat file for CPU usage tests
         mockProc->createFile("stat", "cpu  1000 200 800 5000 100 0 50 0\ncpu0 500 100 400 2500 50 0 25 0\nintr 12345\nctxt 6789\nprocesses 10000\n");
+        // Uptime file for boot time calculation
+        mockProc->createFile("uptime", "10000.0 40000.0\n");
         // meminfo for system memory tests
         mockProc->createFile("meminfo", "MemTotal:       16384000 kB\nMemFree:         8192000 kB\nMemAvailable:   10240000 kB\nBuffers:          512000 kB\nCached:           2048000 kB\nSwapTotal:       8192000 kB\nSwapFree:        4096000 kB\n");
         // loadavg for system load tests
@@ -97,7 +100,7 @@ protected:
 };
 
 TEST_F(ProcessAnalyzerTest, GetPidsWithMock) {
-    ProcessAnalyzer analyzer(mockProc->getPath());
+    ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
     auto pidsResult = analyzer.getPids();
     ASSERT_TRUE(pidsResult.has_value());
     auto pids = *pidsResult;
@@ -109,7 +112,7 @@ TEST_F(ProcessAnalyzerTest, GetPidsWithMock) {
 }
 
 TEST_F(ProcessAnalyzerTest, GetProcessDetailsWithMock) {
-    ProcessAnalyzer analyzer(mockProc->getPath());
+    ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
     auto infoOpt = analyzer.getProcessDetails(kMyAppPid);
     ASSERT_TRUE(infoOpt.has_value());
     const auto& info = infoOpt.value(); 
@@ -134,14 +137,14 @@ TEST_F(ProcessAnalyzerTest, GetProcessDetailsWithMock) {
 }
 
 TEST_F(ProcessAnalyzerTest, GetProcessDetailsForNonExistentPid) {
-    ProcessAnalyzer analyzer(mockProc->getPath());
+    ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
     auto infoOpt = analyzer.getProcessDetails(kNonExistentPid);
     ASSERT_FALSE(infoOpt.has_value());
     EXPECT_EQ(infoOpt.error(), utils::make_error_code(utils::UtilsError::analyzerProcessNotFound));
 }
 
 TEST_F(ProcessAnalyzerTest, GetProcessDetailsForZombieProcess) {
-    ProcessAnalyzer analyzer(mockProc->getPath());
+    ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
     auto infoOpt = analyzer.getProcessDetails(kZombiePid);
     ASSERT_TRUE(infoOpt.has_value());
     const auto& info = infoOpt.value();
@@ -159,7 +162,7 @@ TEST_F(ProcessAnalyzerTest, GetProcessDetailsForZombieProcess) {
 TEST_F(ProcessAnalyzerTest, GetProcessDetailsHandlesIOAndStatMissingGracefully) {
     mockProc->createPidDir(kNoStatPid);
     mockProc->createProcFile(kNoStatPid, "status", "Name:\tno-stat-io\nPPid:\t1\nUid:\t1000\n");
-    ProcessAnalyzer analyzer(mockProc->getPath());
+    ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
     auto infoOpt = analyzer.getProcessDetails(kNoStatPid);
     ASSERT_TRUE(infoOpt.has_value());
     EXPECT_EQ(infoOpt.value().ioReadBytes, 0); 
@@ -168,7 +171,7 @@ TEST_F(ProcessAnalyzerTest, GetProcessDetailsHandlesIOAndStatMissingGracefully) 
 }
 
 TEST_F(ProcessAnalyzerTest, GetSystemMemoryInfo) {
-    ProcessAnalyzer analyzer(mockProc->getPath());
+    ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
     auto memInfoOpt = analyzer.getSystemMemoryInfo();
     ASSERT_TRUE(memInfoOpt.has_value());
     const auto& memInfo = memInfoOpt.value(); 
@@ -181,14 +184,14 @@ TEST_F(ProcessAnalyzerTest, GetSystemMemoryInfo) {
     EXPECT_EQ(memInfo.swapFree, 4096000);
 
     // Test failure case
-    ProcessAnalyzer analyzerNoFile("nonexistent_path");
+    ProcessAnalyzer analyzerNoFile(std::filesystem::path("nonexistent_path"));
     auto memInfoFailOpt = analyzerNoFile.getSystemMemoryInfo();
     ASSERT_FALSE(memInfoFailOpt.has_value());
     EXPECT_EQ(memInfoFailOpt.error(), utils::make_error_code(utils::UtilsError::fileNotFound));
 }
 
 TEST_F(ProcessAnalyzerTest, GetSystemLoadAverage) {
-    ProcessAnalyzer analyzer(mockProc->getPath());
+    ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
     auto loadAvgOpt = analyzer.getSystemLoadAverage();
     ASSERT_TRUE(loadAvgOpt.has_value());
     const auto& loadAvg = loadAvgOpt.value(); 
@@ -197,14 +200,14 @@ TEST_F(ProcessAnalyzerTest, GetSystemLoadAverage) {
     EXPECT_DOUBLE_EQ(loadAvg.fifteenMin, 1.50);
 
     // Test failure case
-    ProcessAnalyzer analyzerNoFile("nonexistent_path");
+    ProcessAnalyzer analyzerNoFile(std::filesystem::path("nonexistent_path"));
     auto loadAvgFailOpt = analyzerNoFile.getSystemLoadAverage();
     ASSERT_FALSE(loadAvgFailOpt.has_value());
     EXPECT_EQ(loadAvgFailOpt.error(), utils::make_error_code(utils::UtilsError::fileNotFound));
 }
 
 TEST_F(ProcessAnalyzerTest, GetSystemCpuStats) {
-    ProcessAnalyzer analyzer(mockProc->getPath());
+    ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
     auto cpuStatsOpt = analyzer.getSystemCpuStats();
     ASSERT_TRUE(cpuStatsOpt.has_value());
     const auto& cpuStats = cpuStatsOpt.value();
@@ -218,14 +221,14 @@ TEST_F(ProcessAnalyzerTest, GetSystemCpuStats) {
     EXPECT_EQ(cpuStats.steal, 0);
 
     // Test failure case
-    ProcessAnalyzer analyzerNoFile("nonexistent_path");
+    ProcessAnalyzer analyzerNoFile(std::filesystem::path("nonexistent_path"));
     auto cpuStatsFailOpt = analyzerNoFile.getSystemCpuStats();
     ASSERT_FALSE(cpuStatsFailOpt.has_value());
     EXPECT_EQ(cpuStatsFailOpt.error(), utils::make_error_code(utils::UtilsError::fileNotFound));
 }
 
 TEST_F(ProcessAnalyzerTest, QueryProcessesFiltering) {
-    ProcessAnalyzer analyzer(mockProc->getPath());
+    ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
     ProcessFilter filter;
 
     // Filter by name
@@ -292,7 +295,7 @@ TEST_F(ProcessAnalyzerTest, QueryProcessesFiltering) {
 }
 
 TEST_F(ProcessAnalyzerTest, QueryProcessesSorting) {
-    ProcessAnalyzer analyzer(mockProc->getPath());
+    ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
 
     // Sort by PID descending
     auto resultsResult = analyzer.queryProcesses({}, ProcessSortField::pid, SortOrder::desc);
@@ -341,7 +344,7 @@ TEST_F(ProcessAnalyzerTest, QueryProcessesSorting) {
 }
 
 TEST_F(ProcessAnalyzerTest, GetProcessOpenFileDetails) {
-    ProcessAnalyzer analyzer(mockProc->getPath());
+    ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
 
     // Setup file descriptors for PID 3
     constexpr int kLogFd = 15;
@@ -367,7 +370,7 @@ TEST_F(ProcessAnalyzerTest, GetProcessOpenFileDetails) {
 }
 
 TEST_F(ProcessAnalyzerTest, GetProcessOpenFileDetailsForProcessWithNoAccess) {
-    ProcessAnalyzer analyzer(mockProc->getPath());
+    ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
     auto fdsResult = analyzer.getProcessOpenFileDetails(kNonExistentPid);
     ASSERT_FALSE(fdsResult.has_value());
 }
@@ -380,7 +383,7 @@ TEST_F(ProcessAnalyzerTest, GetSystemClockTicks) {
 }
 
 TEST_F(ProcessAnalyzerTest, GetParentProcess) {
-    ProcessAnalyzer analyzer(mockProc->getPath());
+    ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
     auto parentOpt = analyzer.getParentProcess(kMyAppPid);
     ASSERT_TRUE(parentOpt.has_value());
     EXPECT_EQ(parentOpt.value().pid, kInitPid); 
@@ -391,7 +394,7 @@ TEST_F(ProcessAnalyzerTest, GetParentProcess) {
 }
 
 TEST_F(ProcessAnalyzerTest, GetAllDescendantProcesses) {
-    ProcessAnalyzer analyzer(mockProc->getPath());
+    ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
     auto descendantsResult = analyzer.getAllDescendantProcesses(kInitPid);
     ASSERT_TRUE(descendantsResult.has_value());
     auto descendants = *descendantsResult;
@@ -405,7 +408,7 @@ TEST_F(ProcessAnalyzerTest, GetAllDescendantProcesses) {
 }
 
 TEST_F(ProcessAnalyzerTest, GetProcessEnvironment) {
-    ProcessAnalyzer analyzer(mockProc->getPath());
+    ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
     auto envResult = analyzer.getProcessEnvironment(kMyAppPid);
     ASSERT_TRUE(envResult.has_value());
     const auto& env = *envResult;
@@ -420,7 +423,7 @@ TEST_F(ProcessAnalyzerTest, GetProcessEnvironment) {
 }
 
 TEST_F(ProcessAnalyzerTest, GetProcessCpuUsage) {
-    ProcessAnalyzer analyzer(mockProc->getPath());
+    ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
 
     // Update files to simulate work
     std::thread t([&]() {
@@ -440,7 +443,7 @@ TEST_F(ProcessAnalyzerTest, GetProcessCpuUsage) {
 // --- New Tests for Iteration 14 ---
 
 TEST_F(ProcessAnalyzerTest, GetProcessMemoryMaps) {
-    ProcessAnalyzer analyzer(mockProc->getPath());
+    ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
     auto mapsResult = analyzer.getProcessMemoryMaps(kInitPid);
     ASSERT_TRUE(mapsResult.has_value());
     const auto& maps = *mapsResult;
@@ -452,7 +455,7 @@ TEST_F(ProcessAnalyzerTest, GetProcessMemoryMaps) {
 }
 
 TEST_F(ProcessAnalyzerTest, GetProcessResourceLimits) {
-    ProcessAnalyzer analyzer(mockProc->getPath());
+    ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
     auto limitsResult = analyzer.getProcessResourceLimits(kInitPid);
     ASSERT_TRUE(limitsResult.has_value());
     const auto& info = *limitsResult;
@@ -462,7 +465,7 @@ TEST_F(ProcessAnalyzerTest, GetProcessResourceLimits) {
 }
 
 TEST_F(ProcessAnalyzerTest, GetProcessCgroupInfo) {
-    ProcessAnalyzer analyzer(mockProc->getPath());
+    ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
     auto cgroupResult = analyzer.getProcessCgroupInfo(kInitPid);
     ASSERT_TRUE(cgroupResult.has_value());
     const auto& info = *cgroupResult;
@@ -473,7 +476,7 @@ TEST_F(ProcessAnalyzerTest, GetProcessCgroupInfo) {
 }
 
 TEST_F(ProcessAnalyzerTest, GetSystemDiskIoStats) {
-    ProcessAnalyzer analyzer(mockProc->getPath());
+    ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
     auto statsResult = analyzer.getSystemDiskIoStats();
     ASSERT_TRUE(statsResult.has_value());
     const auto& stats = *statsResult;
@@ -483,7 +486,7 @@ TEST_F(ProcessAnalyzerTest, GetSystemDiskIoStats) {
 }
 
 TEST_F(ProcessAnalyzerTest, GetNetworkInterfaceStats) {
-    ProcessAnalyzer analyzer(mockProc->getPath());
+    ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
     auto statsResult = analyzer.getNetworkInterfaceStats();
     ASSERT_TRUE(statsResult.has_value());
     const auto& stats = *statsResult;
@@ -494,7 +497,7 @@ TEST_F(ProcessAnalyzerTest, GetNetworkInterfaceStats) {
 }
 
 TEST_F(ProcessAnalyzerTest, GetSystemActivityStats) {
-    ProcessAnalyzer analyzer(mockProc->getPath());
+    ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
     auto statsResult = analyzer.getSystemActivityStats();
     ASSERT_TRUE(statsResult.has_value());
     const auto& stats = *statsResult;
@@ -504,7 +507,7 @@ TEST_F(ProcessAnalyzerTest, GetSystemActivityStats) {
 }
 
 TEST_F(ProcessAnalyzerTest, GetPerCpuUsage) {
-     ProcessAnalyzer analyzer(mockProc->getPath());
+     ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
      // NOTE: This test depends on sleep and file modification which is tricky with mock.
      // We just test basic parsing if possible, or skip if too complex to mock dynamic /proc/stat nicely.
      // Given getPerCpuUsage sleeps, we'd need a separate thread to update the file during the sleep.
@@ -538,14 +541,16 @@ TEST_F(ProcessAnalyzerTest, GetPerCpuUsage) {
 }
 
 TEST_F(ProcessAnalyzerTest, GetNetworkConnectionsIPv6) {
-    ProcessAnalyzer analyzer(mockProc->getPath());
+    ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
 
     // Setup mock /proc/net/tcp6 file with space-separated hex address parts.
     // The address is ::ffff:172.16.1.1, which in hex is 00000000 00000000 0000ffff ac100101.
-    // The inode is 54321.
+    // However, Linux /proc/net/tcp6 stores 32-bit integers in host byte order (Little Endian on x86).
+    // So 172.16.1.1 (AC.10.01.01) becomes 010110AC.
+    // ::ffff (0000:FFFF) becomes FFFF0000.
     mockProc->createFile("net/tcp6",
         "  sl  local_address                         remote_address                        st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode\n"
-        "   0: 00000000000000000000FFFFAC100101:0050 00000000000000000000000000000000:0000 0A 00000000:00000000 00:00000000 00000000     0        0 54321 2 0000000000000000 100 0 0 10 0\n"
+        "   0: 0000000000000000FFFF0000010110AC:0050 00000000000000000000000000000000:0000 0A 00000000:00000000 00:00000000 00000000     0        0 54321 2 0000000000000000 100 0 0 10 0\n"
     );
 
     // Setup file descriptors for a mock process to link to the socket inode.

@@ -6,6 +6,7 @@
 #include <string>
 #include <span>
 #include <iomanip>
+#include <filesystem> // Added for std::filesystem::path
 
 #include "analyzer/Core.h"
 #include "cli/Args.h"
@@ -24,7 +25,7 @@ int main(int argc, char* argv[]) {
             return 0;
         }
 
-        ProcessAnalyzer analyzer("/proc");
+        ProcessAnalyzer analyzer(std::filesystem::path("/proc"));
         std::vector<ProcessInfo> processesToDisplay;
         ProcessFilter filter;
         

@@ -5,13 +5,14 @@
 #define ANALYZER_H
 
 #include <string>
-#include <string_view>
+#include <string_view> // Re-added
 #include <vector>
 #include <optional>     // For std::optional
 #include <functional>   // For std::function
 #include <cstdint>      // For uint32_t
 #include <chrono>       // For std::chrono
 #include <map>          // For std::map
+#include <filesystem>   // Added for std::filesystem::path
 
 #include <system_error> // For std::error_code (optional, could use int errno directly)
 #include <generator>    // For std::generator (C++23)
@@ -27,7 +28,7 @@
 
 class ProcessAnalyzer {
 public:
-    explicit ProcessAnalyzer(std::string_view procPath = "/proc");
+    explicit ProcessAnalyzer(std::filesystem::path procPath);
     
     // Core API
     utils::Result<std::vector<int>> getPids() const;
@@ -81,6 +82,8 @@ public:
     // Returns: A ProcessCpuUsage object. `cpuPercentage` will be 0 if process not found or no change.
     // Uses std::expected for error reporting.
     utils::Result<ProcessCpuUsage> getProcessCpuUsage(int pid, std::chrono::milliseconds durationMs) const;
+
+    static utils::Result<long long> getSystemBootTimeUnix(const std::filesystem::path& procPath); // Added static public member for testability
 
     // New: Calculate CPU usage for all processes over a given duration.
     // Contract: Returns a vector of ProcessCpuUsage objects for all active processes.
@@ -190,7 +193,7 @@ public:
     // Uses std::expected for error reporting.
     
 private:
-    std::string procPath;
+    std::filesystem::path procPath;
     // Store last known CPU times for delta calculation, accessible across calls if needed for efficiency
     mutable std::map<int, std::pair<long long, long long>> lastCpuTimes; // pid -> {user_ticks, kernel_ticks}
     // Need a way to also store total system CPU time to normalize

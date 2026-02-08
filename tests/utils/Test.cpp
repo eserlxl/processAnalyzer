@@ -56,6 +56,20 @@ void MockProc::createFile(const std::string& filename, const std::string& conten
     std::ofstream(root / filename) << content;
 }
 
+void MockProc::removeFile(const std::string& filename) {
+    fs::path filePath = root / filename;
+    if (fs::exists(filePath)) {
+        fs::remove(filePath);
+    }
+}
+
+void MockProc::removeDirectoryAt(const std::filesystem::path& relativePath) {
+    fs::path dirPath = root / relativePath;
+    if (fs::exists(dirPath) && fs::is_directory(dirPath)) {
+        fs::remove_all(dirPath);
+    }
+}
+
 void MockProc::createFileAt(const std::filesystem::path& relativePath, const std::string& content) {
     fs::path fullPath = root / relativePath;
     fs::create_directories(fullPath.parent_path());

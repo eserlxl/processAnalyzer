@@ -8,6 +8,7 @@ add_executable(ProcessAnalyzerTests
     utils/Core.cpp
     utils/System.cpp
     analyzer/Core.cpp
+    analyzer/CoreTests_additional.cpp
     utils/Test.cpp
     utils/TestApi.cpp
     utils/FileTests.cpp

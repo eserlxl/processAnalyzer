@@ -10,14 +10,13 @@
 #include "utils/Core.h"
 
 #include <filesystem>
-
 #include <sstream>
 #include <algorithm>
 #include <ranges> // For std::ranges::copy_if
 #include <pwd.h>        // For getpwuid
 #include <sys/types.h>
 #include <sys/stat.h>   // For fstatat, S_ISREG, etc.
-#include <string_view> // For std::string_view::starts_with
+// #include <string_view> // For std::string_view::starts_with - No longer needed after procPath type change
 #include <chrono>
 #include <thread>
 
@@ -53,7 +52,8 @@ namespace {
     constexpr long kDefaultSystemClockTicks = 100;
 
 
-    utils::Result<long long> getTotalSystemCpuTimeTicks(std::string_view procPath) {
+    utils::Result<long long> getTotalSystemCpuTimeTicks(const ::std::filesystem::path& procPath) {
+        // Construct ProcessAnalyzer with the filesystem::path
         auto stats = ProcessAnalyzer(procPath).getSystemCpuStats();
         if(stats) {
             unsigned long long totalTicks = stats->user + stats->nice + stats->system + stats->idle + 
@@ -65,23 +65,7 @@ namespace {
 
 
 
-    // Helper function to get system boot time in Unix timestamp (seconds since epoch)
-    long long getSystemBootTimeUnix(std::string_view procPath) {
-        ::std::string uptimePath = ::std::string(procPath) + "/uptime";
-        auto contentOpt = utils::readTextFile(uptimePath);
-        if (!contentOpt) {
-            // Log or handle error appropriately. For now, return 0. 
-            return 0; 
-        }
-        ::std::stringstream ss(*contentOpt);
-        double uptimeSeconds;
-        ss >> uptimeSeconds;
 
-        auto now = ::std::chrono::system_clock::now();
-        long long currentTimeUnix = ::std::chrono::duration_cast<::std::chrono::seconds>(now.time_since_epoch()).count();
-
-        return currentTimeUnix - static_cast<long long>(uptimeSeconds);
-    }
     
     // Internal struct to temporarily hold NetworkConnection data along with its inode
     // for filtering purposes before converting to the public NetworkConnection struct.
@@ -115,10 +99,12 @@ namespace {
     constexpr size_t kIPv6AddrPartOffset2 = 16;
     constexpr size_t kIPv6AddrPartOffset3 = 24;
 
-        ::std::vector<InternalNetworkConnection> parseNetFileHelper(const ::std::string& filePath, ::std::string_view protocolPrefix) {
+    ::std::vector<InternalNetworkConnection> parseNetFileHelper(const ::std::filesystem::path& filePath, ::std::string_view protocolPrefix) {
         ::std::vector<InternalNetworkConnection> internalConnections;
-        auto content = utils::readTextFile(filePath);
-        if (!content) return internalConnections;
+        auto content = utils::readTextFile(filePath.string()); // Read file content
+        if (!content) {
+            return internalConnections;
+        }
 
         ::std::stringstream ss(*content);
         ::std::string line;
@@ -126,26 +112,88 @@ namespace {
 
         while (::std::getline(ss, line)) {
             ::std::stringstream lineSs(line);
+            ::std::string sl, localAddrStr, remoteAddrStr, stStr, txRxQueue, trTmWhen, retrnsmt, uid, timeout, inodeStr;
+            
+            if (!(lineSs >> sl >> localAddrStr >> remoteAddrStr >> stStr >> txRxQueue >> trTmWhen >> retrnsmt >> uid >> timeout >> inodeStr)) {
+                continue;
+            }
+
             InternalNetworkConnection internalConn;
             internalConn.baseConn.protocol = protocolPrefix;
+            internalConn.inode = 0;
+            if (utils::isInteger(inodeStr)) {
+                internalConn.inode = std::stoi(inodeStr);
+            }
 
-            int dummy; // Use the existing 'dummy' variable
-            uint32_t localAddrPart1 = 0;
-            uint32_t localAddrPart2 = 0;
-            uint32_t localAddrPart3 = 0;
-            uint32_t localAddrPart4 = 0; // For IPv6
-            uint32_t remoteAddrPart1 = 0;
-            uint32_t remoteAddrPart2 = 0;
-            uint32_t remoteAddrPart3 = 0;
-            uint32_t remoteAddrPart4 = 0; // For IPv6
-            unsigned long localAddr = 0; // For IPv4
-            unsigned long remoteAddr = 0; // For IPv4
-            unsigned int localP = 0;
-            unsigned int remoteP = 0;
-            int state = 0;
-            char colon;
+            // Parse State
+            int stateInt = 0;
+            try {
+                stateInt = std::stoi(stStr, nullptr, 16);
+            } catch (...) {}
+            
+            switch (static_cast<TcpState>(stateInt)) {
+                case TcpState::kEstablished: internalConn.baseConn.state = "ESTABLISHED"; break;
+                case TcpState::kSynSent: internalConn.baseConn.state = "SYN_SENT"; break;
+                case TcpState::kSynRecv: internalConn.baseConn.state = "SYN_RECV"; break;
+                case TcpState::kFinWait1: internalConn.baseConn.state = "FIN_WAIT1"; break;
+                case TcpState::kFinWait2: internalConn.baseConn.state = "FIN_WAIT2"; break;
+                case TcpState::kTimeWait: internalConn.baseConn.state = "TIME_WAIT"; break;
+                case TcpState::kClose: internalConn.baseConn.state = "CLOSE"; break;
+                case TcpState::kCloseWait: internalConn.baseConn.state = "CLOSE_WAIT"; break;
+                case TcpState::kLastAck: internalConn.baseConn.state = "LAST_ACK"; break;
+                case TcpState::kListen: internalConn.baseConn.state = "LISTEN"; break;
+                case TcpState::kClosing: internalConn.baseConn.state = "CLOSING"; break;
+                default: internalConn.baseConn.state = "UNKNOWN"; break;
+            }
 
+            auto parseIpPort = [](const std::string& addrStr) -> std::string {
+                size_t colonPos = addrStr.find(':');
+                if (colonPos == std::string::npos) return addrStr;
+                
+                std::string ipHex = addrStr.substr(0, colonPos);
+                std::string portHex = addrStr.substr(colonPos + 1);
+                
+                long port = 0;
+                try {
+                    port = std::stol(portHex, nullptr, 16);
+                } catch (...) {}
+                
+                if (ipHex.length() == 8) { // IPv4
+                    unsigned int ip;
+                    try {
+                        ip = std::stoul(ipHex, nullptr, 16);
+                    } catch(...) { return addrStr; }
+                    // IPv4 is in little-endian in /proc/net/tcp usually? No, it's host byte order string representation of network byte order?
+                    // Actually usually it's little-endian integer printed as hex.
+                    // e.g. 0100007F -> 127.0.0.1
+                    // 01 = 1, 00 = 0, 00 = 0, 7F = 127.
+                    struct in_addr in;
+                    in.s_addr = ip;
+                    char buf[INET_ADDRSTRLEN];
+                    if (inet_ntop(AF_INET, &in, buf, sizeof(buf))) {
+                        return std::string(buf) + ":" + std::to_string(port);
+                    }
+                } else if (ipHex.length() == 32) { // IPv6
+                    // IPv6 is 4 32-bit integers.
+                    struct in6_addr in6;
+                    for(int i=0; i<4; ++i) {
+                        try {
+                            in6.s6_addr32[i] = std::stoul(ipHex.substr(i*8, 8), nullptr, 16);
+                        } catch(...) {}
+                    }
+                    char buf[INET6_ADDRSTRLEN];
+                    if (inet_ntop(AF_INET6, &in6, buf, sizeof(buf))) {
+                        return std::string(buf) + ":" + std::to_string(port);
+                    }
+                }
+                return addrStr;
+            };
 
+            internalConn.baseConn.localAddress = parseIpPort(localAddrStr);
+            internalConn.baseConn.remoteAddress = (remoteAddrStr == "00000000:0000" || remoteAddrStr == "00000000000000000000000000000000:0000") ? "*" : parseIpPort(remoteAddrStr);
+
+            internalConnections.push_back(internalConn);
+        }
         return internalConnections;
     }
 
@@ -155,7 +203,8 @@ namespace {
         if (filter.nameRegex && !::std::regex_search(process.name, *filter.nameRegex)) return false;
         
         if (filter.userFilter && process.username != *filter.userFilter) return false;
-        if (filter.stateFilter && !process.state.empty() && process.state[0] != *filter.stateFilter) return false;
+        if (filter.stateFilter && process.state.empty()) return false; // Added check for empty state
+        if (filter.stateFilter && process.state[0] != *filter.stateFilter) return false;
         
         if (filter.minThreads && process.threadCount < *filter.minThreads) return false;
         if (filter.maxThreads && process.threadCount > *filter.maxThreads) return false;
@@ -187,50 +236,8 @@ namespace {
     }
 
 
-    // Helper function to read environment variables for a process
-    utils::Result<::std::vector<::std::string>> readProcessEnvironmentVars(::std::string_view procPath, pid_t pid) {
-        ::std::vector<::std::string> env;
-        ::std::string environPath = ::std::string(procPath) + "/" + ::std::to_string(pid) + "/environ";
-
-        auto environContentOpt = utils::readTextFile(environPath);
-        if (!environContentOpt) {
-            auto check = checkPidPathExistsAndPermissions(procPath, pid);
-            if (!check) {
-                return ::std::unexpected(check.error());
-            }
-        }
-
-        ::std::string_view content = *environContentOpt;
-        size_t start = 0;
-        while(start < content.size()) {
-            size_t end = content.find('\0', start);
-            if (end == ::std::string_view::npos) break;
-            env.emplace_back(content.substr(start, end - start));
-            start = end + 1;
-        }
-        return env;
-    }
-
-    utils::Result<::std::vector<ProcessInfo>> getBasicSnapshot(const ProcessAnalyzer& analyzer) {
-        ::std::vector<ProcessInfo> processes;
-        auto pidsResult = analyzer.getPids();
-        if (!pidsResult) {
-            return ::std::unexpected(pidsResult.error());
-        }
-
-        for (int pid : *pidsResult) {
-            auto details = analyzer.getProcessDetails(pid);
-            if (details) {
-                processes.push_back(*details);
-            } else if (details.error() != utils::make_error_code(utils::UtilsError::analyzerProcessNotFound)) {
-                return ::std::unexpected(details.error());
-            }
-        }
-        return processes;
-    }
-
-    utils::Result<void> checkPidPathExistsAndPermissions(std::string_view procPath, pid_t pid) {
-        ::std::string pidPath = ::std::string(procPath) + "/" + ::std::to_string(pid);
+    utils::Result<void> checkPidPathExistsAndPermissions(const ::std::filesystem::path& procPath, pid_t pid) {
+        ::std::filesystem::path pidPath = procPath / ::std::to_string(pid);
         if (!fs::exists(pidPath)) {
             return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerProcessNotFound));
         }
@@ -245,11 +252,94 @@ namespace {
         return {};
     }
 
+    // Helper function to read environment variables for a process
+    utils::Result<::std::vector<::std::string>> readProcessEnvironmentVars(const ::std::filesystem::path& procPath, pid_t pid) {
+        ::std::vector<::std::string> env;
+        ::std::filesystem::path environPath = procPath / ::std::to_string(pid) / "environ";
+
+        auto environContentOpt = utils::readTextFile(environPath.string());
+        if (!environContentOpt) {
+            auto check = checkPidPathExistsAndPermissions(procPath, pid);
+            if (!check) {
+                return ::std::unexpected(check.error());
+            }
+            // Process exists but environ file could not be read (e.g. permission denied on file, or file missing)
+            // Return empty environment
+            return env;
+        }
+
+        ::std::string_view content = *environContentOpt;
+        size_t start = 0;
+        while(start < content.size()) {
+            size_t end = content.find('\0', start);
+            if (end == ::std::string_view::npos) break;
+            env.emplace_back(content.substr(start, end - start));
+            start = end + 1;
+        }
+        return env;
+    }
+
     constexpr size_t pwBufSize = 1024; // Define buffer size for getpwuid_r
+
+    // Generic lambda for sorting processes to reduce code duplication
+    auto processSortPredicate = [](const ProcessInfo& a, const ProcessInfo& b, ProcessSortField sortBy, SortOrder sortOrder) {
+        bool less = false; 
+        switch (sortBy) {
+            case ProcessSortField::pid: less = a.pid < b.pid; break;
+            case ProcessSortField::ppid: less = a.ppid < b.ppid; break;
+            case ProcessSortField::uid: less = a.uid < b.uid; break;
+            case ProcessSortField::user: less = a.username < b.username; break;
+            case ProcessSortField::name: less = a.name < b.name; break;
+            case ProcessSortField::state: less = a.state < b.state; break;
+            case ProcessSortField::rss: less = a.residentMemory < b.residentMemory; break;
+            case ProcessSortField::vmsize: less = a.virtualMemory < b.virtualMemory; break;
+            case ProcessSortField::threads: less = a.threadCount < b.threadCount; break;
+            case ProcessSortField::startTime: less = a.startTimeTicks < b.startTimeTicks; break;
+            case ProcessSortField::executablePath: less = a.executablePath < b.executablePath; break;
+            case ProcessSortField::cmdline: less = a.cmdline < b.cmdline; break;
+            case ProcessSortField::cpuTime:
+                less = (a.cpuUserTimeTicks + a.cpuKernelTimeTicks) < (b.cpuUserTimeTicks + b.cpuKernelTimeTicks);
+                break;
+            case ProcessSortField::cwd: less = a.currentWorkingDirectory < b.currentWorkingDirectory; break;
+            case ProcessSortField::cpuUserTime: less = a.cpuUserTimeTicks < b.cpuUserTimeTicks; break;
+            case ProcessSortField::cpuKernelTime: less = a.cpuKernelTimeTicks < b.cpuKernelTimeTicks; break;
+            case ProcessSortField::ioReadBytes: less = a.ioReadBytes < b.ioReadBytes; break;
+            case ProcessSortField::ioWriteBytes: less = a.ioWriteBytes < b.ioWriteBytes; break;
+            case ProcessSortField::priority: less = a.priority < b.priority; break;
+            case ProcessSortField::cpuUsage: less = a.cpuUsage < b.cpuUsage; break;          
+            case ProcessSortField::memoryPercentage: less = a.memoryPercentage < b.memoryPercentage; break;
+            default: less = a.pid < b.pid; break; // Default sort by PID
+        }
+        return (sortOrder == SortOrder::asc) ? less : !less;
+    };
 } // Anonymous namespace ends
 
 
-ProcessAnalyzer::ProcessAnalyzer(std::string_view procPath) : procPath(procPath) {}
+ProcessAnalyzer::ProcessAnalyzer(std::filesystem::path procPath = "/proc") : procPath(std::move(procPath)) {}
+
+utils::Result<long long> ProcessAnalyzer::getSystemBootTimeUnix(const std::filesystem::path& procPath) {
+    std::filesystem::path uptimePath = procPath / "uptime";
+    auto contentOpt = utils::readTextFile(uptimePath.string());
+    if (!contentOpt) {
+        return std::unexpected(utils::make_error_code(utils::UtilsError::fileNotFound));
+    }
+
+    std::stringstream ss(*contentOpt);
+    double uptimeSeconds;
+    ss >> uptimeSeconds;
+
+    if (ss.fail()) {
+        return std::unexpected(utils::make_error_code(utils::UtilsError::analyzerParsingError));
+    }
+
+    // Calculate boot time in Unix epoch seconds
+    auto now = std::chrono::system_clock::now();
+    long long currentTimeUnix = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
+    long long bootTimeUnix = currentTimeUnix - static_cast<long long>(uptimeSeconds);
+
+    return bootTimeUnix;
+}
+
 
 utils::Result<::std::vector<int>> ProcessAnalyzer::getPids() const {
     ::std::vector<int> pids;
@@ -280,10 +370,10 @@ utils::Result<ProcessInfo> ProcessAnalyzer::getProcessDetails(pid_t pid) const {
     if (!check) {
         return ::std::unexpected(check.error());
     }
-    ::std::string pidPath = ::std::string(procPath) + "/" + ::std::to_string(pid);
+    ::std::filesystem::path pidPath = procPath / ::std::to_string(pid);
 
-    ::std::string statusPath = pidPath + "/status";
-    if (auto statusContentOpt = utils::readTextFile(statusPath)) {
+    ::std::filesystem::path statusPath = pidPath / "status";
+    if (auto statusContentOpt = utils::readTextFile(statusPath.string())) {
         ::std::vector<::std::string> lines = utils::split(*statusContentOpt, '\n');
         for (const auto& line : lines) {
             if (line.starts_with("Name:")) {
@@ -309,40 +399,58 @@ utils::Result<ProcessInfo> ProcessAnalyzer::getProcessDetails(pid_t pid) const {
         return ::std::unexpected(utils::make_error_code(utils::UtilsError::fileNotFound));
     }
 
-    ::std::string statPath = pidPath + "/stat";
-    if (auto statContentOpt = utils::readTextFile(statPath)) {
-        // Correct parsing for `comm` field which can contain spaces and parentheses
-        const ::std::string& statContent = *statContentOpt;
-        size_t commStart = statContent.find('(');
-        size_t commEnd = statContent.rfind(')');
-        if (commStart != ::std::string::npos && commEnd != ::std::string::npos && commStart < commEnd) {
-            // No need to set info.name from here, as /proc/PID/status is more reliable and already parsed.
-            // The `comm` field is now correctly parsed but not used to overwrite info.name.
+    ::std::filesystem::path statPath = pidPath / "stat";
+    if (auto statContentOpt = utils::readTextFile(statPath.string())) {
+        ::std::string content = *statContentOpt;
+        size_t lastRParen = content.rfind(')');
+        
+        if (lastRParen != ::std::string::npos) {
+            // Parse PID
+            try {
+                size_t firstLParen = content.find('(');
+                if (firstLParen != ::std::string::npos) {
+                     info.pid = std::stoi(content.substr(0, firstLParen));
+                }
+            } catch (...) {
+                // Ignore parsing error for PID, relying on passed PID or status
+            }
+
+            // Parse remaining fields after the last ')'
+            ::std::stringstream ss(content.substr(lastRParen + 1));
+
+            char stateChar;
+            long ppid_stat, pgrp, session, tty_nr, tpgid;
+            unsigned long flags, minflt, cminflt, majflt, cmajflt;
+            long utime, stime, cutime, cstime;
+            long priority_stat, nice_stat;
+            long num_threads;
+            long itrealvalue;
+            long long starttime_stat;
+
+            ss >> stateChar >> ppid_stat >> pgrp >> session >> tty_nr >> tpgid
+               >> flags >> minflt >> cminflt >> majflt >> cmajflt
+               >> utime >> stime >> cutime >> cstime
+               >> priority_stat >> nice_stat
+               >> num_threads >> itrealvalue
+               >> starttime_stat;
             
-            // Parse remaining fields after `comm`
-            ::std::stringstream ss(statContent.substr(commEnd + 1));
-            char state;
-            ss >> state >> info.ppid;
-            
-            long long utime;
-            long long stime;
-            long long cutime;
-            long long cstime;
-            long priority;
-            long nice;
-            for (int i = 0; i < statFieldsToSkipBeforeUtime; ++i) { ::std::string dummy; ss >> dummy; }
-            ss >> utime >> stime >> cutime >> cstime;
+            // Update relevant info fields from stat
+            info.ppid = ppid_stat;
             info.cpuUserTimeTicks = utime + cutime;
             info.cpuKernelTimeTicks = stime + cstime;
-            ss >> priority >> nice;
-            info.priority = static_cast<int>(nice);
-            for (int i = 0; i < (statFieldsToSkipBeforeStarttime-1); ++i) { ::std::string dummy; ss >> dummy; }
-            ss >> info.startTimeTicks;
+            info.priority = static_cast<int>(nice_stat);
+            info.startTimeTicks = starttime_stat;
         }
     }
 
-    long long systemBootTimeUnix = getSystemBootTimeUnix(procPath);
-    if (systemBootTimeUnix != 0) {
+    // Call getSystemBootTimeUnix which now returns utils::Result
+    auto systemBootTimeUnixResult = getSystemBootTimeUnix(procPath);
+    if (!systemBootTimeUnixResult) {
+        return ::std::unexpected(systemBootTimeUnixResult.error());
+    }
+    long long systemBootTimeUnix = *systemBootTimeUnixResult;
+
+    if (systemBootTimeUnix != 0) { // Check for valid boot time
         long systemClockTicks = getSystemClockTicksPerSecond().value_or(kDefaultSystemClockTicks); 
         if (systemClockTicks > 0) {
             long long processStartTimeSec = info.startTimeTicks / systemClockTicks;
@@ -355,8 +463,8 @@ utils::Result<ProcessInfo> ProcessAnalyzer::getProcessDetails(pid_t pid) const {
         }
     }
 
-    ::std::string ioPath = pidPath + "/io";
-    if (auto ioContentOpt = utils::readTextFile(ioPath)) {
+    ::std::filesystem::path ioPath = pidPath / "io";
+    if (auto ioContentOpt = utils::readTextFile(ioPath.string())) {
         ::std::vector<::std::string> lines = utils::split(*ioContentOpt, '\n');
         for (const auto& line : lines) {
             if (line.starts_with("rchar:")) {
@@ -379,8 +487,8 @@ utils::Result<ProcessInfo> ProcessAnalyzer::getProcessDetails(pid_t pid) const {
         // The default initialization of info.username handles this.
     }
 
-    ::std::string cmdlinePath = pidPath + "/cmdline";
-    if (auto cmdlineContentOpt = utils::readTextFile(cmdlinePath)) {
+    ::std::filesystem::path cmdlinePath = pidPath / "cmdline";
+    if (auto cmdlineContentOpt = utils::readTextFile(cmdlinePath.string())) {
         ::std::string rawCmdline = *cmdlineContentOpt;
         ::std::ranges::replace(rawCmdline, '\0', ' ');
         if (!rawCmdline.empty() && rawCmdline.back() == ' ') rawCmdline.pop_back();
@@ -391,19 +499,17 @@ utils::Result<ProcessInfo> ProcessAnalyzer::getProcessDetails(pid_t pid) const {
     }
     
     try {
-        info.executablePath = fs::read_symlink(pidPath + "/exe").string();
+        info.executablePath = fs::read_symlink(pidPath / "exe").string();
     } catch (const fs::filesystem_error& e) {
         // (void)e; // Original code, suppressed error
         info.executablePath = "[unreadable]"; // Set specific string on error
     }
     try {
-        info.currentWorkingDirectory = fs::read_symlink(pidPath + "/cwd").string();
+        info.currentWorkingDirectory = fs::read_symlink(pidPath / "cwd").string();
     } catch (const fs::filesystem_error& e) {
         // (void)e; // Original code, suppressed error
         info.currentWorkingDirectory = "[unreadable]"; // Set specific string on error
     }
-
-
 
     auto envResult = readProcessEnvironmentVars(procPath, pid);
     if (envResult) {
@@ -411,6 +517,26 @@ utils::Result<ProcessInfo> ProcessAnalyzer::getProcessDetails(pid_t pid) const {
     }
     return info;
 }
+
+utils::Result<::std::vector<ProcessInfo>> getBasicSnapshot(const ProcessAnalyzer& analyzer) {
+    ::std::vector<ProcessInfo> processes;
+    auto pidsResult = analyzer.getPids();
+    if (!pidsResult) {
+        return ::std::unexpected(pidsResult.error());
+    }
+
+    for (int pid : *pidsResult) {
+        auto details = analyzer.getProcessDetails(pid);
+        if (details) {
+            processes.push_back(*details);
+        } else if (details.error() != utils::make_error_code(utils::UtilsError::analyzerProcessNotFound)) {
+            return ::std::unexpected(details.error());
+        }
+    }
+    return processes;
+}
+
+
 
 utils::Result<::std::vector<ProcessInfo>> ProcessAnalyzer::snapshot() const {
     ::std::map<int, ProcessInfo> processMap;
@@ -447,8 +573,8 @@ utils::Result<::std::vector<ProcessInfo>> ProcessAnalyzer::snapshot() const {
 
 
 utils::Result<SystemMemoryInfo> ProcessAnalyzer::getSystemMemoryInfo() const {
-    ::std::string meminfoPath = ::std::string(procPath) + "/meminfo";
-    auto contentOpt = utils::readTextFile(meminfoPath);
+    ::std::filesystem::path meminfoPath = procPath / "meminfo";
+    auto contentOpt = utils::readTextFile(meminfoPath.string());
     if (!contentOpt) {
         return ::std::unexpected(utils::make_error_code(utils::UtilsError::fileNotFound));
     }
@@ -476,8 +602,8 @@ utils::Result<SystemMemoryInfo> ProcessAnalyzer::getSystemMemoryInfo() const {
 }
 
 utils::Result<SystemLoadAverage> ProcessAnalyzer::getSystemLoadAverage() const {
-    ::std::string loadavgPath = ::std::string(procPath) + "/loadavg";
-    auto contentOpt = utils::readTextFile(loadavgPath);
+    ::std::filesystem::path loadavgPath = procPath / "loadavg";
+    auto contentOpt = utils::readTextFile(loadavgPath.string());
     if (!contentOpt) {
         return ::std::unexpected(utils::make_error_code(utils::UtilsError::fileNotFound));
     }
@@ -489,8 +615,8 @@ utils::Result<SystemLoadAverage> ProcessAnalyzer::getSystemLoadAverage() const {
 }
 
 utils::Result<SystemCpuStats> ProcessAnalyzer::getSystemCpuStats() const {
-    ::std::string statPath = ::std::string(procPath) + "/stat";
-    auto contentOpt = utils::readTextFile(statPath);
+    ::std::filesystem::path statPath = procPath / "stat";
+    auto contentOpt = utils::readTextFile(statPath.string());
     if (!contentOpt) {
         return ::std::unexpected(utils::make_error_code(utils::UtilsError::fileNotFound));
     }
@@ -534,35 +660,8 @@ utils::Result<::std::vector<ProcessInfo>> ProcessAnalyzer::queryProcesses(
 
     ::std::ranges::sort(filteredProcesses,
         [&](const ProcessInfo& a, const ProcessInfo& b) {
-        bool less = false; 
-        switch (sortBy) {
-            case ProcessSortField::pid: less = a.pid < b.pid; break;
-            case ProcessSortField::ppid: less = a.ppid < b.ppid; break;
-            case ProcessSortField::uid: less = a.uid < b.uid; break;
-            case ProcessSortField::user: less = a.username < b.username; break;
-            case ProcessSortField::name: less = a.name < b.name; break;
-            case ProcessSortField::state: less = a.state < b.state; break;
-            case ProcessSortField::rss: less = a.residentMemory < b.residentMemory; break;
-            case ProcessSortField::vmsize: less = a.virtualMemory < b.virtualMemory; break;
-            case ProcessSortField::threads: less = a.threadCount < b.threadCount; break;
-            case ProcessSortField::startTime: less = a.startTimeTicks < b.startTimeTicks; break;
-            case ProcessSortField::executablePath: less = a.executablePath < b.executablePath; break;
-            case ProcessSortField::cmdline: less = a.cmdline < b.cmdline; break;
-            case ProcessSortField::cpuTime:
-                less = (a.cpuUserTimeTicks + a.cpuKernelTimeTicks) < (b.cpuUserTimeTicks + b.cpuKernelTimeTicks);
-                break;
-            case ProcessSortField::cwd: less = a.currentWorkingDirectory < b.currentWorkingDirectory; break;
-            case ProcessSortField::cpuUserTime: less = a.cpuUserTimeTicks < b.cpuUserTimeTicks; break;
-            case ProcessSortField::cpuKernelTime: less = a.cpuKernelTimeTicks < b.cpuKernelTimeTicks; break;
-            case ProcessSortField::ioReadBytes: less = a.ioReadBytes < b.ioReadBytes; break;
-            case ProcessSortField::ioWriteBytes: less = a.ioWriteBytes < b.ioWriteBytes; break;
-            case ProcessSortField::priority: less = a.priority < b.priority; break;
-            case ProcessSortField::cpuUsage: less = a.cpuUsage < b.cpuUsage; break;          
-            case ProcessSortField::memoryPercentage: less = a.memoryPercentage < b.memoryPercentage; break;
-        }
-
-        return (sortOrder == SortOrder::asc) ? less : !less;
-    });
+            return processSortPredicate(a, b, sortBy, sortOrder);
+        });
 
     return filteredProcesses;
 }
@@ -599,11 +698,12 @@ utils::Result<ProcessCpuUsage> ProcessAnalyzer::getProcessCpuUsage(pid_t pid, ::
     ::std::this_thread::sleep_for(durationMs);
 
     auto endTime = ::std::chrono::high_resolution_clock::now();
-    [[maybe_unused]] auto actualDuration = ::std::chrono::duration_cast<::std::chrono::milliseconds>(endTime - startTime);
+    auto actualDuration = ::std::chrono::duration_cast<::std::chrono::milliseconds>(endTime - startTime); // Removed [[maybe_unused]]
 
     auto finalDetailsResult = getProcessDetails(pid);
     if (!finalDetailsResult) {
-        return ProcessCpuUsage{.pid=pid, .name=initialDetails.name, .cpuPercentage=0.0};
+        // Propagate the error instead of returning a default value
+        return ::std::unexpected(finalDetailsResult.error());
     }
     const auto& finalDetails = *finalDetailsResult;
 
@@ -708,7 +808,7 @@ utils::Result<::std::vector<ThreadInfo>> ProcessAnalyzer::getProcessThreads(pid_
     if (!check) {
         return ::std::unexpected(check.error());
     }
-    ::std::string taskPath = ::std::string(procPath) + "/" + ::std::to_string(pid) + "/task";
+    ::std::filesystem::path taskPath = procPath / ::std::to_string(pid) / "task";
 
     if (!fs::exists(taskPath) || !fs::is_directory(taskPath)) {
         return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerPermissionDenied));
@@ -723,29 +823,32 @@ utils::Result<::std::vector<ThreadInfo>> ProcessAnalyzer::getProcessThreads(pid_
                     ThreadInfo thread;
                     thread.tid = tid;
 
-                    ::std::string commPath = entry.path().string() + "/comm";
-                    if (auto commContent = utils::readTextFile(commPath)) {
+                    ::std::filesystem::path commPath = entry.path() / "comm";
+                    if (auto commContent = utils::readTextFile(commPath.string())) {
                         thread.name = utils::trim(*commContent);
                     }
 
-                    ::std::string statPath = entry.path().string() + "/stat";
-                    if (auto statContentOpt = utils::readTextFile(statPath)) {
-                        const ::std::string& statContent = *statContentOpt;
-                        size_t commStart = statContent.find('(');
-                        size_t commEnd = statContent.rfind(')');
-                        if (commStart != ::std::string::npos && commEnd != ::std::string::npos && commStart < commEnd) {
-                            // `comm` is not used for thread.name, but parsing is now correct.
-                            // The `thread.name` is taken from `/proc/PID/task/TID/comm`.
+                    ::std::filesystem::path statPath = entry.path() / "stat";
+                    if (auto statContentOpt = utils::readTextFile(statPath.string())) {
+                        ::std::string content = *statContentOpt;
+                        size_t lastRParen = content.rfind(')');
+                        
+                        if (lastRParen != ::std::string::npos) {
+                            // Parse fields after the last ')'
+                            ::std::stringstream ss(content.substr(lastRParen + 1));
 
-                            ::std::stringstream ss(statContent.substr(commEnd + 1));
                             char stateChar;
-                            ss >> stateChar; 
-                            thread.state = stateChar;
+                            long ppid_stat, pgrp, session, tty_nr, tpgid;
+                            unsigned long flags, minflt, cminflt, majflt, cmajflt;
+                            long utime, stime, cutime, cstime;
 
-                            ::std::string dummy;
-                            // Skip fields before utime/stime
-                            for (int i = 0; i < statFieldsToSkipBeforeThreadUtime; ++i) ss >> dummy;
-                            ss >> thread.cpuUserTimeTicks >> thread.cpuKernelTimeTicks;
+                            ss >> stateChar >> ppid_stat >> pgrp >> session >> tty_nr >> tpgid
+                               >> flags >> minflt >> cminflt >> majflt >> cmajflt
+                               >> utime >> stime >> cutime >> cstime;
+
+                            thread.state = stateChar;
+                            thread.cpuUserTimeTicks = utime + cutime;
+                            thread.cpuKernelTimeTicks = stime + cstime;
                         }
                     }
                     threads.push_back(thread);
@@ -760,8 +863,8 @@ utils::Result<::std::vector<ThreadInfo>> ProcessAnalyzer::getProcessThreads(pid_
 
 utils::Result<::std::vector<MountPointInfo>> ProcessAnalyzer::getSystemDiskUsage() const {
     ::std::vector<MountPointInfo> mounts;
-    ::std::string mountsPath = ::std::string(procPath) + "/mounts";
-    auto contentOpt = utils::readTextFile(mountsPath);
+    ::std::filesystem::path mountsPath = procPath / "mounts";
+    auto contentOpt = utils::readTextFile(mountsPath.string());
     if (!contentOpt) {
         return ::std::unexpected(utils::make_error_code(utils::UtilsError::fileNotFound));
     }
@@ -873,18 +976,21 @@ utils::Result<::std::vector<ProcessDiskIoUsage>> ProcessAnalyzer::getAllProcesse
 
 utils::Result<::std::vector<OpenFileDescriptorInfo>> ProcessAnalyzer::getProcessOpenFileDetails(pid_t pid) const {
     ::std::vector<OpenFileDescriptorInfo> openFds;
-    ::std::string fdPath = ::std::string(procPath) + "/" + ::std::to_string(pid) + "/fd";
+    ::std::filesystem::path fdPath = procPath / ::std::to_string(pid) / "fd";
 
     auto check = checkPidPathExistsAndPermissions(procPath, pid);
     if (!check) {
         return ::std::unexpected(check.error());
     }
 
-    DIR* dir = opendir(fdPath.c_str());
-    if (!dir) {
+    // Use std::unique_ptr with a custom deleter for DIR* to ensure closedir is called (RAII)
+    auto dir_closer = [](DIR* d){ if(d) closedir(d); };
+    std::unique_ptr<DIR, decltype(dir_closer)> dir_ptr(opendir(fdPath.c_str()), dir_closer);
+    
+    if (!dir_ptr) {
         return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerPermissionDenied));
     }
-    int dirFd = dirfd(dir);
+    int dirFd = dirfd(dir_ptr.get());
 
     try {
         for (const auto& entry : fs::directory_iterator(fdPath)) {
@@ -927,11 +1033,11 @@ utils::Result<::std::vector<OpenFileDescriptorInfo>> ProcessAnalyzer::getProcess
             openFds.push_back(info);
         }
     } catch (const fs::filesystem_error& e) {
-        closedir(dir);
+        // The unique_ptr will automatically call closedir here, so no manual call needed.
         return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerPermissionDenied));
     }
-
-    closedir(dir);
+    
+    // The unique_ptr will automatically call closedir here.
     return openFds;
 }
 
@@ -953,7 +1059,39 @@ utils::Result<::std::vector<NetworkConnection>> ProcessAnalyzer::getNetworkConne
                     socketInodes.insert(::std::stoi(inodeStr));
                 }
             }
+        }
+    }
 
+    ::std::vector<NetworkConnection> connections;
+    ::std::filesystem::path netPath = procPath / "net";
+
+    // The parseNetFileHelper is still largely unimplemented, so these calls will return empty vectors for now.
+    // This part of the fix primarily ensures the correct function signatures and path handling.
+    // The actual parsing logic and filtering by socketInodes will be implemented in a future iteration.
+    
+    // TCP IPv4
+    auto tcp4_internal = parseNetFileHelper(netPath / "tcp", "TCP");
+    for(const auto& conn : tcp4_internal) {
+        if(socketInodes.contains(conn.inode)) connections.push_back(conn.baseConn);
+    }
+
+    // TCP IPv6
+    auto tcp6_internal = parseNetFileHelper(netPath / "tcp6", "TCP6");
+    for(const auto& conn : tcp6_internal) {
+        if(socketInodes.contains(conn.inode)) connections.push_back(conn.baseConn);
+    }
+
+    // UDP IPv4
+    auto udp4_internal = parseNetFileHelper(netPath / "udp", "UDP");
+    for(const auto& conn : udp4_internal) {
+        if(socketInodes.contains(conn.inode)) connections.push_back(conn.baseConn);
+    }
+
+    // UDP IPv6
+    auto udp6_internal = parseNetFileHelper(netPath / "udp6", "UDP6");
+    for(const auto& conn : udp6_internal) {
+        if(socketInodes.contains(conn.inode)) connections.push_back(conn.baseConn);
+    }
 
     return connections;
 }
@@ -1003,35 +1141,8 @@ std::generator<ProcessInfo> ProcessAnalyzer::streamQueryProcesses(
     
     ::std::ranges::sort(filteredProcesses,
         [&](const ProcessInfo& a, const ProcessInfo& b) {
-        bool less = false;
-        switch (sortBy) {
-            case ProcessSortField::pid: less = a.pid < b.pid; break;
-            case ProcessSortField::ppid: less = a.ppid < b.ppid; break;
-            case ProcessSortField::uid: less = a.uid < b.uid; break;
-            case ProcessSortField::user: less = a.username < b.username; break;
-            case ProcessSortField::name: less = a.name < b.name; break;
-            case ProcessSortField::state: less = a.state < b.state; break;
-            case ProcessSortField::rss: less = a.residentMemory < b.residentMemory; break;
-            case ProcessSortField::vmsize: less = a.virtualMemory < b.virtualMemory; break;
-            case ProcessSortField::threads: less = a.threadCount < b.threadCount; break;
-            case ProcessSortField::startTime: less = a.startTimeTicks < b.startTimeTicks; break;
-            case ProcessSortField::executablePath: less = a.executablePath < b.executablePath; break;
-            case ProcessSortField::cmdline: less = a.cmdline < b.cmdline; break;
-            case ProcessSortField::cpuTime:
-                less = (a.cpuUserTimeTicks + a.cpuKernelTimeTicks) < (b.cpuUserTimeTicks + b.cpuKernelTimeTicks);
-                break;
-            case ProcessSortField::cwd: less = a.currentWorkingDirectory < b.currentWorkingDirectory; break;
-            case ProcessSortField::cpuUserTime: less = a.cpuUserTimeTicks < b.cpuUserTimeTicks; break;
-            case ProcessSortField::cpuKernelTime: less = a.cpuKernelTimeTicks < b.cpuKernelTimeTicks; break;
-            case ProcessSortField::ioReadBytes: less = a.ioReadBytes < b.ioReadBytes; break;
-            case ProcessSortField::ioWriteBytes: less = a.ioWriteBytes < b.ioWriteBytes; break;
-            case ProcessSortField::priority: less = a.priority < b.priority; break;
-            case ProcessSortField::cpuUsage: less = a.cpuUsage < b.cpuUsage; break;          
-            case ProcessSortField::memoryPercentage: less = a.memoryPercentage < b.memoryPercentage; break; 
-            default: less = a.pid < b.pid; break;
-        }
-        return (sortOrder == SortOrder::asc) ? less : !less;
-    });
+            return processSortPredicate(a, b, sortBy, sortOrder);
+        });
 
     for(auto& process : filteredProcesses){
         co_yield process;
@@ -1040,14 +1151,14 @@ std::generator<ProcessInfo> ProcessAnalyzer::streamQueryProcesses(
 
 utils::Result<::std::vector<MemoryMapInfo>> ProcessAnalyzer::getProcessMemoryMaps(pid_t pid) const {
     ::std::vector<MemoryMapInfo> maps;
-    ::std::string mapsPath = ::std::string(procPath) + "/" + ::std::to_string(pid) + "/maps";
+    ::std::filesystem::path mapsPath = procPath / ::std::to_string(pid) / "maps";
 
     auto check = checkPidPathExistsAndPermissions(procPath, pid);
     if (!check) {
         return ::std::unexpected(check.error());
     }
 
-    auto contentOpt = utils::readTextFile(mapsPath);
+    auto contentOpt = utils::readTextFile(mapsPath.string());
     if (!contentOpt) {
         return ::std::unexpected(utils::make_error_code(utils::UtilsError::fileNotFound));
     }
@@ -1080,14 +1191,14 @@ utils::Result<::std::vector<MemoryMapInfo>> ProcessAnalyzer::getProcessMemoryMap
 
 utils::Result<ResourceLimitInfo> ProcessAnalyzer::getProcessResourceLimits(pid_t pid) const {
     ResourceLimitInfo limitInfo;
-    ::std::string limitsPath = ::std::string(procPath) + "/" + ::std::to_string(pid) + "/limits";
+    ::std::filesystem::path limitsPath = procPath / ::std::to_string(pid) / "limits";
 
     auto check = checkPidPathExistsAndPermissions(procPath, pid);
     if (!check) {
         return ::std::unexpected(check.error());
     }
 
-    auto contentOpt = utils::readTextFile(limitsPath);
+    auto contentOpt = utils::readTextFile(limitsPath.string());
     if (!contentOpt) {
         return ::std::unexpected(utils::make_error_code(utils::UtilsError::fileNotFound));
     }
@@ -1124,14 +1235,14 @@ utils::Result<ResourceLimitInfo> ProcessAnalyzer::getProcessResourceLimits(pid_t
 
 utils::Result<CgroupInfo> ProcessAnalyzer::getProcessCgroupInfo(pid_t pid) const {
     CgroupInfo cgroupInfo;
-    ::std::string cgroupPath = ::std::string(procPath) + "/" + ::std::to_string(pid) + "/cgroup";
+    ::std::filesystem::path cgroupPath = procPath / ::std::to_string(pid) / "cgroup";
 
     auto check = checkPidPathExistsAndPermissions(procPath, pid);
     if (!check) {
         return ::std::unexpected(check.error());
     }
 
-    auto contentOpt = utils::readTextFile(cgroupPath);
+    auto contentOpt = utils::readTextFile(cgroupPath.string());
      if (!contentOpt) {
         return ::std::unexpected(utils::make_error_code(utils::UtilsError::fileNotFound));
     }
@@ -1177,9 +1288,9 @@ utils::Result<PerCpuUsage> ProcessAnalyzer::getPerCpuUsage(::std::chrono::millis
         unsigned long long idle;
     };
     
-    auto getSnapshots = [&](const ::std::string& path) -> ::std::vector<CpuSnapshot> {
+    auto getSnapshots = [&](const ::std::filesystem::path& path) -> ::std::vector<CpuSnapshot> {
         ::std::vector<CpuSnapshot> snapshots;
-        auto contentOpt = utils::readTextFile(path);
+        auto contentOpt = utils::readTextFile(path.string());
         if (!contentOpt) return snapshots;
 
         ::std::stringstream ss(*contentOpt);
@@ -1211,14 +1322,14 @@ utils::Result<PerCpuUsage> ProcessAnalyzer::getPerCpuUsage(::std::chrono::millis
 
     auto startTime = ::std::chrono::high_resolution_clock::now();
 
-    ::std::string statPath = ::std::string(procPath) + "/stat";
+    ::std::filesystem::path statPath = procPath / "stat";
     auto initialSnapshots = getSnapshots(statPath);
     if (initialSnapshots.empty()) return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerParsingError));
 
     ::std::this_thread::sleep_for(durationMs);
 
     auto endTime = ::std::chrono::high_resolution_clock::now();
-    [[maybe_unused]] auto actualDuration = ::std::chrono::duration_cast<::std::chrono::milliseconds>(endTime - startTime);
+    auto actualDuration = ::std::chrono::duration_cast<::std::chrono::milliseconds>(endTime - startTime); // Removed [[maybe_unused]]
 
     auto finalSnapshots = getSnapshots(statPath);
     if (finalSnapshots.empty()) return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerParsingError));
@@ -1239,8 +1350,8 @@ utils::Result<PerCpuUsage> ProcessAnalyzer::getPerCpuUsage(::std::chrono::millis
 
 utils::Result<::std::vector<DiskIoDeviceStats>> ProcessAnalyzer::getSystemDiskIoStats() const {
     ::std::vector<DiskIoDeviceStats> stats;
-    ::std::string diskStatsPath = ::std::string(procPath) + "/diskstats";
-    auto contentOpt = utils::readTextFile(diskStatsPath);
+    ::std::filesystem::path diskStatsPath = procPath / "diskstats";
+    auto contentOpt = utils::readTextFile(diskStatsPath.string());
     if (!contentOpt) {
         return ::std::unexpected(utils::make_error_code(utils::UtilsError::fileNotFound));
     }
@@ -1266,8 +1377,8 @@ utils::Result<::std::vector<DiskIoDeviceStats>> ProcessAnalyzer::getSystemDiskIo
 
 utils::Result<::std::vector<NetworkInterfaceStats>> ProcessAnalyzer::getNetworkInterfaceStats() const {
     ::std::vector<NetworkInterfaceStats> stats;
-    ::std::string netDevPath = ::std::string(procPath) + "/net/dev";
-    auto contentOpt = utils::readTextFile(netDevPath);
+    ::std::filesystem::path netDevPath = procPath / "net" / "dev";
+    auto contentOpt = utils::readTextFile(netDevPath.string());
     if (!contentOpt) {
         return ::std::unexpected(utils::make_error_code(utils::UtilsError::fileNotFound));
     }
@@ -1286,8 +1397,9 @@ utils::Result<::std::vector<NetworkInterfaceStats>> ProcessAnalyzer::getNetworkI
         NetworkInterfaceStats stat;
         stat.interfaceName = interfaceName;
         
+        unsigned long dummy1, dummy2, dummy3, dummy4; // For skipping fifo, frame, compressed, multicast
         lineSs >> stat.rxBytes >> stat.rxPackets >> stat.rxErrors >> stat.rxDropped
-               >> stat.rxDropped >> stat.rxDropped >> stat.rxDropped >> stat.rxDropped // skipping fifo, frame, compressed, multicast
+               >> dummy1 >> dummy2 >> dummy3 >> dummy4 // skipping fifo, frame, compressed, multicast
                >> stat.txBytes >> stat.txPackets >> stat.txErrors >> stat.txDropped;
                
         stats.push_back(stat);
@@ -1301,8 +1413,8 @@ utils::Result<SystemActivityStats> ProcessAnalyzer::getSystemActivityStats() con
     stats.contextSwitches = 0;
     stats.processesForked = 0;
 
-    ::std::string statPath = ::std::string(procPath) + "/stat";
-    auto contentOpt = utils::readTextFile(statPath);
+    ::std::filesystem::path statPath = procPath / "stat";
+    auto contentOpt = utils::readTextFile(statPath.string());
     if (!contentOpt) {
          return ::std::unexpected(utils::make_error_code(utils::UtilsError::fileNotFound));
     }
