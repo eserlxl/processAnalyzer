@@ -249,7 +249,13 @@ int main(int argc, char* argv[]) {
         filter.stateFilter = args.stateFilter;
 
         if (args.command == "list" || args.command == "name" || args.command == "user") {
-            processesToDisplay = analyzer.queryProcesses(filter, args.sortBy.value_or(ProcessSortField::pid), args.sortOrder);
+            auto processesResult = analyzer.queryProcesses(filter, args.sortBy.value_or(ProcessSortField::pid), args.sortOrder);
+            if (processesResult) {
+                processesToDisplay = *processesResult;
+            } else {
+                std::cerr << "Error listing processes: " << processesResult.error().message << "\n";
+                return 1;
+            }
         } else if (args.command == "pid") {
             if (!args.pid.has_value()) {
                 std::cerr << "Internal error: PID expected.\n";
@@ -257,34 +263,44 @@ int main(int argc, char* argv[]) {
             }
             int targetPid = *args.pid;
 
-            auto infoOpt = analyzer.getProcessDetails(targetPid);
-            if (!infoOpt) {
-                std::cerr << "Error: Process with PID " << targetPid << " not found.\n";
+            auto infoResult = analyzer.getProcessDetails(targetPid);
+            if (!infoResult) {
+                std::cerr << "Error: " << infoResult.error().message << "\n";
                 return 1;
             }
             
             // If --columns is not used, print vertical details and exit.
             if (args.selectedColumns.empty() && !args.outputFormat) {
-                printVerticalProcessDetails(*infoOpt);
+                printVerticalProcessDetails(*infoResult);
                 if (args.showChildren) {
-                    auto children = analyzer.getChildProcesses(targetPid);
-                    if (!children.empty()) {
-                        std::cout << "\nChildren:\n";
-                        printProcessTable(children, getDefaultColumnsForTable(false), args.noTruncateCmdline);
+                    auto childrenResult = analyzer.getChildProcesses(targetPid);
+                    if (childrenResult) {
+                        auto& children = *childrenResult;
+                        if (!children.empty()) {
+                            std::cout << "\nChildren:\n";
+                            printProcessTable(children, getDefaultColumnsForTable(false), args.noTruncateCmdline);
+                        } else {
+                            std::cout << "\nNo children found.\n";
+                        }
                     } else {
-                        std::cout << "\nNo children found.\n";
+                        std::cerr << "\nError getting children: " << childrenResult.error().message << "\n";
                     }
                 }
                 if (args.showOpenFiles) {
                     try {
-                        auto fds = analyzer.getOpenFileDescriptors(targetPid);
-                        if (!fds.empty()) {
-                            std::cout << "\nOpen Files:\n";
-                            for (const auto& [fd, path] : fds) {
-                                std::cout << "  fd " << std::setw(3) << fd << ": " << path << "\n";
+                        auto fdsResult = analyzer.getProcessOpenFileDetails(targetPid);
+                        if (fdsResult) {
+                            auto& fds = *fdsResult;
+                            if (!fds.empty()) {
+                                std::cout << "\nOpen Files:\n";
+                                for (const auto& fdInfo : fds) {
+                                    std::cout << "  fd " << std::setw(3) << fdInfo.fd << ": " << fdInfo.path << "\n";
+                                }
+                            } else {
+                                std::cout << "\nNo open files found.\n";
                             }
                         } else {
-                            std::cout << "\nNo open files found.\n";
+                            std::cerr << "\nError reading open files: " << fdsResult.error().message << "\n";
                         }
                     } catch (const std::exception& e) {
                         std::cerr << "Error reading open files: " << e.what() << "\n";
@@ -292,24 +308,29 @@ int main(int argc, char* argv[]) {
                 }
                 if (args.showNetworkConnections) {
                     try {
-                        auto conns = analyzer.getNetworkConnections(targetPid);
-                        if (!conns.empty()) {
-                            std::cout << "\nNetwork Connections:\n";
-                            // Header
-                            constexpr int kColWidthProto = 8;
-                            constexpr int kColWidthAddress = 28;
-                            constexpr int kSeparatorWidth = 78;
-                            std::cout << "  " << std::left << std::setw(kColWidthProto) << "Proto" << std::setw(kColWidthAddress) << "Local Address" << std::setw(kColWidthAddress) << "Remote Address" << "State\n";
-                            std::cout << "  " << std::string(kSeparatorWidth, '-') << "\n";
-                            for (const auto& conn : conns) {
-                                std::cout << "  " << std::left 
-                                          << std::setw(kColWidthProto) << conn.protocol
-                                          << std::setw(kColWidthAddress) << conn.localAddress
-                                          << std::setw(kColWidthAddress) << conn.remoteAddress
-                                          << conn.state << "\n";
+                        auto connsResult = analyzer.getNetworkConnections(targetPid);
+                        if (connsResult) {
+                            auto& conns = *connsResult;
+                            if (!conns.empty()) {
+                                std::cout << "\nNetwork Connections:\n";
+                                // Header
+                                constexpr int kColWidthProto = 8;
+                                constexpr int kColWidthAddress = 28;
+                                constexpr int kSeparatorWidth = 78;
+                                std::cout << "  " << std::left << std::setw(kColWidthProto) << "Proto" << std::setw(kColWidthAddress) << "Local Address" << std::setw(kColWidthAddress) << "Remote Address" << "State\n";
+                                std::cout << "  " << std::string(kSeparatorWidth, '-') << "\n";
+                                for (const auto& conn : conns) {
+                                    std::cout << "  " << std::left 
+                                              << std::setw(kColWidthProto) << conn.protocol
+                                              << std::setw(kColWidthAddress) << conn.localAddress
+                                              << std::setw(kColWidthAddress) << conn.remoteAddress
+                                              << conn.state << "\n";
+                                }
+                            } else {
+                                std::cout << "\nNo network connections found.\n";
                             }
                         } else {
-                            std::cout << "\nNo network connections found.\n";
+                            std::cerr << "\nError reading network connections: " << connsResult.error().message << "\n";
                         }
                     } catch (const std::exception& e) {
                         std::cerr << "Error reading network connections: " << e.what() << "\n";
@@ -318,7 +339,7 @@ int main(int argc, char* argv[]) {
                 return 0; // Done with pid-specific output
             }
             // Otherwise, add to list for table/csv/json output
-            processesToDisplay.push_back(*infoOpt);
+            processesToDisplay.push_back(*infoResult);
 
         } else {
             std::cerr << "Error: Unknown command '" << args.command << "'.\n";

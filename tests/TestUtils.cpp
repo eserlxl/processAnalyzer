@@ -44,6 +44,7 @@ void MockProc::createSymlink(int pid, const std::string& linkname, const std::st
         if (fs::exists(linkPath)) fs::remove(linkPath);
         fs::create_symlink(target, linkPath);
     } catch (const std::exception& e) {
+        (void)e;
     }
 }
 
@@ -71,7 +72,9 @@ void MockProc::createSymlinkAt(const std::filesystem::path& relativeLinkPath, co
     try {
         if (fs::exists(fullLinkPath)) fs::remove(fullLinkPath);
         fs::create_symlink(targetPath, fullLinkPath);
-    } catch (...) {}
+    } catch (...) { // NOLINT
+        // ignore
+    }
 }
 
 void MockProc::createCmdline(int pid, const std::vector<std::string>& args) {
@@ -141,7 +144,7 @@ std::string MockProc::ProcMapEntry::toString() const {
     std::stringstream ss;
     ss << addressRange << " "
        << perms << " "
-       << std::hex << std::setfill('0') << std::setw(8) << offset << " "
+       << std::hex << std::setfill('0') << std::setw(kAddressPartWidth) << offset << " "
        << dev << " "
        << std::dec << inode;
     if (!pathname.empty()) {
@@ -331,7 +334,9 @@ void MockProc::addThread(int parentPid, int threadId, const AddThreadOptions& op
         try {
             fs::create_symlink(target, threadPath / name);
             fs::create_symlink(target, taskPath / name); 
-        } catch(...) {}
+        } catch(...) { // NOLINT
+            // ignore
+        }
     };
 
     createLinkToParent("exe");
@@ -411,7 +416,7 @@ void MockProc::addProcess(int pid, const AddProcessOptions& options) {
 }
 
 ProcessBuilder MockProc::buildProcess(int pid) {
-    return ProcessBuilder(*this, pid);
+    return {*this, pid};
 }
 
 ProcessBuilder::ProcessBuilder(MockProc& mockProc, int pid) : mockProc_(mockProc), pid_(pid) {
@@ -451,7 +456,7 @@ ProcessBuilder& ProcessBuilder::withEnviron(const std::map<std::string, std::str
     return *this;
 }
 ProcessBuilder& ProcessBuilder::withFd(int fd, const std::string& target) {
-    options_.fds.push_back({fd, target});
+    options_.fds.emplace_back(fd, target);
     return *this;
 }
 ProcessBuilder& ProcessBuilder::withIoStats(const MockProc::ProcIoStats& stats) {

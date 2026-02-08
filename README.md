@@ -13,7 +13,7 @@ It provides a robust interface to deliver detailed resource usage metrics and ex
 
 ## Table of Contents
 * [Features](#features)
-* [Installation](#installation)
+* [Build](#build)
 * [Quick Start](#quick-start)
 * [Usage](#usage)
 * [Project Structure](#project-structure)
@@ -26,14 +26,20 @@ It provides a robust interface to deliver detailed resource usage metrics and ex
 ## Features
 
 *   **List Processes**: Enumerate all running processes with key information.
-*   **Process Details**: Obtain comprehensive details for a specific process ID (PID), including its child processes and open files.
-*   **Process Filtering**: Filter processes by various criteria such as name, user, state, parent process ID (PPID), memory usage, executable path, or command line arguments.
-*   **Process Sorting**: Sort processes based on various fields like PID, user, name, memory usage, CPU time, start time, executable path, etc.
+*   **Process Details**: Obtain comprehensive details for a specific process ID (PID), including its child processes, parent process, descendants, environment variables, memory maps, resource limits, cgroup information, and open files/sockets/pipes.
+*   **Process Filtering**: Filter processes by various criteria such as name, user, state, parent process ID (PPID), memory usage, executable path, command line arguments, CPU usage, memory percentage, or network connection attributes.
+*   **Process Sorting**: Sort processes based on various fields like PID, user, name, memory usage, CPU time, start time, executable path, CPU usage percentage, memory usage percentage, etc.
 *   **Customizable Output**: Choose which columns to display and output results in different formats (table, CSV, JSON).
-*   **Real-time Monitoring**: Provides dynamic, real-time updates on process resource consumption and status, similar to 'top' or 'htop'.
+*   **Real-time Monitoring**: Provides dynamic, real-time updates on process resource consumption and status, similar to 'top' or 'htop', including CPU and disk I/O usage per process and system-wide.
+*   **System Metrics**: Monitor system-wide metrics such as total memory usage, load average, CPU statistics (user, system, idle), per-CPU usage, disk I/O per device, network interface statistics, and system activity (interrupts, context switches, forks).
+*   **Network Activity**: Inspect detailed network connections (TCP, UDP, IPv4, IPv6) for individual processes.
+*   **Thread Details**: Enumerate and inspect individual threads within a process.
+*   **Process Control**: Send POSIX signals to processes, modify process niceness, and set CPU affinity.
+*   **System Information**: Retrieve system uptime, kernel version, OS name, hostname, and mounted filesystem disk usage.
+*   **C++23 Streaming API**: Utilize a modern C++23 `std::generator`-based API for efficient, lazy-loaded streaming of process information.
 *   **Utility Library**: Leverages a robust C++ utility library for common tasks like file system operations, string manipulation, and system interaction.
 
-## Installation
+## Build
 
 To get `processAnalyzer` up and running, you'll need to build it from source.
 

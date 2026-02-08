@@ -15,6 +15,9 @@
 #include <expected>     // For std::expected (C++23)
 #include <system_error> // For std::error_code (optional, could use int errno directly)
 #include <generator>    // For std::generator (C++23)
+#include <sys/resource.h> // For setpriority, PRIO_PROCESS
+#include <sched.h>        // For sched_setaffinity, cpu_set_t
+#include <regex>        // For std::regex (C++11)
 
 // New: Define specific error codes for Analyzer
 enum class AnalyzerError {
@@ -133,9 +136,14 @@ enum class SocketType {
 
 struct NetworkConnection {
     std::string protocol;    // e.g., "TCP", "UDP", "TCP6", "UDP6"
-    std::string localAddress;  // Local IP address and port, e.g., "127.0.0.1:8080"
-    std::string remoteAddress; // Remote IP address and port, e.g., "192.168.1.100:443" or "*" for LISTEN
+    std::string localAddress;  // Local IP address, e.g., "127.0.0.1"
+    std::string remoteAddress; // Remote IP address, e.g., "192.168.1.100" or "*"
+    uint16_t localPort;        // Local port number
+    uint16_t remotePort;       // Remote port number (0 if not connected/LISTEN)
     std::string state;       // Connection state, e.g., "ESTABLISHED", "LISTEN", "TIME_WAIT"
+    int inode;               // Socket inode number
+    AddressFamily addressFamily; // IPv4 or IPv6
+    SocketType socketType;     // TCP or UDP (or RAW/UNIX if expanded)
 };
 
 // New for Iteration 9: Disk I/O Rate per Process
@@ -154,6 +162,113 @@ struct ThreadInfo {
     long long cpuUserTimeTicks;    // User mode CPU time in clock ticks for this thread
     long long cpuKernelTimeTicks;  // Kernel mode CPU time in clock ticks for this thread
     // ... potentially add more details like priority, context switches if needed
+};
+
+// New for Iteration 14: Memory Maps
+struct MemoryMapInfo {
+    uint64_t startAddress;
+    uint64_t endAddress;
+    std::string permissions; // e.g., "r-xp"
+    uint64_t offset;
+    std::string device;      // e.g., "08:01"
+    uint64_t inode;
+    std::string pathname;    // e.g., "/usr/bin/ls" or "[stack]"
+};
+
+// New for Iteration 14: Resource Limits
+struct ResourceLimit {
+    std::string resource;
+    std::string softLimit; // "unlimited" or numerical value
+    std::string hardLimit; // "unlimited" or numerical value
+    std::string units;     // e.g., "bytes", "seconds"
+};
+
+struct ResourceLimitInfo {
+    std::vector<ResourceLimit> limits;
+};
+
+// New for Iteration 14: Cgroup Information
+struct CgroupEntry {
+    int id;
+    std::string controllers; // Comma-separated list, e.g., "cpu,cpuacct"
+    std::string path;        // Path within the cgroup hierarchy
+};
+
+struct CgroupInfo {
+    std::vector<CgroupEntry> entries;
+};
+
+// New for Iteration 14: Detailed Open File Descriptors
+enum class OpenFileType {
+    File,
+    Socket,
+    Pipe,
+    AnonInode,
+    Device,
+    Other,
+    Unknown
+};
+
+struct OpenFileDescriptorInfo {
+    int fd;
+    std::string path; // Target path of the symlink (e.g., filename, socket:[inode])
+    OpenFileType type; // Categorized type (File, Socket, Pipe, etc.)
+    // Additional info for sockets could be added here later if needed,
+    // e.g., referencing NetworkConnection details via inode.
+};
+
+// New for Iteration 14: Per-CPU Usage
+struct SingleCpuUsage {
+    int cpuId; // 0 for total, 1 for cpu1, etc.
+    double cpuPercentage; // Usage for this specific CPU
+};
+
+struct PerCpuUsage {
+    std::vector<SingleCpuUsage> cpuUsages; // Includes total system CPU as cpuId 0
+};
+
+// New for Iteration 14: Disk I/O per Device
+struct DiskIoDeviceStats {
+    std::string deviceName; // e.g., "sda", "nvme0n1"
+    uint64_t readsCompleted;
+    uint64_t readsMerged;
+    uint64_t sectorsRead;
+    uint64_t readTimeMs;
+    uint64_t writesCompleted;
+    uint64_t writesMerged;
+    uint64_t sectorsWritten;
+    uint64_t writeTimeMs;
+    uint64_t ioProgressMs;
+    uint64_t ioWeightedTimeMs;
+};
+
+// New for Iteration 14: Network Interface Statistics
+struct NetworkInterfaceStats {
+    std::string interfaceName; // e.g., "eth0", "lo"
+    uint64_t rxBytes;
+    uint64_t rxPackets;
+    uint64_t rxErrors;
+    uint64_t rxDropped;
+    uint64_t txBytes;
+    uint64_t txPackets;
+    uint64_t txErrors;
+    uint64_t txDropped;
+    // ... more fields from /proc/net/dev as needed
+};
+
+// New for Iteration 14: Interrupts and Context Switches
+struct SystemActivityStats {
+    uint64_t interruptsTotal;
+    std::map<std::string, uint64_t> interruptsPerCpu; // e.g., "cpu0": 12345
+    uint64_t contextSwitches;
+    uint64_t processesForked;
+    // ... potentially other stats from /proc/stat
+};
+
+// New for Iteration 14: CPU Set for affinity
+struct CpuSet {
+    std::vector<int> cpus; // List of CPU core IDs (0-indexed)
+    // Can add utility methods like `has(int cpu_id)`, `add(int cpu_id)`
 };
 
 // New for Iteration 9: System-wide Disk Usage Information
@@ -185,29 +300,44 @@ using ProcessPredicate = std::function<bool(const ProcessInfo&)>;
 
 // New structures and enums for Iteration 3 filtering and sorting
 struct ProcessFilter {
-    std::optional<std::string> nameContains; // For name filter
-    std::optional<std::string> userFilter;   // For user filter
-    std::optional<char> stateFilter;         // 'R', 'S', 'Z', etc.
-    
-    // --- New Fields for Iteration 5 ---
+    std::optional<std::string> nameContains; // Existing: Simple substring match
+    std::optional<std::regex> nameRegex;     // New: Regex for process name
+    std::optional<std::string> userFilter;
+    std::optional<char> stateFilter;
+
     std::optional<int> minThreads;
     std::optional<int> maxThreads;
-    std::optional<long long> minResidentMemoryKB; // Minimum Resident Set Size in KB
-    std::optional<long long> maxResidentMemoryKB; // Maximum Resident Set Size in KB
-    std::optional<long long> minVirtualMemoryKB;  // Minimum Virtual Memory Size in KB
-    std::optional<long long> maxVirtualMemoryKB;  // Maximum Virtual Memory Size in KB
-    std::optional<std::string> cmdlineContains;   // Filter by substring in command line
-    std::optional<std::string> executablePathContains; // Filter by substring in executable path
-    std::optional<uint32_t> uidFilter;             // Filter by exact UID
-    std::optional<int> minPriority;                // Minimum nice value
-    std::optional<int> maxPriority;                // Maximum nice value
+    std::optional<long long> minResidentMemoryKB;
+    std::optional<long long> maxResidentMemoryKB;
+    std::optional<long long> minVirtualMemoryKB;
+    std::optional<long long> maxVirtualMemoryKB;
 
-    // --- New Fields for Iteration 7 ---
+    std::optional<std::string> cmdlineContains; // Existing
+    std::optional<std::regex> cmdlineRegex;    // New: Regex for command line
+    std::optional<std::string> executablePathContains;
+    std::optional<std::regex> executablePathRegex; // New: Regex for executable path
+
+    std::optional<uint32_t> uidFilter;
+    std::optional<int> minPriority;
+    std::optional<int> maxPriority;
     std::optional<pid_t> ppidFilter;
 
-    // New for Iteration 9: Optional custom predicate for more advanced filtering.
-    // Contract: If provided, this predicate will be applied IN ADDITION to other filter fields.
-    //           Only processes for which this predicate returns true will be included.
+    std::optional<double> minCpuUsage;          // New: Filter by CPU usage percentage
+    std::optional<double> maxCpuUsage;          // New
+    std::optional<double> minMemoryPercentage;  // New: Filter by memory usage percentage
+    std::optional<double> maxMemoryPercentage;  // New
+
+    // New: Filter processes with network connections matching criteria
+    struct NetworkFilterCriteria {
+        std::optional<uint16_t> localPort;
+        std::optional<uint16_t> remotePort;
+        std::optional<std::string> remoteAddressContains; // Substring match
+        std::optional<std::regex> remoteAddressRegex;    // Regex match
+        std::optional<std::string> protocol; // "TCP", "UDP", etc.
+        std::optional<std::string> state;    // "LISTEN", "ESTABLISHED", etc.
+    };
+    std::optional<NetworkFilterCriteria> networkConnectionFilter;
+
     std::optional<ProcessPredicate> customPredicate; 
 };
 
@@ -246,9 +376,9 @@ public:
     explicit ProcessAnalyzer(std::string_view procPath = "/proc");
     
     // Core API
-    std::vector<int> getPids() const;
+    std::expected<std::vector<int>, AnalyzerErrorDetail> getPids() const;
     std::expected<ProcessInfo, AnalyzerErrorDetail> getProcessDetails(int pid) const;
-    std::vector<ProcessInfo> snapshot() const;
+    std::expected<std::vector<ProcessInfo>, AnalyzerErrorDetail> snapshot() const;
 
     // --- C++23 Lazy Loading API ---
     std::generator<int> streamPids() const;
@@ -265,12 +395,12 @@ public:
     std::expected<SystemCpuStats, AnalyzerErrorDetail> getSystemCpuStats() const;
 
     // Filtering API
-    std::vector<ProcessInfo> findProcesses(const ProcessPredicate& predicate) const;
+    std::expected<std::vector<ProcessInfo>, AnalyzerErrorDetail> findProcesses(const ProcessPredicate& predicate) const;
 
     // New method for general process query with filtering and sorting
     // Contract: Returns processes matching filter, sorted as specified.
-    // Throws: std::runtime_error if procPath is invalid or permissions issues.
-    std::vector<ProcessInfo> queryProcesses(
+    // Uses std::expected for error reporting.
+    std::expected<std::vector<ProcessInfo>, AnalyzerErrorDetail> queryProcesses(
         const ProcessFilter& filter = {},
         ProcessSortField sortBy = ProcessSortField::pid,
         SortOrder sortOrder = SortOrder::asc
@@ -279,14 +409,14 @@ public:
     // New method to get child processes
     // Contract: Returns a vector of ProcessInfo for direct children of the given PID.
     //           Returns empty vector if no children or PID not found.
-    // Throws: std::runtime_error for permissions issues.
-    std::vector<ProcessInfo> getChildProcesses(int pid) const;
+    // Uses std::expected for error reporting.
+    std::expected<std::vector<ProcessInfo>, AnalyzerErrorDetail> getChildProcesses(int pid) const;
 
     // New: Get the system's clock tick frequency (HZ)
     // Contract: Returns the system clock ticks per second.
     //           Typically 100 for older systems, 1000 for newer ones, but can vary.
-    // Throws: std::runtime_error if sysconf(_SC_CLK_TCK) fails.
-    static long getSystemClockTicksPerSecond();
+    // Uses std::expected for error reporting.
+    static std::expected<long, AnalyzerErrorDetail> getSystemClockTicksPerSecond();
 
     // New: Calculate CPU usage for a specific process over a given duration.
     // Contract: Returns the CPU usage percentage for the specified PID.
@@ -296,8 +426,8 @@ public:
     //   pid: The process ID to monitor.
     //   durationMs: The duration in milliseconds to observe CPU usage.
     // Returns: A ProcessCpuUsage object. `cpuPercentage` will be 0 if process not found or no change.
-    // Throws: std::runtime_error if unable to get process details or if sleep fails.
-    std::optional<ProcessCpuUsage> getProcessCpuUsage(int pid, std::chrono::milliseconds durationMs) const;
+    // Uses std::expected for error reporting.
+    std::expected<ProcessCpuUsage, AnalyzerErrorDetail> getProcessCpuUsage(int pid, std::chrono::milliseconds durationMs) const;
 
     // New: Calculate CPU usage for all processes over a given duration.
     // Contract: Returns a vector of ProcessCpuUsage objects for all active processes.
@@ -305,41 +435,49 @@ public:
     //   durationMs: The duration in milliseconds to observe CPU usage.
     // Returns: A vector of ProcessCpuUsage objects. Processes that exit during the observation
     //          or have no CPU activity will have 0% usage.
-    // Throws: std::runtime_error if unable to get process details or if sleep fails.
-    std::vector<ProcessCpuUsage> getAllProcessesCpuUsage(std::chrono::milliseconds durationMs) const;
+    // Uses std::expected for error reporting.
+    std::expected<std::vector<ProcessCpuUsage>, AnalyzerErrorDetail> getAllProcessesCpuUsage(std::chrono::milliseconds durationMs) const;
     
     // New: Get the parent process of a given PID.
     // Contract: Returns the ProcessInfo of the parent process.
-    //           Returns std::nullopt if the parent process cannot be found or if PID is 0 (kernel).
-    // Throws: std::runtime_error for permissions issues.
-    std::optional<ProcessInfo> getParentProcess(int pid) const;
+    // Uses std::expected for error reporting.
+    std::expected<ProcessInfo, AnalyzerErrorDetail> getParentProcess(int pid) const;
 
     // New: Get all descendant processes (children, grandchildren, etc.) of a given PID.
     // Contract: Returns a vector of ProcessInfo for all direct and indirect descendants.
     //           Returns empty vector if no descendants or PID not found.
-    // Throws: std::runtime_error for permissions issues.
-    std::vector<ProcessInfo> getAllDescendantProcesses(int pid) const;
+    // Uses std::expected for error reporting.
+    std::expected<std::vector<ProcessInfo>, AnalyzerErrorDetail> getAllDescendantProcesses(int pid) const;
 
     // New: Retrieve environment variables for a specific process.
     // Contract: Returns a vector of strings, where each string is an "KEY=VALUE" pair.
     //           Returns empty vector if no environment variables are found or inaccessible.
-    // Throws: std::runtime_error for permissions issues.
-    std::vector<std::string> getProcessEnvironment(int pid) const;
-
-    // New for Iteration 7: Get open file descriptors for a process
-    // Contract: Returns a map of file descriptors to their target paths.
-    //           Returns an empty map if the process does not exist or has no FDs.
-    // Throws: std::runtime_error for permissions issues reading the /proc/[pid]/fd directory.
-    std::map<int, std::string> getOpenFileDescriptors(pid_t pid) const;
+    // Uses std::expected for error reporting.
+    std::expected<std::vector<std::string>, AnalyzerErrorDetail> getProcessEnvironment(int pid) const;
 
     // New for Iteration 9: Process Control/Manipulation (Signal Handling)
     // Contract: Sends the specified signal to the process identified by pid.
     // Parameters:
     //   pid: The process ID to which the signal will be sent.
     //   signal: The signal to send.
-    // Returns: true if the signal was sent successfully, false otherwise (e.g., process not found, permission denied).
-    // Throws: std::runtime_error for unexpected system errors.
-    static bool sendSignal(int pid, ProcessSignal signal);
+    // Uses std::expected for error reporting.
+    static std::expected<void, AnalyzerErrorDetail> sendSignal(int pid, ProcessSignal signal);
+
+    // New for Iteration 14: Process Context Information
+    std::expected<std::vector<MemoryMapInfo>, AnalyzerErrorDetail> getProcessMemoryMaps(int pid) const;
+    std::expected<ResourceLimitInfo, AnalyzerErrorDetail> getProcessResourceLimits(int pid) const;
+    std::expected<CgroupInfo, AnalyzerErrorDetail> getProcessCgroupInfo(int pid) const;
+    std::expected<std::vector<OpenFileDescriptorInfo>, AnalyzerErrorDetail> getProcessOpenFileDetails(pid_t pid) const;
+
+    // New for Iteration 14: Process Control Capabilities
+    static std::expected<void, AnalyzerErrorDetail> setProcessNiceness(int pid, int niceness);
+    static std::expected<void, AnalyzerErrorDetail> setProcessCpuAffinity(int pid, const CpuSet& affinity);
+
+    // New for Iteration 14: System-wide Metrics
+    std::expected<PerCpuUsage, AnalyzerErrorDetail> getPerCpuUsage(std::chrono::milliseconds durationMs) const;
+    std::expected<std::vector<DiskIoDeviceStats>, AnalyzerErrorDetail> getSystemDiskIoStats() const;
+    std::expected<std::vector<NetworkInterfaceStats>, AnalyzerErrorDetail> getNetworkInterfaceStats() const;
+    std::expected<SystemActivityStats, AnalyzerErrorDetail> getSystemActivityStats() const;
 
     // New for Iteration 13: Network Activity Monitoring
     // Contract: Returns a vector of NetworkConnection objects for the specified PID.
@@ -347,8 +485,8 @@ public:
     // Parameters:
     //   pid: The process ID.
     // Returns: A vector of NetworkConnection. Empty if no connections or process not found/inaccessible.
-    // Throws: std::runtime_error for permissions issues or parsing errors.
-    std::vector<NetworkConnection> getNetworkConnections(int pid) const;
+    // Uses std::expected for error reporting.
+    std::expected<std::vector<NetworkConnection>, AnalyzerErrorDetail> getNetworkConnections(int pid) const;
 
     // New for Iteration 9: Disk I/O Rate per Process
     // Contract: Returns the disk I/O rate for the specified PID.
@@ -358,8 +496,8 @@ public:
     //   pid: The process ID to monitor.
     //   durationMs: The duration in milliseconds to observe I/O.
     // Returns: A ProcessDiskIoUsage object. Rates will be 0 if process not found or no change.
-    // Throws: std::runtime_error if unable to get process details or if sleep fails.
-    std::optional<ProcessDiskIoUsage> getProcessDiskIoUsage(int pid, std::chrono::milliseconds durationMs) const;
+    // Uses std::expected for error reporting.
+    std::expected<ProcessDiskIoUsage, AnalyzerErrorDetail> getProcessDiskIoUsage(int pid, std::chrono::milliseconds durationMs) const;
 
     // New for Iteration 9: Calculate disk I/O rates for all processes over a given duration.
     // Contract: Returns a vector of ProcessDiskIoUsage objects for all active processes.
@@ -367,8 +505,8 @@ public:
     //   durationMs: The duration in milliseconds to observe I/O.
     // Returns: A vector of ProcessDiskIoUsage objects. Processes that exit during observation
     //          or have no I/O will have 0 rates.
-    // Throws: std::runtime_error if unable to get process details or if sleep fails.
-    std::vector<ProcessDiskIoUsage> getAllProcessesDiskIoUsage(std::chrono::milliseconds durationMs) const;
+    // Uses std::expected for error reporting.
+    std::expected<std::vector<ProcessDiskIoUsage>, AnalyzerErrorDetail> getAllProcessesDiskIoUsage(std::chrono::milliseconds durationMs) const;
 
     // New for Iteration 9: Process Threads Details
     // Contract: Returns a vector of ThreadInfo objects for all threads of the given PID.
@@ -376,20 +514,20 @@ public:
     // Parameters:
     //   pid: The process ID.
     // Returns: A vector of ThreadInfo. Empty if process not found, no threads (e.g., defunct), or inaccessible.
-    // Throws: std::runtime_error for permissions issues or parsing errors.
-    std::vector<ThreadInfo> getProcessThreads(int pid) const;
+    // Uses std::expected for error reporting.
+    std::expected<std::vector<ThreadInfo>, AnalyzerErrorDetail> getProcessThreads(int pid) const;
 
     // New for Iteration 9: System-wide Disk Usage Information
     // Contract: Returns a vector of MountPointInfo for each mounted filesystem.
     //           Uses statfs system call or parses /proc/mounts.
     // Returns: A vector of MountPointInfo. Empty if no mount points are accessible.
-    // Throws: std::runtime_error for system call failures or parsing errors.
-    std::vector<MountPointInfo> getSystemDiskUsage() const;
+    // Uses std::expected for error reporting.
+    std::expected<std::vector<MountPointInfo>, AnalyzerErrorDetail> getSystemDiskUsage() const;
 
     // New for Iteration 9: System Uptime and Kernel Information
     // Contract: Returns a SystemInfo object.
-    // Throws: std::runtime_error if /proc/uptime, /proc/version, or hostname cannot be read.
-    std::optional<SystemInfo> getSystemInfo() const;
+    // Uses std::expected for error reporting.
+    std::expected<SystemInfo, AnalyzerErrorDetail> getSystemInfo() const;
 
     // New for Iteration 9: Calculate total system CPU usage percentage over a given duration.
     // Contract: Returns the total system CPU usage percentage.
@@ -398,8 +536,8 @@ public:
     // Parameters:
     //   durationMs: The duration in milliseconds to observe CPU usage.
     // Returns: A SystemCpuUsage object. `cpuPercentage` will be 0 if unable to calculate or no activity.
-    // Throws: std::runtime_error if unable to read /proc/stat or if sleep fails.
-    std::optional<SystemCpuUsage> getSystemCpuUsage(std::chrono::milliseconds durationMs) const;
+    // Uses std::expected for error reporting.
+    std::expected<SystemCpuUsage, AnalyzerErrorDetail> getSystemCpuUsage(std::chrono::milliseconds durationMs) const;
 
 private:
     std::string procPath;
@@ -409,6 +547,7 @@ private:
     mutable std::optional<long long> lastTotalSystemCpuTimeTicks; // Total system CPU time ticks
     mutable std::map<int, std::pair<long long, long long>> lastIoBytes; // pid -> {read_bytes, write_bytes}
     mutable std::optional<SystemCpuStats> lastSystemCpuStats; // Store for delta calculation
+    mutable std::optional<PerCpuUsage> lastPerCpuStats; // Store for delta calculation of per-CPU usage
 };
 
 #endif
