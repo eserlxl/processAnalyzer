@@ -68,20 +68,6 @@ find_package(GTest REQUIRED)
 # Variable for test executable output path
 set(TEST_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests" CACHE PATH "Output directory for test executables")
 
-# Helper function for adding tests
-function(add_process_analyzer_test test_name)
-    set(sources ${ARGN})
-
-    add_executable(${test_name} ${sources})
-
-    target_link_libraries(${test_name} PRIVATE processAnalyzerLib GTest::gtest_main GTest::gtest)
-    target_include_directories(${test_name} PRIVATE ${CMAKE_SOURCE_DIR}/tests)
-
-    set_target_properties(${test_name} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${TEST_OUTPUT_DIRECTORY}")
-
-    add_test(NAME ${test_name}s COMMAND $<TARGET_FILE:${test_name}>)
-endfunction()
-
 # Add tests subdirectory
 add_subdirectory(tests)
 

@@ -3,10 +3,21 @@
 
 cmake_minimum_required(VERSION 3.17)
 
-# Adjust file paths to match actual directory structure
-add_process_analyzer_test(UtilsTest utils/Core.cpp utils/System.cpp)
-add_process_analyzer_test(AnalyzerTest analyzer/Core.cpp utils/Test.cpp)
-add_process_analyzer_test(TestUtilsNewApiTest utils/TestNewApi.cpp utils/Test.cpp)
-add_process_analyzer_test(UtilsNewApiTest utils/FileSystem.cpp)
-add_process_analyzer_test(TypesTest utils/Types.cpp)
-add_process_analyzer_test(StringTest utils/String.cpp)
+# Consolidate all tests into a single executable
+add_executable(ProcessAnalyzerTests
+    utils/Core.cpp
+    utils/System.cpp
+    analyzer/Core.cpp
+    utils/Test.cpp
+    utils/TestNewApi.cpp
+    utils/FileSystem.cpp
+    utils/Types.cpp
+    utils/String.cpp
+)
+
+# Link the single test executable
+target_include_directories(ProcessAnalyzerTests PRIVATE ${CMAKE_SOURCE_DIR}/tests)
+target_link_libraries(ProcessAnalyzerTests PRIVATE processAnalyzerLib GTest::gtest_main)
+
+# Add a single test to CTest
+add_test(NAME ProcessAnalyzerTests COMMAND ProcessAnalyzerTests)
