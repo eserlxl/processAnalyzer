@@ -124,9 +124,13 @@ These options are only valid when used with the `pid` command. When used, the ou
     ```bash
     ./processAnalyzer pid 1234 --open-files
     ```
+*   `--threads`: Display thread information for the specified PID.
+    ```bash
+    ./processAnalyzer pid 1234 --threads
+    ```
 *   Combining PID specific options:
     ```bash
-    ./processAnalyzer pid 1 --children --open-files
+    ./processAnalyzer pid 1 --children --open-files --threads
     ```
 
 ## Configuration
@@ -152,4 +156,7 @@ Here are some common ways to run `processAnalyzer`:
 
 # Show children processes and open files for PID 1
 ./processAnalyzer pid 1 --children --open-files
+
+# Show thread information for a specific PID
+./processAnalyzer pid 1234 --threads
 ```

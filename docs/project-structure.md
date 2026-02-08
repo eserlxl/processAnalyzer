@@ -14,30 +14,60 @@ processAnalyzer/
 ├───README.md                   # Main project documentation and quick-start guide.
 ├───.git/                       # Internal Git directory for version control.
 ├───build/                      # Output directory for compiled binaries and build artifacts.
-│   ├───CMakeFiles/             # CMake-generated internal build files.
-│   └───tests/                  # Compiled test executables.
 ├───docs/                       # Contains supplementary project documentation.
+│   ├───api-reference.md        # Detailed API documentation.
 │   ├───build.md                # Detailed instructions on how to build the project.
+│   ├───changelog.md            # Project change history.
+│   ├───configuration.md        # Guide to configuring the tool.
 │   ├───contributing.md         # Guidelines for contributing to the project.
+│   ├───features.md             # List of features.
 │   ├───project-structure.md    # This file, detailing the project's directory structure.
 │   ├───usage.md                # Detailed guide on using the processAnalyzer tool.
-│   ├───UTILS.md                # Documentation for the internal 'Utils' library.
+│   ├───UTILS.md                # Documentation for the internal 'utils' library.
 │   └───audit/                  # Directory for audit-related documentation or logs.
-│       └───gemini-cli/         # Specific audit info, possibly related to Gemini CLI usage.
 ├───include/                    # Public header files for the project.
-│   ├───Analyzer.h              # Header for the main Analyzer class and related functions.
-│   └───utils.h                 # Header for general utility functions (Utils namespace).
+│   ├───utils.h                 # Main header for the utility library.
+│   ├───analyzer/               # Headers for the core analysis engine.
+│   │   ├───Core.h
+│   │   ├───NetworkModel.h
+│   │   ├───ProcessModel.h
+│   │   └───SystemModel.h
+│   └───utils/                  # Headers for the utility library modules.
+│       ├───Core.h
+│       ├───File.h
+│       ├───Path.h
+│       ├───String.h
+│       ├───System.h
+│       ├───Time.h
+│       └───Types.h
 ├───src/                        # Source code files for the application logic.
-│   ├───Analyzer.cpp            # Implementation of the Analyzer class.
 │   ├───main.cpp                # Main entry point for the command-line application.
-│   └───utils.cpp               # Implementation of general utility functions.
+│   ├───analyzer/               # Implementation of the core analysis engine.
+│   │   └───Core.cpp
+│   ├───cli/                    # Command-line interface logic.
+│   │   ├───Args.cpp
+│   │   ├───Args.h
+│   │   ├───Output.cpp
+│   │   └───Output.h
+│   └───utils/                  # Implementation of the utility library modules.
+│       ├───File.cpp
+│       ├───Path.cpp
+│       ├───String.cpp
+│       ├───System.cpp
+│       ├───Time.cpp
+│       └───Types.cpp
 ├───Testing/                    # Directory used by CTest for testing purposes.
-│   └───Temporary/              # Temporary files generated during the testing process.
 └───tests/                      # Source files for unit and integration tests.
-    ├───AnalyzerTest.cpp        # Unit tests for the Analyzer class.
     ├───CMakeLists.txt          # CMake configuration for building the tests.
-    ├───TestUtils.cpp           # Implementation of test utility helpers.
-    ├───TestUtils.h             # Utility functions and helpers for the test suite.
-    ├───TestUtilsNewApiTest.cpp # Tests for new APIs within TestUtils.
-    └───Utils.cpp               # Unit tests for the Utils library.
-```
+    ├───analyzer/
+    │   └───Core.cpp            # Tests for the analysis engine.
+    └───utils/                  # Tests for the utility library.
+        ├───Core.cpp
+        ├───FileSystem.cpp
+        ├───String.cpp
+        ├───System.cpp
+        ├───Test.cpp
+        ├───Test.h
+        ├───TestNewApi.cpp
+        └───Types.cpp
+

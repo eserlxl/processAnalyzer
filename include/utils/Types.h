@@ -140,6 +140,7 @@ public:
             case UtilsError::directoryNotEmpty:
                 return condition == ::std::errc::directory_not_empty;
             case UtilsError::notADirectory:
+                return condition == ::std::errc::not_a_directory;
             case UtilsError::isADirectory:
                 return condition == ::std::errc::is_a_directory;
             case UtilsError::diskFull:

@@ -31,16 +31,16 @@ The `ProcessAnalyzer` class (defined in `include/analyzer/Core.h`) is the primar
 *   `MemoryMapInfo`: Process memory layout.
 *   `OpenFileDescriptorInfo`: Details on files opened by a process.
 
-### `Utils` Namespace
+### `utils` Namespace
 
-The `Utils` namespace (defined in `include/utils.h` and implemented in `src/utils.cpp`) offers a robust set of helper functions, including:
+The `utils` namespace offers a robust set of helper functions. The main header is `include/utils.h`, which includes the modular components from the `include/utils/` directory. The implementations are located in the `src/utils/` directory. The library includes:
 
 *   File system operations.
 *   String manipulation.
-*   Numeric parsing.
 *   System interactions.
+*   Time and Type utilities.
 
-For a comprehensive overview and usage examples of the utility library, please refer to [docs/UTILS.md](UTILS.md).
+For a comprehensive overview and usage examples of the utility library, please refer to **[docs/UTILS.md](UTILS.md)**.
 
 ## Future Enhancements
 
