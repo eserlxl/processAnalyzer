@@ -3,23 +3,17 @@
 
 #include "gtest/gtest.h" // Include Google Test framework
 #include "TestUtils.h" // Include the header with MockProc
-#include <iostream>
 #include <vector>
 #include <map>
 #include <string>
 #include <filesystem>
 #include <fstream>
 #include <sstream> // Required for stringstream
-#include <algorithm> // For std::for_each
-
 namespace fs = std::filesystem;
 
 // Define constants for common magic numbers
 constexpr unsigned long kbInBytes = 1024;
 constexpr unsigned long mbInBytes = 1024 * kbInBytes;
-constexpr unsigned long gbInBytes = 1024 * mbInBytes;
-
-constexpr unsigned long pageSize = 4096; // A common page size
 
 // Constants for test values
 constexpr unsigned long kMapOffset = 0x1000;
@@ -202,43 +196,6 @@ TEST_F(MockProcTest, CreateFdDir) {
         ASSERT_EQ(fs::read_symlink(symlinkPath).string(), fdPair.second);
     }
 }
-
-// Old addProcess test - this will be commented out or removed after full Iter 8 impl
-// TEST_F(MockProcTest, OldAddProcess) {
-//     const int testPid = 12345;
-//     std::string processName = "old_proc";
-//     std::vector<std::string> cmdlineArgs = {"/usr/bin/old_proc", "--arg1"};
-//     mockProc->addProcess(testPid, processName, cmdlineArgs);
-
-//     fs::path pidPath = mockRootPath / std::to_string(testPid);
-//     ASSERT_TRUE(fs::is_directory(pidPath));
-
-//     fs::path statusPath = pidPath / "status";
-//     ASSERT_TRUE(fs::exists(statusPath));
-//     std::string statusContent = readFileContent(statusPath);
-//     EXPECT_TRUE(statusContent.find("Name: " + processName) != std::string::npos);
-
-//     fs::path cmdlinePath = pidPath / "cmdline";
-//     ASSERT_TRUE(fs::exists(cmdlinePath));
-//     ASSERT_EQ(readNullSeparatedStrings(cmdlinePath), cmdlineArgs);
-// }
-
-// TEST_F(MockProcTest, OldAddProcessNoCmdline) {
-//     const int testPid = 67890;
-//     std::string processName = "old_proc_no_args";
-//     mockProc->addProcess(testPid, processName);
-
-//     fs::path pidPath = mockRootPath / std::to_string(testPid);
-//     ASSERT_TRUE(fs::is_directory(pidPath));
-
-//     fs::path statusPath = pidPath / "status";
-//     ASSERT_TRUE(fs::exists(statusPath));
-//     std::string statusContent = readFileContent(statusPath);
-//     EXPECT_TRUE(statusContent.find("Name: " + processName) != std::string::npos);
-
-//     fs::path cmdlinePath = pidPath / "cmdline";
-//     ASSERT_FALSE(fs::exists(cmdlinePath)); // Should not exist if no args provided
-// }
 
 // --- Iteration 8 New API Tests ---
 
