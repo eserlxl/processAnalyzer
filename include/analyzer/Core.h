@@ -49,8 +49,7 @@ public:
     utils::Result<SystemCpuStats> getSystemCpuStats() const;
 
     // Filtering API
-    utils::Result<std::vector<ProcessInfo>> findProcesses(const ProcessPredicate& predicate) const;
-
+    
     // New method for general process query with filtering and sorting
     // Contract: Returns processes matching filter, sorted as specified.
     // Uses std::expected for error reporting.
@@ -90,8 +89,7 @@ public:
     // Returns: A vector of ProcessCpuUsage objects. Processes that exit during the observation
     //          or have no CPU activity will have 0% usage.
     // Uses std::expected for error reporting.
-    utils::Result<std::vector<ProcessCpuUsage>> getAllProcessesCpuUsage(std::chrono::milliseconds durationMs) const;
-    
+        
     // New: Get the parent process of a given PID.
     // Contract: Returns the ProcessInfo of the parent process.
     // Uses std::expected for error reporting.
@@ -181,8 +179,7 @@ public:
     // New for Iteration 9: System Uptime and Kernel Information
     // Contract: Returns a SystemInfo object.
     // Uses std::expected for error reporting.
-    utils::Result<SystemInfo> getSystemInfo() const;
-
+    
     // New for Iteration 9: Calculate total system CPU usage percentage over a given duration.
     // Contract: Returns the total system CPU usage percentage.
     //           This method will take two snapshots of /proc/stat (before and after a delay)
@@ -191,8 +188,7 @@ public:
     //   durationMs: The duration in milliseconds to observe CPU usage.
     // Returns: A SystemCpuUsage object. `cpuPercentage` will be 0 if unable to calculate or no activity.
     // Uses std::expected for error reporting.
-    utils::Result<SystemCpuUsage> getSystemCpuUsage(std::chrono::milliseconds durationMs) const;
-
+    
 private:
     std::string procPath;
     // Store last known CPU times for delta calculation, accessible across calls if needed for efficiency

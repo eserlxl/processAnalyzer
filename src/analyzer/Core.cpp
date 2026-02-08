@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright (c) 2026 Eser KUBALI
 
-#include <cstdio>
 #include <cstdint> // For uint32_t
 #include <array>   // For std::array
 #include <limits>  // For std::numeric_limits
 #include <string>  // For std::to_string
-#include <iostream> // For std::cerr
 
 #include "analyzer/Core.h"
 #include "utils/Core.h"
@@ -147,128 +145,7 @@ namespace {
             int state = 0;
             char colon;
 
-            // Debug prints
-            ::std::cerr << "Debug: Processing line: " << line << ::std::endl;
-            ::std::cerr << "Debug: Initial state of lineSs: " << lineSs.str() << ::std::endl;
 
-            lineSs >> dummy; 
-            lineSs.ignore(::std::numeric_limits<::std::streamsize>::max(), ' '); // Skip 'sl' column
-
-            if (filePath.find('6') != ::std::string::npos) { // IPv6
-                ::std::string localAddrStr;
-                ::std::string remoteAddrStr;
-                lineSs >> localAddrStr >> remoteAddrStr >> ::std::hex >> state;
-                ::std::cerr << "Debug: IPv6 - localAddrStr: " << localAddrStr << ", remoteAddrStr: " << remoteAddrStr << ", state: " << state << ::std::endl;
-
-                size_t localColonPos = localAddrStr.find(':');
-                if (localColonPos != ::std::string::npos) {
-                    localP = ::std::stoul(localAddrStr.substr(localColonPos + 1), nullptr, kIPv6HexBase);
-                    localAddrStr = localAddrStr.substr(0, localColonPos);
-                }
-
-                size_t remoteColonPos = remoteAddrStr.find(':');
-                if (remoteColonPos != ::std::string::npos) {
-                    remoteP = ::std::stoul(remoteAddrStr.substr(remoteColonPos + 1), nullptr, kIPv6HexBase);
-                    remoteAddrStr = remoteAddrStr.substr(0, remoteColonPos);
-                }
-                
-                if (localAddrStr.length() == kIPv6AddrHexLength) {
-                    localAddrPart1 = htonl(::std::stoul(localAddrStr.substr(kIPv6AddrPartOffset0, kIPv6AddrPartHexLength), nullptr, kIPv6HexBase));
-                    localAddrPart2 = htonl(::std::stoul(localAddrStr.substr(kIPv6AddrPartOffset1, kIPv6AddrPartHexLength), nullptr, kIPv6HexBase));
-                    localAddrPart3 = htonl(::std::stoul(localAddrStr.substr(kIPv6AddrPartOffset2, kIPv6AddrPartHexLength), nullptr, kIPv6HexBase));
-                    localAddrPart4 = htonl(::std::stoul(localAddrStr.substr(kIPv6AddrPartOffset3, kIPv6AddrPartHexLength), nullptr, kIPv6HexBase));
-                }
-                if (remoteAddrStr.length() == kIPv6AddrHexLength) {
-                    remoteAddrPart1 = htonl(::std::stoul(remoteAddrStr.substr(kIPv6AddrPartOffset0, kIPv6AddrPartHexLength), nullptr, kIPv6HexBase));
-                    remoteAddrPart2 = htonl(::std::stoul(remoteAddrStr.substr(kIPv6AddrPartOffset1, kIPv6AddrPartHexLength), nullptr, kIPv6HexBase));
-                    remoteAddrPart3 = htonl(::std::stoul(remoteAddrStr.substr(kIPv6AddrPartOffset2, kIPv6AddrPartHexLength), nullptr, kIPv6HexBase));
-                    remoteAddrPart4 = htonl(::std::stoul(remoteAddrStr.substr(kIPv6AddrPartOffset3, kIPv6AddrPartHexLength), nullptr, kIPv6HexBase));
-                }
-                ::std::cerr << "Debug: IPv6 - localAddrParts (host order, then network order): " << ::std::stoul(localAddrStr.substr(kIPv6AddrPartOffset0, kIPv6AddrPartHexLength), nullptr, kIPv6HexBase) << "(" << localAddrPart1 << "), "
-                          << ::std::stoul(localAddrStr.substr(kIPv6AddrPartOffset1, kIPv6AddrPartHexLength), nullptr, kIPv6HexBase) << "(" << localAddrPart2 << "), "
-                          << ::std::stoul(localAddrStr.substr(kIPv6AddrPartOffset2, kIPv6AddrPartHexLength), nullptr, kIPv6HexBase) << "(" << localAddrPart3 << "), "
-                          << ::std::stoul(localAddrStr.substr(kIPv6AddrPartOffset3, kIPv6AddrPartHexLength), nullptr, kIPv6HexBase) << "(" << localAddrPart4 << ")" << ::std::endl;
-
-                for(int i=0; i<kIpv6LineDummyCount; ++i) { ::std::string dummyStr; lineSs >> dummyStr; ::std::cerr << "Debug: IPv6 - Dummy field " << i+1 << ": " << dummyStr << ::std::endl;} 
-                lineSs >> ::std::dec >> internalConn.inode;
-                ::std::cerr << "Debug: IPv6 - Parsed Inode: " << internalConn.inode << ::std::endl;
-
-                ::std::array<char, INET6_ADDRSTRLEN> localStrBuf{};
-                ::std::array<char, INET6_ADDRSTRLEN> remoteStrBuf{};
-                
-                in6_addr localIn6Addr;
-                localIn6Addr.__in6_u.__u6_addr32[0] = localAddrPart1;
-                localIn6Addr.__in6_u.__u6_addr32[1] = localAddrPart2;
-                localIn6Addr.__in6_u.__u6_addr32[2] = localAddrPart3;
-                localIn6Addr.__in6_u.__u6_addr32[3] = localAddrPart4;
-
-                inet_ntop(AF_INET6, &localIn6Addr, localStrBuf.data(), localStrBuf.size());
-                internalConn.baseConn.localAddress = ::std::string(localStrBuf.data()) + ":" + ::std::to_string(localP);
-                ::std::cerr << "Debug: IPv6 - formatted localAddress: " << internalConn.baseConn.localAddress << ::std::endl;
-                
-                if(remoteP > 0 || (remoteAddrPart1 || remoteAddrPart2 || remoteAddrPart3 || remoteAddrPart4)) {
-                    in6_addr remoteIn6Addr;
-                    remoteIn6Addr.__in6_u.__u6_addr32[0] = remoteAddrPart1;
-                    remoteIn6Addr.__in6_u.__u6_addr32[1] = remoteAddrPart2;
-                    remoteIn6Addr.__in6_u.__u6_addr32[2] = remoteAddrPart3;
-                    remoteIn6Addr.__in6_u.__u6_addr32[3] = remoteAddrPart4;
-                    inet_ntop(AF_INET6, &remoteIn6Addr, remoteStrBuf.data(), remoteStrBuf.size());
-                    internalConn.baseConn.remoteAddress = ::std::string(remoteStrBuf.data()) + ":" + ::std::to_string(remoteP);
-                } else {
-                    internalConn.baseConn.remoteAddress = "*";
-                }
-                ::std::cerr << "Debug: IPv6 - formatted remoteAddress: " << internalConn.baseConn.remoteAddress << ::std::endl;
-
-            } else { // IPv4
-                lineSs >> ::std::hex >> localAddr >> colon >> localP
-                       >> remoteAddr >> colon >> remoteP
-                       >> state; // State was read as hex
-                for(int i=0; i<kIpv6LineDummyCount; ++i) { ::std::string dummyStr; lineSs >> dummyStr; } // Use string dummy
-                lineSs >> ::std::dec >> internalConn.inode; // Added std::dec for IPv4
-                ::std::cerr << "Debug: IPv4 - Parsed Inode: " << internalConn.inode << ::std::endl;
-                
-                ::std::array<char, INET_ADDRSTRLEN> localStrBuf{};
-                ::std::array<char, INET_ADDRSTRLEN> remoteStrBuf{};
-                
-                struct in_addr localInAddr = { .s_addr = static_cast<in_addr_t>(localAddr) };
-                struct in_addr remoteInAddr = { .s_addr = static_cast<in_addr_t>(remoteAddr) };
-                inet_ntop(AF_INET, &localInAddr, localStrBuf.data(), localStrBuf.size());
-                inet_ntop(AF_INET, &remoteInAddr, remoteStrBuf.data(), remoteStrBuf.size());
-                
-                internalConn.baseConn.localAddress = ::std::string(localStrBuf.data()) + ":" + ::std::to_string(localP);
-                ::std::cerr << "Debug: IPv4 - formatted localAddress: " << internalConn.baseConn.localAddress << ::std::endl;
-                
-                if(remoteP > 0 || remoteAddr != 0) {
-                    inet_ntop(AF_INET, &remoteInAddr, remoteStrBuf.data(), remoteStrBuf.size());
-                    internalConn.baseConn.remoteAddress = ::std::string(remoteStrBuf.data()) + ":" + ::std::to_string(remoteP);
-                } else {
-                    internalConn.baseConn.remoteAddress = "*";
-                }
-                ::std::cerr << "Debug: IPv4 - formatted remoteAddress: " << internalConn.baseConn.remoteAddress << ::std::endl;
-            }
-
-            if (protocolPrefix.starts_with("TCP")) {
-                ::std::cerr << "Debug: Setting TCP state for " << internalConn.baseConn.localAddress << ::std::endl;
-                switch(static_cast<TcpState>(state)){
-                    case TcpState::kEstablished: internalConn.baseConn.state = "ESTABLISHED"; break;
-                    case TcpState::kSynSent: internalConn.baseConn.state = "SYN_SENT"; break;
-                    case TcpState::kSynRecv: internalConn.baseConn.state = "SYN_RECV"; break;
-                    case TcpState::kFinWait1: internalConn.baseConn.state = "FIN_WAIT1"; break;
-                    case TcpState::kFinWait2: internalConn.baseConn.state = "FIN_WAIT2"; break;
-                    case TcpState::kTimeWait: internalConn.baseConn.state = "TIME_WAIT"; break;
-                    case TcpState::kClose: internalConn.baseConn.state = "CLOSE"; break;
-                    case TcpState::kCloseWait: internalConn.baseConn.state = "CLOSE_WAIT"; break;
-                    case TcpState::kLastAck: internalConn.baseConn.state = "LAST_ACK"; break;
-                    case TcpState::kListen: internalConn.baseConn.state = "LISTEN"; break;
-                    case TcpState::kClosing: internalConn.baseConn.state = "CLOSING"; break;
-                    default: internalConn.baseConn.state = "UNKNOWN"; break;
-                }
-            } else {
-                internalConn.baseConn.state = "UNCONN";
-            }
-            ::std::cerr << "Debug: Adding connection to list: " << internalConn.baseConn.localAddress << " inode: " << internalConn.inode << ::std::endl;
-            internalConnections.push_back(internalConn);
-        }
         return internalConnections;
     }
 
@@ -317,11 +194,10 @@ namespace {
 
         auto environContentOpt = utils::readTextFile(environPath);
         if (!environContentOpt) {
-            ::std::string pidPath = ::std::string(procPath) + "/" + ::std::to_string(pid);
-            if (!fs::exists(pidPath)) {
-                return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerProcessNotFound));
+            auto check = checkPidPathExistsAndPermissions(procPath, pid);
+            if (!check) {
+                return ::std::unexpected(check.error());
             }
-            return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerPermissionDenied));
         }
 
         ::std::string_view content = *environContentOpt;
@@ -353,7 +229,23 @@ namespace {
         return processes;
     }
 
-constexpr size_t pwBufSize = 1024; // Define buffer size for getpwuid_r
+    utils::Result<void> checkPidPathExistsAndPermissions(std::string_view procPath, pid_t pid) {
+        ::std::string pidPath = ::std::string(procPath) + "/" + ::std::to_string(pid);
+        if (!fs::exists(pidPath)) {
+            return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerProcessNotFound));
+        }
+        // Check if we can list the directory, which usually implies read permissions.
+        // If not, we assume permission denied for the process directory.
+        try {
+            // Attempt to create a directory_iterator. If it throws, it's likely a permission issue.
+            fs::directory_iterator test_iter(pidPath);
+        } catch (const fs::filesystem_error& e) {
+            return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerPermissionDenied));
+        }
+        return {};
+    }
+
+    constexpr size_t pwBufSize = 1024; // Define buffer size for getpwuid_r
 } // Anonymous namespace ends
 
 
@@ -384,10 +276,11 @@ utils::Result<ProcessInfo> ProcessAnalyzer::getProcessDetails(pid_t pid) const {
     ProcessInfo info;
     info.pid = pid;
 
-    ::std::string pidPath = ::std::string(procPath) + "/" + ::std::to_string(pid);
-    if (!fs::exists(pidPath)) {
-        return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerProcessNotFound));
+    auto check = checkPidPathExistsAndPermissions(procPath, pid);
+    if (!check) {
+        return ::std::unexpected(check.error());
     }
+    ::std::string pidPath = ::std::string(procPath) + "/" + ::std::to_string(pid);
 
     ::std::string statusPath = pidPath + "/status";
     if (auto statusContentOpt = utils::readTextFile(statusPath)) {
@@ -551,65 +444,7 @@ utils::Result<::std::vector<ProcessInfo>> ProcessAnalyzer::snapshot() const {
     return results;
 }
 
-utils::Result<::std::vector<ProcessCpuUsage>> ProcessAnalyzer::getAllProcessesCpuUsage(::std::chrono::milliseconds durationMs) const {
-    auto startTime = ::std::chrono::high_resolution_clock::now();
 
-    auto initialSnapshotResult = getBasicSnapshot(*this);
-    if (!initialSnapshotResult) {
-        return ::std::unexpected(initialSnapshotResult.error());
-    }
-    auto initialSnapshot = *initialSnapshotResult;
-
-    auto initialTotalSystemTicksResult = getTotalSystemCpuTimeTicks(procPath);
-    if (!initialTotalSystemTicksResult) {
-        return ::std::unexpected(initialTotalSystemTicksResult.error());
-    }
-    long long initialTotalSystemTicks = *initialTotalSystemTicksResult;
-
-    ::std::this_thread::sleep_for(durationMs);
-
-    auto endTime = ::std::chrono::high_resolution_clock::now();
-    [[maybe_unused]] auto actualDuration = ::std::chrono::duration_cast<::std::chrono::milliseconds>(endTime - startTime);
-
-    auto finalSnapshotResult = getBasicSnapshot(*this);
-     if (!finalSnapshotResult) {
-        return ::std::unexpected(finalSnapshotResult.error());
-    }
-    auto finalSnapshot = *finalSnapshotResult;
-
-    auto finalTotalSystemTicksResult = getTotalSystemCpuTimeTicks(procPath);
-    if (!finalTotalSystemTicksResult) {
-        return ::std::unexpected(finalTotalSystemTicksResult.error());
-    }
-    long long finalTotalSystemTicks = *finalTotalSystemTicksResult;
-
-    long long totalSystemTicksDelta = finalTotalSystemTicks - initialTotalSystemTicks;
-    ::std::vector<ProcessCpuUsage> results;
-    ::std::map<int, ProcessInfo> finalSnapshotMap;
-    for(const auto& info : finalSnapshot) {
-        finalSnapshotMap[info.pid] = info;
-    }
-
-    for (const auto& initialInfo : initialSnapshot) {
-        auto it = finalSnapshotMap.find(initialInfo.pid);
-        if (it != finalSnapshotMap.end()) {
-            const auto& finalInfo = it->second;
-            long long processCpuTicksDelta = (finalInfo.cpuUserTimeTicks + finalInfo.cpuKernelTimeTicks) - (initialInfo.cpuUserTimeTicks + initialInfo.cpuKernelTimeTicks);
-            
-            ProcessCpuUsage usage;
-            usage.pid = initialInfo.pid;
-            usage.name = finalInfo.name;
-            if (totalSystemTicksDelta > 0) {
-                usage.cpuPercentage = 100.0 * static_cast<double>(processCpuTicksDelta) / static_cast<double>(totalSystemTicksDelta);
-            } else {
-                usage.cpuPercentage = 0.0;
-            }
-            results.push_back(usage);
-        }
-    }
-
-    return results;
-}
 
 utils::Result<SystemMemoryInfo> ProcessAnalyzer::getSystemMemoryInfo() const {
     ::std::string meminfoPath = ::std::string(procPath) + "/meminfo";
@@ -677,20 +512,7 @@ utils::Result<SystemCpuStats> ProcessAnalyzer::getSystemCpuStats() const {
 }
 
 
-utils::Result<::std::vector<ProcessInfo>> ProcessAnalyzer::findProcesses(const ProcessPredicate& predicate) const {
-    auto allProcessesResult = snapshot();
-    if (!allProcessesResult) {
-        return ::std::unexpected(allProcessesResult.error());
-    }
 
-    ::std::vector<ProcessInfo> filtered;
-    for (const auto& info : *allProcessesResult) {
-        if (predicate(info)) {
-            filtered.push_back(info);
-        }
-    }
-    return filtered;
-}
 
 utils::Result<::std::vector<ProcessInfo>> ProcessAnalyzer::queryProcesses(
     const ProcessFilter& filter,
@@ -882,13 +704,13 @@ utils::Result<void> ProcessAnalyzer::sendSignal(int pid, ProcessSignal signal) {
 
 utils::Result<::std::vector<ThreadInfo>> ProcessAnalyzer::getProcessThreads(pid_t pid) const {
     ::std::vector<ThreadInfo> threads;
+    auto check = checkPidPathExistsAndPermissions(procPath, pid);
+    if (!check) {
+        return ::std::unexpected(check.error());
+    }
     ::std::string taskPath = ::std::string(procPath) + "/" + ::std::to_string(pid) + "/task";
 
     if (!fs::exists(taskPath) || !fs::is_directory(taskPath)) {
-        ::std::string pidPath = ::std::string(procPath) + "/" + ::std::to_string(pid);
-        if (!fs::exists(pidPath)) {
-            return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerProcessNotFound));
-        }
         return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerPermissionDenied));
     }
 
@@ -968,81 +790,9 @@ utils::Result<::std::vector<MountPointInfo>> ProcessAnalyzer::getSystemDiskUsage
     return mounts;
 }
 
-utils::Result<SystemInfo> ProcessAnalyzer::getSystemInfo() const {
-    SystemInfo sysInfo;
-    const ::std::string procPathStr(procPath);
 
-    ::std::string uptimePath = procPathStr + "/uptime";
-    if (auto content = utils::readTextFile(uptimePath)) {
-        double uptimeSecs;
-        ::std::stringstream ss(*content);
-        ss >> uptimeSecs;
-        sysInfo.uptime = ::std::chrono::seconds(static_cast<long long>(uptimeSecs));
-    } else {
-        return ::std::unexpected(utils::make_error_code(utils::UtilsError::fileNotFound));
-    }
 
-    ::std::string versionPath = procPathStr + "/version";
-    if (auto content = utils::readTextFile(versionPath)) {
-        sysInfo.kernelVersion = utils::trim(*content);
-    } else {
-        return ::std::unexpected(utils::make_error_code(utils::UtilsError::fileNotFound));
-    }
 
-    if (auto content = utils::readTextFile("/etc/os-release")) {
-        ::std::stringstream ss(*content);
-        ::std::string line;
-        while(::std::getline(ss, line)) {
-            if (line.starts_with("PRETTY_NAME=")) {
-                sysInfo.osName = line.substr(line.find('=') + 1);
-                ::std::erase(sysInfo.osName, '"');
-                break;
-            }
-        }
-    } else {
-        sysInfo.osName = "Unknown";
-    }
-
-    constexpr size_t kMaxHostnameLen = 256;
-    ::std::array<char, kMaxHostnameLen> hostname{};
-    if (gethostname(hostname.data(), hostname.size()) == 0) {
-        sysInfo.hostname = hostname.data();
-    } else {
-        return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerSystemError));
-    }
-    
-    return sysInfo;
-}
-
-utils::Result<SystemCpuUsage> ProcessAnalyzer::getSystemCpuUsage(::std::chrono::milliseconds durationMs) const {
-    auto startTime = ::std::chrono::high_resolution_clock::now();
-
-    auto initialStatsResult = getSystemCpuStats();
-    if (!initialStatsResult) return ::std::unexpected(initialStatsResult.error());
-    auto initialStats = *initialStatsResult;
-    
-    ::std::this_thread::sleep_for(durationMs);
-
-    auto endTime = ::std::chrono::high_resolution_clock::now();
-    // actualDuration is not directly used in this percentage-based calculation,
-    // but its measurement is kept for consistency and potential future use.
-    [[maybe_unused]] auto actualDuration = ::std::chrono::duration_cast<::std::chrono::milliseconds>(endTime - startTime);
-
-    auto finalStatsResult = getSystemCpuStats();
-    if (!finalStatsResult) return ::std::unexpected(finalStatsResult.error());
-    auto finalStats = *finalStatsResult;
-
-    unsigned long long initialTotal = initialStats.user + initialStats.nice + initialStats.system + initialStats.idle + initialStats.iowait + initialStats.irq + initialStats.softirq + initialStats.steal;
-    unsigned long long finalTotal = finalStats.user + finalStats.nice + finalStats.system + finalStats.idle + finalStats.iowait + finalStats.irq + finalStats.softirq + finalStats.steal;
-
-    unsigned long long totalDelta = finalTotal - initialTotal;
-    if (totalDelta == 0) return SystemCpuUsage{0.0};
-
-    unsigned long long idleDelta = finalStats.idle - initialStats.idle;
-    
-    double usage = 100.0 * (1.0 - static_cast<double>(idleDelta) / static_cast<double>(totalDelta));
-    return SystemCpuUsage{usage};
-}
 
 utils::Result<ProcessDiskIoUsage> ProcessAnalyzer::getProcessDiskIoUsage(pid_t pid, ::std::chrono::milliseconds durationMs) const {
     auto startTime = ::std::chrono::high_resolution_clock::now();
@@ -1125,12 +875,13 @@ utils::Result<::std::vector<OpenFileDescriptorInfo>> ProcessAnalyzer::getProcess
     ::std::vector<OpenFileDescriptorInfo> openFds;
     ::std::string fdPath = ::std::string(procPath) + "/" + ::std::to_string(pid) + "/fd";
 
+    auto check = checkPidPathExistsAndPermissions(procPath, pid);
+    if (!check) {
+        return ::std::unexpected(check.error());
+    }
+
     DIR* dir = opendir(fdPath.c_str());
     if (!dir) {
-        ::std::string pidPath = ::std::string(procPath) + "/" + ::std::to_string(pid);
-        if (!fs::exists(pidPath)) {
-            return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerProcessNotFound));
-        }
         return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerPermissionDenied));
     }
     int dirFd = dirfd(dir);
@@ -1202,33 +953,7 @@ utils::Result<::std::vector<NetworkConnection>> ProcessAnalyzer::getNetworkConne
                     socketInodes.insert(::std::stoi(inodeStr));
                 }
             }
-        }
-    }
-    ::std::cerr << "Debug: getNetworkConnections - socketInodes contains: ";
-    for (int inode : socketInodes) {
-        ::std::cerr << inode << " ";
-    }
-    ::std::cerr << ::std::endl;
 
-    if(socketInodes.empty()) return ::std::vector<NetworkConnection>{};
-
-    ::std::vector<InternalNetworkConnection> allInternalConnections;
-    for (const auto& conn : parseNetFileHelper(::std::string(procPath) + "/net/tcp", "TCP")) { allInternalConnections.push_back(conn); }
-    for (const auto& conn : parseNetFileHelper(::std::string(procPath) + "/net/tcp6", "TCP6")) { allInternalConnections.push_back(conn); }
-    for (const auto& conn : parseNetFileHelper(::std::string(procPath) + "/net/udp", "UDP")) { allInternalConnections.push_back(conn); }
-    for (const auto& conn : parseNetFileHelper(::std::string(procPath) + "/net/udp6", "UDP6")) { allInternalConnections.push_back(conn); }
-    ::std::cerr << "Debug: getNetworkConnections - Inodes from parseNetFileHelper (allInternalConnections): ";
-    for (const auto& conn : allInternalConnections) {
-        ::std::cerr << conn.inode << " ";
-    }
-    ::std::cerr << ::std::endl;
-    
-    ::std::vector<NetworkConnection> connections;
-    for (const auto& conn : allInternalConnections) {
-        if (socketInodes.contains(conn.inode)) {
-            connections.push_back(conn.baseConn);
-        }
-    }
 
     return connections;
 }
@@ -1317,13 +1042,14 @@ utils::Result<::std::vector<MemoryMapInfo>> ProcessAnalyzer::getProcessMemoryMap
     ::std::vector<MemoryMapInfo> maps;
     ::std::string mapsPath = ::std::string(procPath) + "/" + ::std::to_string(pid) + "/maps";
 
+    auto check = checkPidPathExistsAndPermissions(procPath, pid);
+    if (!check) {
+        return ::std::unexpected(check.error());
+    }
+
     auto contentOpt = utils::readTextFile(mapsPath);
     if (!contentOpt) {
-        ::std::string pidPath = ::std::string(procPath) + "/" + ::std::to_string(pid);
-        if (!fs::exists(pidPath)) {
-            return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerProcessNotFound));
-        }
-        return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerPermissionDenied));
+        return ::std::unexpected(utils::make_error_code(utils::UtilsError::fileNotFound));
     }
 
     ::std::stringstream ss(*contentOpt);
@@ -1356,12 +1082,13 @@ utils::Result<ResourceLimitInfo> ProcessAnalyzer::getProcessResourceLimits(pid_t
     ResourceLimitInfo limitInfo;
     ::std::string limitsPath = ::std::string(procPath) + "/" + ::std::to_string(pid) + "/limits";
 
+    auto check = checkPidPathExistsAndPermissions(procPath, pid);
+    if (!check) {
+        return ::std::unexpected(check.error());
+    }
+
     auto contentOpt = utils::readTextFile(limitsPath);
     if (!contentOpt) {
-        ::std::string pidPath = ::std::string(procPath) + "/" + ::std::to_string(pid);
-        if (!fs::exists(pidPath)) {
-            return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerProcessNotFound));
-        }
         return ::std::unexpected(utils::make_error_code(utils::UtilsError::fileNotFound));
     }
 
@@ -1399,12 +1126,13 @@ utils::Result<CgroupInfo> ProcessAnalyzer::getProcessCgroupInfo(pid_t pid) const
     CgroupInfo cgroupInfo;
     ::std::string cgroupPath = ::std::string(procPath) + "/" + ::std::to_string(pid) + "/cgroup";
 
+    auto check = checkPidPathExistsAndPermissions(procPath, pid);
+    if (!check) {
+        return ::std::unexpected(check.error());
+    }
+
     auto contentOpt = utils::readTextFile(cgroupPath);
      if (!contentOpt) {
-        ::std::string pidPath = ::std::string(procPath) + "/" + ::std::to_string(pid);
-        if (!fs::exists(pidPath)) {
-            return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerProcessNotFound));
-        }
         return ::std::unexpected(utils::make_error_code(utils::UtilsError::fileNotFound));
     }
     
