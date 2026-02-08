@@ -61,12 +61,18 @@ To verify the correctness of the application, you can run the included unit test
     ```
 
 2.  **Run individual test executables**:
-    You can also run specific test executables directly for more detailed output.
+    While `ctest` is recommended for running all tests, you can also run specific test executables directly for more detailed output or debugging.
+    
+    To find the names of the available test executables, list the contents of the `build/tests/` directory:
     ```bash
-    ./tests/AnalyzerTest
-    ./tests/UtilsTest
+    ls tests/
     ```
-    *Note: The exact names and number of test executables may vary based on the project's `CMakeLists.txt` configuration.*
+    
+    Then, you can run a specific test executable, for example:
+    ```bash
+    ./tests/MySpecificTest
+    ```
+    *Note: The exact names and number of test executables are defined by the project's `CMakeLists.txt` configuration in the `tests/` directory.*
 
 ## Installation
 

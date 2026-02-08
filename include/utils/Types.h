@@ -52,6 +52,7 @@ enum class UtilsError {
     timeParseError,
     traversalStopped,
     unsupportedOperation,
+    unknownError,
 };
 
 // Define the custom error category class and its methods directly in the header.
@@ -63,46 +64,47 @@ public:
     }
 
     [[nodiscard]] ::std::string message(int ev) const override {
-        switch (static_cast<UtilsError>(ev)) {
-            case UtilsError::none: return "No error";
-            case UtilsError::fileNotFound: return "File or directory not found";
-            case UtilsError::permissionDenied: return "Permission denied";
-            case UtilsError::ioError: return "I/O error";
-            case UtilsError::invalidArgument: return "Invalid argument";
-            case UtilsError::unsupportedOperation: return "Unsupported operation";
-            case UtilsError::pathError: return "Path error";
-            case UtilsError::commandExecutionError: return "Command execution error";
-            case UtilsError::fileAlreadyExists: return "File already exists";
-            case UtilsError::directoryNotEmpty: return "Directory not empty";
-            case UtilsError::notADirectory: return "Not a directory";
-            case UtilsError::notAFile: return "Not a file";
-            case UtilsError::isADirectory: return "Is a directory";
-            case UtilsError::diskFull: return "Disk full";
-            case UtilsError::noSpaceOnDevice: return "No space left on device";
-            case UtilsError::fileTooLarge: return "File is too large to process";
-            case UtilsError::pathNotRelative: return "Path is not relative";
-            case UtilsError::pathNotAbsolute: return "Path is not absolute";
-            case UtilsError::basePathNotAncestor: return "Base path is not an ancestor";
-            case UtilsError::invalidPathFormat: return "Invalid path format";
-            case UtilsError::invalidBase64Input: return "Invalid Base64 input";
-            case UtilsError::invalidUrlEncoding: return "Invalid URL encoding";
-            case UtilsError::invalidUuidFormat: return "Invalid UUID format";
-            case UtilsError::envVarNotFound: return "Environment variable not found";
-            case UtilsError::commandNotFound: return "Command not found";
-            case UtilsError::commandFailed: return "Command failed";
-            case UtilsError::processSpawnFailure: return "Process spawn failure";
-            case UtilsError::permissionDeniedCwd: return "Permission denied for changing CWD";
-            case UtilsError::invalidTimeFormat: return "Invalid time format";
-            case UtilsError::timeParseError: return "Time parsing error";
-            case UtilsError::traversalStopped: return "Directory traversal stopped by callback";
-            case UtilsError::tempDirectoryError: return "Temporary directory error";
-            case UtilsError::outOfRange: return "Value out of range";
+        switch (ev) { // Switch on integer value directly
+            case static_cast<int>(UtilsError::none): return "No error";
+            case static_cast<int>(UtilsError::fileNotFound): return "File or directory not found";
+            case static_cast<int>(UtilsError::permissionDenied): return "Permission denied";
+            case static_cast<int>(UtilsError::ioError): return "I/O error";
+            case static_cast<int>(UtilsError::invalidArgument): return "Invalid argument";
+            case static_cast<int>(UtilsError::unsupportedOperation): return "Unsupported operation";
+            case static_cast<int>(UtilsError::pathError): return "Path error";
+            case static_cast<int>(UtilsError::commandExecutionError): return "Command execution error";
+            case static_cast<int>(UtilsError::fileAlreadyExists): return "File already exists";
+            case static_cast<int>(UtilsError::directoryNotEmpty): return "Directory not empty";
+            case static_cast<int>(UtilsError::notADirectory): return "Not a directory";
+            case static_cast<int>(UtilsError::notAFile): return "Not a file";
+            case static_cast<int>(UtilsError::isADirectory): return "Is a directory";
+            case static_cast<int>(UtilsError::diskFull): return "Disk full";
+            case static_cast<int>(UtilsError::noSpaceOnDevice): return "No space left on device";
+            case static_cast<int>(UtilsError::fileTooLarge): return "File is too large to process";
+            case static_cast<int>(UtilsError::pathNotRelative): return "Path is not relative";
+            case static_cast<int>(UtilsError::pathNotAbsolute): return "Path is not absolute";
+            case static_cast<int>(UtilsError::basePathNotAncestor): return "Base path is not an ancestor";
+            case static_cast<int>(UtilsError::invalidPathFormat): return "Invalid path format";
+            case static_cast<int>(UtilsError::invalidBase64Input): return "Invalid Base64 input";
+            case static_cast<int>(UtilsError::invalidUrlEncoding): return "Invalid URL encoding";
+            case static_cast<int>(UtilsError::invalidUuidFormat): return "Invalid UUID format";
+            case static_cast<int>(UtilsError::envVarNotFound): return "Environment variable not found";
+            case static_cast<int>(UtilsError::commandNotFound): return "Command not found";
+            case static_cast<int>(UtilsError::commandFailed): return "Command failed";
+            case static_cast<int>(UtilsError::processSpawnFailure): return "Process spawn failure";
+            case static_cast<int>(UtilsError::permissionDeniedCwd): return "Permission denied for changing CWD";
+            case static_cast<int>(UtilsError::invalidTimeFormat): return "Invalid time format";
+            case static_cast<int>(UtilsError::timeParseError): return "Time parsing error";
+            case static_cast<int>(UtilsError::traversalStopped): return "Directory traversal stopped by callback";
+            case static_cast<int>(UtilsError::tempDirectoryError): return "Temporary directory error";
+            case static_cast<int>(UtilsError::outOfRange): return "Value out of range";
+            case static_cast<int>(UtilsError::unknownError): return "Unknown error";
 
             // Analyzer specific errors
-            case UtilsError::analyzerProcessNotFound: return "Analyzer: Process not found";
-            case UtilsError::analyzerParsingError: return "Analyzer: Parsing error";
-            case UtilsError::analyzerSystemError: return "Analyzer: System error";
-            case UtilsError::analyzerPermissionDenied: return "Analyzer: Permission denied";
+            case static_cast<int>(UtilsError::analyzerProcessNotFound): return "Analyzer: Process not found";
+            case static_cast<int>(UtilsError::analyzerParsingError): return "Analyzer: Parsing error";
+            case static_cast<int>(UtilsError::analyzerSystemError): return "Analyzer: System error";
+            case static_cast<int>(UtilsError::analyzerPermissionDenied): return "Analyzer: Permission denied";
             default: return "Unknown UtilsError";
         }
     }

@@ -9,8 +9,14 @@
 [![CMake](https://img.shields.io/badge/CMake-3.17%2B-blue.svg)](https://cmake.org/)
 [![Maintenance](https://img.shields.io/badge/Maintained-yes-green.svg)](https://github.com/eserlxl/processAnalyzer)
 
+## Description
+
+`processAnalyzer` is a high-performance, lightweight C++ command-line utility designed for real-time inspection and monitoring of system processes on Linux. It provides developers, system administrators, and performance engineers with a powerful tool to gain deep insights into process behavior and resource consumption.
+
+By leveraging the `/proc` filesystem, it offers a robust interface to deliver detailed resource usage metrics and execution statistics, facilitating efficient system diagnostics, performance optimization, and debugging. Whether you're troubleshooting a memory leak, analyzing CPU bottlenecks, or simply exploring the system's process landscape, `processAnalyzer` provides the clarity you need.
+
 ## Table of Contents
-* [Overview](#overview)
+* [Description](#description)
 * [Features](#features)
 * [Installation](#installation)
 * [Quick Start](#quick-start)
@@ -23,12 +29,6 @@
 * [Contributing](#contributing)
 * [Changelog](#changelog)
 * [License](#license)
-
-## Overview
-
-`processAnalyzer` is a high-performance, lightweight C++ command-line utility designed for real-time inspection and monitoring of system processes on Linux. It provides developers, system administrators, and performance engineers with a powerful tool to gain deep insights into process behavior and resource consumption.
-
-By leveraging the `/proc` filesystem, it offers a robust interface to deliver detailed resource usage metrics and execution statistics, facilitating efficient system diagnostics, performance optimization, and debugging. Whether you're troubleshooting a memory leak, analyzing CPU bottlenecks, or simply exploring the system's process landscape, `processAnalyzer` provides the clarity you need.
 
 ## Features
 

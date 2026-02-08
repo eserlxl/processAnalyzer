@@ -45,16 +45,18 @@ namespace {
 }
 
 void printUsage() {
-    std::cout << "Usage: processAnalyzer <command> [options] [args...]\n\n"
+    std::cout << "Usage: processAnalyzer [command] [options]\n\n"
               << "A tool for inspecting system processes.\n\n"
               << "Commands:\n"
               << "  list                        List all processes. This is the default command.\n"
+              << "  show                        Show details for a specific process (requires --pid).\n"
               << "  pid <pid>                   Show details for a specific process ID.\n"
               << "  name <name>                 Filter processes by name.\n"
               << "  user <user>                 Filter processes by username.\n"
               << "  help                        Show this help message.\n\n"
               << "Options:\n"
               << "  -h, --help                  Show this help message.\n"
+              << "  -p, --pid <pid>             Target process ID.\n"
               << "  --brief                     Show a condensed table view.\n"
               << "  --columns <c1,c2,...>       Select columns. Available: pid, ppid, uid, user, name, state, rss, vm, threads, cmdline, cpu, start-time, elapsed-time, mem-perc, exec-path, nice.\n"
               << "  --config <path>             Path to a configuration file.\n"

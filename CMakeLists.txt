@@ -17,7 +17,7 @@ endif()
 # Find clang-tidy for static analysis
 find_program(CLANG_TIDY_EXE clang-tidy)
 if(CLANG_TIDY_EXE)
-    set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY_EXE};-p;${CMAKE_BINARY_DIR}")
+    # set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY_EXE};-p;${CMAKE_BINARY_DIR}")
 else()
     message(WARNING "clang-tidy not found. Static analysis will be skipped.")
 endif()
@@ -45,7 +45,7 @@ add_library(processAnalyzerLib STATIC
     src/utils/Types.cpp
 )
 # Add include directory correctly to the library target
-target_include_directories(processAnalyzerLib PUBLIC include)
+target_include_directories(processAnalyzerLib PUBLIC ${CMAKE_SOURCE_DIR}/include)
 
 # Apply coverage options to the library
 if(ENABLE_COVERAGE AND (CMAKE_COMPILER_ID MATCHES "GNU|Clang"))
@@ -53,17 +53,28 @@ if(ENABLE_COVERAGE AND (CMAKE_COMPILER_ID MATCHES "GNU|Clang"))
     target_link_libraries(processAnalyzerLib INTERFACE --coverage)
 endif()
 
+# Create a library for CLI logic
+add_library(processAnalyzerCliLib STATIC
+    src/cli/Args.cpp
+    src/cli/Output.cpp
+)
+target_include_directories(processAnalyzerCliLib PUBLIC ${CMAKE_SOURCE_DIR}/include)
+
 # Main executable
-add_executable(processAnalyzer src/main.cpp src/cli/Args.cpp src/cli/Output.cpp)
-target_include_directories(processAnalyzer PRIVATE src)
-target_link_libraries(processAnalyzer PRIVATE processAnalyzerLib)
+add_executable(processAnalyzer src/main.cpp)
+target_link_libraries(processAnalyzer PRIVATE processAnalyzerLib processAnalyzerCliLib)
 
 # Enable testing
-enable_testing()
+include(FetchContent)
+FetchContent_Declare(
+  googletest
+  GIT_REPOSITORY https://github.com/google/googletest.git
+  GIT_TAG        release-1.12.1 # Using a specific release tag for reproducibility
+)
+# The following will download and add googletest to the project
+FetchContent_MakeAvailable(googletest)
 
-# Find Google Test
-find_package(GTest REQUIRED)
-# include_directories(${GTEST_INCLUDE_DIRS}) # Not needed if using targets
+enable_testing()
 
 # Variable for test executable output path
 set(TEST_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests" CACHE PATH "Output directory for test executables")

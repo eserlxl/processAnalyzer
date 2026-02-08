@@ -9,15 +9,26 @@ add_executable(ProcessAnalyzerTests
     utils/System.cpp
     analyzer/Core.cpp
     utils/Test.cpp
-    utils/TestNewApi.cpp
-    utils/FileSystem.cpp
+    utils/TestApi.cpp
+    utils/FileTests.cpp
+    utils/PathTests.cpp
     utils/Types.cpp
     utils/String.cpp
+    cli/ArgsTests.cpp
+    cli/OutputTests.cpp
+    utils/TimeTests.cpp
 )
 
 # Link the single test executable
-target_include_directories(ProcessAnalyzerTests PRIVATE ${CMAKE_SOURCE_DIR}/tests)
-target_link_libraries(ProcessAnalyzerTests PRIVATE processAnalyzerLib GTest::gtest_main)
+target_include_directories(ProcessAnalyzerTests PRIVATE
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/src
+    ${CMAKE_SOURCE_DIR}/tests
+)
+target_link_libraries(ProcessAnalyzerTests PRIVATE processAnalyzerLib processAnalyzerCliLib GTest::gtest_main)
+
+set_target_properties(ProcessAnalyzerTests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests")
 
 # Add a single test to CTest
-add_test(NAME ProcessAnalyzerTests COMMAND ProcessAnalyzerTests)
+include(GoogleTest)
+gtest_discover_tests(ProcessAnalyzerTests)
