@@ -1,15 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright (c) 2026 Eser KUBALI
 
-#include "gtest/gtest.h" // Include Google Test framework
-#include "TestUtils.h" // Include the header with MockProc
-#include <vector>
-#include <map>
-#include <string>
-#include <filesystem>
-#include <fstream>
-#include <sstream> // Required for stringstream
+#include "gtest/gtest.h"
+#include "TestUtils.h"
+#include <sstream>
+
 namespace fs = std::filesystem;
+
+namespace {
 
 // Define constants for common magic numbers
 constexpr unsigned long kbInBytes = 1024;
@@ -44,7 +42,6 @@ constexpr int kPpid10 = 10;
 constexpr unsigned long kUtime123 = 123;
 constexpr unsigned long kStime45 = 45;
 
-// Iteration 12 constants
 constexpr int kPpid50 = 50;
 constexpr unsigned long long kUser100 = 100;
 constexpr unsigned long long kIdle200 = 200;
@@ -92,6 +89,8 @@ std::vector<std::string> readNullSeparatedStrings(const fs::path& filePath) {
     return result;
 }
 
+} // namespace
+
 // Test fixture for MockProc tests
 class MockProcTest : public ::testing::Test {
 protected:
@@ -99,8 +98,6 @@ protected:
     fs::path mockRootPath;
 
     void SetUp() override {
-        // Removed random_seed as it's not directly available and can lead to build errors.
-        // Using test case and test name should provide sufficient uniqueness.
         std::string basePath = std::string(::testing::UnitTest::GetInstance()->current_test_info()->test_case_name()) + "_" +
                                std::string(::testing::UnitTest::GetInstance()->current_test_info()->name());
         
@@ -110,11 +107,10 @@ protected:
 
     void TearDown() override {
         delete mockProc;
-        // MockProc destructor already handles fs::remove_all(root)
     }
 };
 
-// --- Tests for existing Iteration 6 functionalities, now using GTest framework ---
+// --- Basic MockProc Functionality Tests ---
 
 TEST_F(MockProcTest, CreateFileAt) {
     fs::path relativeFilePath = "etc/config.conf";
@@ -210,7 +206,7 @@ TEST_F(MockProcTest, CreateFdDir) {
     }
 }
 
-// --- Iteration 8 New API Tests ---
+// --- Advanced Process Features Tests ---
 
 TEST_F(MockProcTest, CreateExeSymlink) {
     const int testPid = 100;
@@ -641,7 +637,7 @@ TEST_F(MockProcTest, AddProcessCombinedOptions) {
     EXPECT_EQ(readFileContent(pidPath / "comm"), options.name + "\n");
 }
 
-// --- Iteration 12 New API Tests ---
+// --- System Statistics and Builder API Tests ---
 
 TEST_F(MockProcTest, ProcessBuilderFluentApi) {
     const int pid = 300;
@@ -794,4 +790,3 @@ TEST_F(MockProcTest, CreateNetDev) {
     EXPECT_TRUE(content.find("2000") != std::string::npos);
 }
 
-// Main removed to allow linking with gtest_main
