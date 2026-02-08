@@ -129,10 +129,12 @@ int main(int argc, char* argv[]) {
                          if (!threads.empty()) {
                              std::cout << "\nThreads:\n";
                              // Header and Loop
-                             std::cout << "  " << std::left << std::setw(8) << "TID" << "Name\n";
-                             std::cout << "  " << std::string(30, '-') << "\n";
+                             constexpr int kTidColumnWidth = 8;
+                             constexpr int kThreadSeparatorWidth = 30;
+                             std::cout << "  " << std::left << std::setw(kTidColumnWidth) << "TID" << "Name\n";
+                             std::cout << "  " << std::string(kThreadSeparatorWidth, '-') << "\n";
                              for(const auto& thread : threads) {
-                                 std::cout << "  " << std::left << std::setw(8) << thread.tid << thread.name << "\n";
+                                 std::cout << "  " << std::left << std::setw(kTidColumnWidth) << thread.tid << thread.name << "\n";
                              }
                          } else {
                              std::cout << "\nNo threads found.\n";

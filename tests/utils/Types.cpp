@@ -100,98 +100,34 @@ TEST(TypesTest, SuccessCondition) {
 }
 
 // New tests for std::error_condition mapping
-TEST(TypesTest, ErrorConditionMapping_fileNotFound) {
-    std::error_code ec = utils::UtilsError::fileNotFound;
-    EXPECT_TRUE(ec == std::errc::no_such_file_or_directory);
-    EXPECT_TRUE(ec == std::errc::no_such_file_or_directory);
-}
+TEST(TypesTest, ErrorConditionMappings) {
+    const std::map<utils::UtilsError, std::errc> mappings = {
+        {utils::UtilsError::fileNotFound, std::errc::no_such_file_or_directory},
+        {utils::UtilsError::permissionDenied, std::errc::permission_denied},
+        {utils::UtilsError::permissionDeniedCwd, std::errc::permission_denied},
+        {utils::UtilsError::ioError, std::errc::io_error},
+        {utils::UtilsError::invalidArgument, std::errc::invalid_argument},
+        {utils::UtilsError::pathError, std::errc::invalid_argument},
+        {utils::UtilsError::fileAlreadyExists, std::errc::file_exists},
+        {utils::UtilsError::directoryNotEmpty, std::errc::directory_not_empty},
+        {utils::UtilsError::notADirectory, std::errc::is_a_directory},
+        {utils::UtilsError::isADirectory, std::errc::is_a_directory},
+        {utils::UtilsError::diskFull, std::errc::no_space_on_device},
+        {utils::UtilsError::noSpaceOnDevice, std::errc::no_space_on_device},
+        {utils::UtilsError::commandNotFound, std::errc::no_such_process},
+        {utils::UtilsError::commandExecutionError, std::errc::operation_not_permitted},
+        {utils::UtilsError::commandFailed, std::errc::operation_not_permitted},
+        {utils::UtilsError::processSpawnFailure, std::errc::operation_not_permitted},
+        {utils::UtilsError::unsupportedOperation, std::errc::operation_not_supported}
+    };
 
-TEST(TypesTest, ErrorConditionMapping_permissionDenied) {
-    std::error_code ec = utils::UtilsError::permissionDenied;
-    EXPECT_TRUE(ec == std::errc::permission_denied);
-    EXPECT_TRUE(ec == std::errc::permission_denied);
-
-    std::error_code ecCwd = utils::UtilsError::permissionDeniedCwd;
-    EXPECT_TRUE(ecCwd == std::errc::permission_denied);
-    EXPECT_TRUE(ecCwd == std::errc::permission_denied);
-}
-
-TEST(TypesTest, ErrorConditionMapping_ioError) {
-    std::error_code ec = utils::UtilsError::ioError;
-    EXPECT_TRUE(ec == std::errc::io_error);
-    EXPECT_TRUE(ec == std::errc::io_error);
-}
-
-TEST(TypesTest, ErrorConditionMapping_invalidArgument) {
-    std::error_code ec = utils::UtilsError::invalidArgument;
-    EXPECT_TRUE(ec == std::errc::invalid_argument);
-    EXPECT_TRUE(ec == std::errc::invalid_argument);
-
-    std::error_code ecPathError = utils::UtilsError::pathError;
-    EXPECT_TRUE(ecPathError == std::errc::invalid_argument);
-    EXPECT_TRUE(ecPathError == std::errc::invalid_argument);
-}
-
-TEST(TypesTest, ErrorConditionMapping_fileAlreadyExists) {
-    std::error_code ec = utils::UtilsError::fileAlreadyExists;
-    EXPECT_TRUE(ec == std::errc::file_exists);
-    EXPECT_TRUE(ec == std::errc::file_exists);
-}
-
-TEST(TypesTest, ErrorConditionMapping_directoryNotEmpty) {
-    std::error_code ec = utils::UtilsError::directoryNotEmpty;
-    EXPECT_TRUE(ec == std::errc::directory_not_empty);
-    EXPECT_TRUE(ec == std::errc::directory_not_empty);
-}
-
-TEST(TypesTest, ErrorConditionMapping_notADirectory_isADirectory) {
-    std::error_code ecNotADir = utils::UtilsError::notADirectory;
-    EXPECT_TRUE(ecNotADir == std::errc::is_a_directory);
-    EXPECT_TRUE(ecNotADir == std::errc::is_a_directory);
-
-    std::error_code ecIsADir = utils::UtilsError::isADirectory;
-    EXPECT_TRUE(ecIsADir == std::errc::is_a_directory);
-    EXPECT_TRUE(ecIsADir == std::errc::is_a_directory);
-}
-
-TEST(TypesTest, ErrorConditionMapping_diskFull) {
-    std::error_code ec = utils::UtilsError::diskFull;
-    EXPECT_TRUE(ec == std::errc::no_space_on_device);
-    EXPECT_TRUE(ec == std::errc::no_space_on_device);
-
-    std::error_code ecNoSpace = utils::UtilsError::noSpaceOnDevice;
-    EXPECT_TRUE(ecNoSpace == std::errc::no_space_on_device);
-    EXPECT_TRUE(ecNoSpace == std::errc::no_space_on_device);
-}
-
-TEST(TypesTest, ErrorConditionMapping_commandNotFound) {
-    std::error_code ec = utils::UtilsError::commandNotFound;
-    EXPECT_TRUE(ec == std::errc::no_such_process);
-    EXPECT_TRUE(ec == std::errc::no_such_process);
-}
-
-TEST(TypesTest, ErrorConditionMapping_commandExecutionErrors) {
-    std::error_code ecExec = utils::UtilsError::commandExecutionError;
-    EXPECT_TRUE(ecExec == std::errc::operation_not_permitted);
-    EXPECT_TRUE(ecExec == std::errc::operation_not_permitted);
-
-    std::error_code ecFailed = utils::UtilsError::commandFailed;
-    EXPECT_TRUE(ecFailed == std::errc::operation_not_permitted);
-    EXPECT_TRUE(ecFailed == std::errc::operation_not_permitted);
-
-    std::error_code ecSpawn = utils::UtilsError::processSpawnFailure;
-    EXPECT_TRUE(ecSpawn == std::errc::operation_not_permitted);
-    EXPECT_TRUE(ecSpawn == std::errc::operation_not_permitted);
-}
-
-TEST(TypesTest, ErrorConditionMapping_unsupportedOperation) {
-    std::error_code ec = utils::UtilsError::unsupportedOperation;
-    EXPECT_TRUE(ec == std::errc::operation_not_supported);
-    EXPECT_TRUE(ec == std::errc::operation_not_supported);
+    for (const auto& [err, expected] : mappings) {
+        std::error_code ec = err;
+        EXPECT_TRUE(ec == std::errc(expected)) << "Error " << ec.value() << " (" << ec.message() << ") did not map to expected condition " << static_cast<int>(expected);
+    }
 }
 
 TEST(TypesTest, ErrorConditionMapping_negativeMatch) {
     std::error_code ec = utils::UtilsError::fileNotFound;
-    EXPECT_FALSE(ec == std::errc::permission_denied);
     EXPECT_FALSE(ec == std::errc::permission_denied);
 }
