@@ -5,7 +5,7 @@
 #include "utils.h"
 #include <iostream>
 #include <filesystem>
-#include <fstream>
+
 #include <sstream>
 #include <algorithm>
 #include <ranges> // For std::ranges::copy_if
@@ -21,7 +21,7 @@
 #include <sys/statvfs.h> // for statvfs
 #include <netinet/in.h> // for INET6_ADDRSTRLEN
 #include <arpa/inet.h>  // for inet_ntop
-#include <sys/un.h>     // for sockaddr_un
+
 #include <set>
 
 namespace fs = std::filesystem;
@@ -72,8 +72,17 @@ constexpr double kMSInSecond = 1000.0;
 } // namespace
 
 namespace { // Anonymous namespace for helper functions and enums
-// parseNetFile removed from here as it was a duplicate/broken version.
-// The correct version is in the anonymous namespace later in the file.
+    // ... existing content ...
+
+    // Helper function to apply process filters
+    bool matchesFilter(const ProcessInfo& process, const ProcessFilter& filter) {
+            std::ranges::copy_if(allProcesses, std::back_inserter(filteredProcesses),
+                [&](const ProcessInfo& process) {
+                    return matchesFilter(process, filter);
+                });    }
+
+    // parseNetFile removed from here as it was a duplicate/broken version.
+    // The correct version is in the anonymous namespace later in the file.
 
     std::vector<ProcessInfo> getBasicSnapshot(const ProcessAnalyzer& analyzer) {
         std::vector<ProcessInfo> processes;
@@ -93,7 +102,7 @@ ProcessAnalyzer::ProcessAnalyzer(std::string_view procPath) : procPath(procPath)
 std::vector<int> ProcessAnalyzer::getPids() const {
     std::vector<int> pids;
     if (!fs::exists(procPath)) {
-        return {1, /* Example PID */ kExamplePid1, /* Example PID */ kExamplePid2 /* Example PID */}; 
+        return {1, kExamplePid1, kExamplePid2}; 
     }
 
     try {
@@ -472,23 +481,7 @@ std::vector<ProcessInfo> ProcessAnalyzer::queryProcesses(
     // Apply filtering
     std::ranges::copy_if(allProcesses, std::back_inserter(filteredProcesses),
         [&](const ProcessInfo& process) {
-            if (filter.nameContains && process.name.find(*filter.nameContains) == std::string::npos) return false;
-            if (filter.userFilter && process.username != *filter.userFilter) return false;
-            if (filter.stateFilter && (process.state.empty() || process.state[0] != *filter.stateFilter)) return false;
-            if (filter.minThreads && process.threadCount < *filter.minThreads) return false;
-            if (filter.maxThreads && process.threadCount > *filter.maxThreads) return false;
-            if (filter.minResidentMemoryKB && process.residentMemory < *filter.minResidentMemoryKB) return false;
-            if (filter.maxResidentMemoryKB && process.residentMemory > *filter.maxResidentMemoryKB) return false;
-            if (filter.minVirtualMemoryKB && process.virtualMemory < *filter.minVirtualMemoryKB) return false;
-            if (filter.maxVirtualMemoryKB && process.virtualMemory > *filter.maxVirtualMemoryKB) return false;
-            if (filter.cmdlineContains && process.cmdline.find(*filter.cmdlineContains) == std::string::npos) return false;
-            if (filter.executablePathContains && process.executablePath.find(*filter.executablePathContains) == std::string::npos) return false;
-            if (filter.uidFilter && process.uid != *filter.uidFilter) return false;
-            if (filter.minPriority && process.priority < *filter.minPriority) return false;
-            if (filter.maxPriority && process.priority > *filter.maxPriority) return false;
-            if (filter.ppidFilter && process.ppid != *filter.ppidFilter) return false;
-            if (filter.customPredicate && !(*filter.customPredicate)(process)) return false;
-            return true;
+            return matchesFilter(process, filter);
         });
 
     // Apply sorting
@@ -1091,23 +1084,9 @@ std::generator<ProcessInfo> ProcessAnalyzer::streamQueryProcesses(
     // This implementation will filter lazily, but sort eagerly.
     std::vector<ProcessInfo> filteredProcesses;
     for (auto process : streamProcesses()) {
-         if (filter.nameContains && process.name.find(*filter.nameContains) == std::string::npos) continue;
-         if (filter.userFilter && process.username != *filter.userFilter) continue;
-         if (filter.stateFilter && (process.state.empty() || process.state[0] != *filter.stateFilter)) continue;
-         if (filter.minThreads && process.threadCount < *filter.minThreads) continue;
-         if (filter.maxThreads && process.threadCount > *filter.maxThreads) continue;
-         if (filter.minResidentMemoryKB && process.residentMemory < *filter.minResidentMemoryKB) continue;
-         if (filter.maxResidentMemoryKB && process.residentMemory > *filter.maxResidentMemoryKB) continue;
-         if (filter.minVirtualMemoryKB && process.virtualMemory < *filter.minVirtualMemoryKB) continue;
-         if (filter.maxVirtualMemoryKB && process.virtualMemory > *filter.maxVirtualMemoryKB) continue;
-         if (filter.cmdlineContains && process.cmdline.find(*filter.cmdlineContains) == std::string::npos) continue;
-         if (filter.executablePathContains && process.executablePath.find(*filter.executablePathContains) == std::string::npos) continue;
-         if (filter.uidFilter && process.uid != *filter.uidFilter) continue;
-         if (filter.minPriority && process.priority < *filter.minPriority) continue;
-         if (filter.maxPriority && process.priority > *filter.maxPriority) continue;
-         if (filter.ppidFilter && process.ppid != *filter.ppidFilter) continue;
-         if (filter.customPredicate && !(*filter.customPredicate)(process)) continue;
-         filteredProcesses.push_back(process);
+         if (matchesFilter(process, filter)) {
+             filteredProcesses.push_back(process);
+         }
     }
     
     // Sort eagerly
