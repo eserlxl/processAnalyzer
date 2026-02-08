@@ -63,6 +63,8 @@ struct ProcessInfo {
 
     // --- New Fields for Iteration 5 ---
     long long startTimeTicks; // Process start time in clock ticks since system boot
+    long long startTimeUnix;  // Process start time as Unix timestamp (seconds since epoch) - NEW for Iteration 13
+    std::string elapsedTime;  // Formatted string representing uptime, e.g., "01:23:45" or "1d 2h" - NEW for Iteration 13
     std::string executablePath; // Path to the executable file (symlink /proc/<pid>/exe)
     std::string currentWorkingDirectory; // Current working directory (symlink /proc/<pid>/cwd)
     std::vector<std::string> environmentVariables; // Environment variables (from /proc/<pid>/environ)
@@ -71,6 +73,10 @@ struct ProcessInfo {
     long long ioReadBytes;      // Total bytes read by the process (from /proc/<pid>/io)
     long long ioWriteBytes;     // Total bytes written by the process (from /proc/<pid>/io)
     int priority;               // Process priority (nice value)
+    
+    // --- New Fields for Iteration 13 ---
+    float cpuUsage;             // Percentage of CPU usage.
+    float memoryPercentage;     // Percentage of total system memory used by the process (RSS-based).
 };
 
 struct ProcessCpuUsage {
@@ -126,14 +132,10 @@ enum class SocketType {
 };
 
 struct NetworkConnection {
-    AddressFamily family;
-    SocketType type;
-    std::string localAddress;
-    uint16_t localPort;
-    std::optional<std::string> remoteAddress; // For connected sockets
-    std::optional<uint16_t> remotePort;     // For connected sockets
-    std::string state;                      // e.g., "LISTEN", "ESTABLISHED", "CLOSE_WAIT"
-    std::optional<int> inode;                 // Inode associated with the socket
+    std::string protocol;    // e.g., "TCP", "UDP", "TCP6", "UDP6"
+    std::string localAddress;  // Local IP address and port, e.g., "127.0.0.1:8080"
+    std::string remoteAddress; // Remote IP address and port, e.g., "192.168.1.100:443" or "*" for LISTEN
+    std::string state;       // Connection state, e.g., "ESTABLISHED", "LISTEN", "TIME_WAIT"
 };
 
 // New for Iteration 9: Disk I/O Rate per Process
@@ -229,7 +231,9 @@ enum class ProcessSortField {
     cpuKernelTime,
     ioReadBytes,
     ioWriteBytes,
-    priority
+    priority,
+    cpuUsage,         // NEW for Iteration 13
+    memoryPercentage  // NEW for Iteration 13
 };
 
 enum class SortOrder {
@@ -337,14 +341,14 @@ public:
     // Throws: std::runtime_error for unexpected system errors.
     static bool sendSignal(int pid, ProcessSignal signal);
 
-    // New for Iteration 9: Network Activity Monitoring
+    // New for Iteration 13: Network Activity Monitoring
     // Contract: Returns a vector of NetworkConnection objects for the specified PID.
     //           Parses /proc/[pid]/net/{tcp,tcp6,udp,udp6,unix}
     // Parameters:
     //   pid: The process ID.
     // Returns: A vector of NetworkConnection. Empty if no connections or process not found/inaccessible.
     // Throws: std::runtime_error for permissions issues or parsing errors.
-    std::vector<NetworkConnection> getProcessNetworkConnections(int pid) const;
+    std::vector<NetworkConnection> getNetworkConnections(int pid) const;
 
     // New for Iteration 9: Disk I/O Rate per Process
     // Contract: Returns the disk I/O rate for the specified PID.

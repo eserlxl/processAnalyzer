@@ -129,9 +129,11 @@ Result<CommandOutput> executeCommand(const std::string& command);
 [[deprecated("Use Result-based executeCommand instead.")]]
 bool executeCommandDeprecated(const std::string& command, std::string& stdoutStr, std::string& stderrStr, int& exitCode);
 
-Result<std::string> getEnv(const std::string& var);
+Result<std::string> getEnv(const std::string& name);
 
-
+// Time Utilities
+std::string formatElapsedTime(long long seconds);
+std::string formatTimestamp(long long unixTimestamp);
 
 } // namespace Utils
 

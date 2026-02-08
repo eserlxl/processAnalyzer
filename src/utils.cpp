@@ -304,10 +304,9 @@ bool endsWithIgnoreCase(std::string_view str, std::string_view suffix) {
 }
 
 bool containsIgnoreCase(std::string_view str, std::string_view subStr) {
-    auto it = std::search(str.begin(), str.end(),
-                          subStr.begin(), subStr.end(),
+    auto it = std::ranges::search(str, subStr,
                           [](unsigned char ch1, unsigned char ch2) { return std::tolower(ch1) == std::tolower(ch2); });
-    return it != str.end();
+    return !it.empty();
 }
 
 std::string toLower(std::string_view s) {
@@ -419,11 +418,11 @@ std::string formatStringDeprecated(const char* fmt, ...) {
         return ""; // Encoding error
     }
 
-    auto buf = std::make_unique<char[]>(size + 1);
-    std::vsnprintf(buf.get(), size + 1, fmt, args);
+    std::vector<char> buf(size + 1);
+    std::vsnprintf(buf.data(), size + 1, fmt, args);
     
     va_end(args);
-    return std::string(buf.get(), size);
+    return {buf.data(), static_cast<std::string::size_type>(size)};
 }
 
 std::vector<std::string> split(std::string_view s, char delimiter, bool skipEmpty) {
@@ -668,7 +667,7 @@ Result<CommandOutput> executeCommand(const std::string& command) {
 
     // With 2>&1, stderr is mixed with stdout. We can't separate them with popen.
     // For more complex scenarios, a different approach (e.g., custom fork/exec) would be needed.
-    return CommandOutput{stdoutStr, "", exitCode};
+    return CommandOutput{.stdoutStr = stdoutStr, .stderrStr = "", .exitCode = exitCode};
 }
 
 bool executeCommandDeprecated(const std::string& command, std::string& stdoutStr, std::string& stderrStr, int& exitCode) {
@@ -690,6 +689,71 @@ bool executeCommandDeprecated(const std::string& command, std::string& stdoutStr
     exitCode = WEXITSTATUS(pcloseResult);
 
     return true;
+}
+
+std::string formatElapsedTime(long long seconds) {
+    if (seconds < 0) return "N/A";
+    
+    constexpr long long kSecondsPerMinute = 60;
+    constexpr long long kSecondsPerHour = 3600;
+    constexpr long long kSecondsPerDay = 24LL * 3600LL;
+
+    long long days = seconds / kSecondsPerDay;
+    seconds %= kSecondsPerDay;
+    long long hours = seconds / kSecondsPerHour;
+    seconds %= kSecondsPerHour;
+    long long minutes = seconds / kSecondsPerMinute;
+    seconds %= kSecondsPerMinute;
+
+    std::string result;
+    if (days > 0) {
+        result += std::to_string(days) + "d ";
+    }
+    // Always show H:M:S, even if days are present. Pad with leading zeros.
+    std::string h = std::to_string(hours);
+    std::string m = std::to_string(minutes);
+    std::string s = std::to_string(seconds);
+    if (h.length() == 1) h = "0" + h;
+    if (m.length() == 1) m = "0" + m;
+    if (s.length() == 1) s = "0" + s;
+
+    result += h + ":" + m + ":" + s;
+    return result;
+}
+
+std::string formatTimestamp(long long unixTimestamp) {
+    if (unixTimestamp <= 0) { // Handle invalid or epoch timestamps gracefully
+        return "N/A";
+    }
+
+    // Use standard C time functions for portability if std::chrono::current_zone is missing
+    auto tt = static_cast<std::time_t>(unixTimestamp);
+    std::tm tmBuf{};
+    
+    // Use localtime_r for thread safety if available, or localtime
+#if defined(_POSIX_C_SOURCE) || defined(_BSD_SOURCE) || defined(_SVID_SOURCE) || defined(_XOPEN_SOURCE)
+    localtime_r(&tt, &tmBuf);
+#else
+    // Fallback for non-POSIX (less thread-safe but standard C++)
+    if (std::tm* tmp = std::localtime(&tt)) {
+        tmBuf = *tmp;
+    }
+#endif
+
+    // Format: "YYYY-MM-DD HH:MM:SS"
+    // Using std::strftime to manually format including timezone if needed, 
+    // or just simplified format.
+    // std::format is C++20, let's use it with tm if supported, or strftime.
+    // std::format("{:%Y-%m-%d %H:%M:%S}", tm_buf) might work if C++20 chrono support is good.
+    // But since current_zone failed, let's stick to strftime for safety.
+    
+    constexpr size_t kBufferSize = 64;
+    std::array<char, kBufferSize> buffer{};
+    // %Z or %z for timezone
+    if (std::strftime(buffer.data(), buffer.size(), "%Y-%m-%d %H:%M:%S %Z", &tmBuf)) {
+        return {buffer.data()};
+    }
+    return "N/A";
 }
 
 } // namespace Utils

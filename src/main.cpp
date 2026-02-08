@@ -29,6 +29,9 @@ struct ParsedArguments {
     bool showChildren = false;
     bool showOpenFiles = false;
     bool showHelp = false;
+    std::optional<int> ppidFilter;       // Stores the PPID value for the --ppid filter.
+    bool showNetworkConnections = false; // Flag to indicate if --network option was used.
+    std::optional<std::string> configFilePath; // Path to a user-specified configuration file.
 };
 
 // Forward declarations for functions
@@ -51,6 +54,9 @@ std::optional<ProcessSortField> stringToProcessSortField(const std::string& s) {
     if (lowerS == "rss") return ProcessSortField::rss;
     if (lowerS == "vm") return ProcessSortField::vmsize;
     if (lowerS == "threads") return ProcessSortField::threads;
+    if (lowerS == "cpu") return ProcessSortField::cpuUsage;
+    if (lowerS == "start-time") return ProcessSortField::startTime;
+    if (lowerS == "mem-perc") return ProcessSortField::memoryPercentage;
     return std::nullopt;
 }
 
@@ -66,6 +72,23 @@ std::string getProcessInfoValue(const ProcessInfo& info, const std::string& col)
     if (col == "vm") return std::to_string(info.virtualMemory);
     if (col == "threads") return std::to_string(info.threadCount);
     if (col == "cmdline") return info.cmdline;
+    // New columns for Iteration 13
+    if (col == "cpu") {
+        std::stringstream ss;
+        ss << std::fixed << std::setprecision(2) << info.cpuUsage;
+        return ss.str();
+    }
+    if (col == "start-time") {
+        return utils::formatTimestamp(info.startTimeUnix);
+    }
+    if (col == "elapsed-time") return info.elapsedTime;
+    if (col == "mem-perc") {
+        std::stringstream ss;
+        ss << std::fixed << std::setprecision(2) << info.memoryPercentage;
+        return ss.str();
+    }
+    if (col == "exec-path") return info.executablePath;
+    if (col == "nice") return std::to_string(info.priority);
     return ""; // Should not happen with valid column names
 }
 
@@ -150,6 +173,20 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
             args.showChildren = true;
         } else if (arg == "--open-files") {
             args.showOpenFiles = true;
+        } else if (arg == "--ppid") {
+            if (i + 1 >= cliArgs.size()) { std::cerr << "Error: --ppid requires an argument.\n"; return std::nullopt; }
+            constexpr int kBase10 = 10;
+            if (auto ppid = utils::toLong(cliArgs[++i], kBase10)) {
+                args.ppidFilter = (int)*ppid;
+            } else {
+                std::cerr << "Error: Invalid PPID '" << cliArgs[i] << "'.\n";
+                return std::nullopt;
+            }
+        } else if (arg == "--network") {
+            args.showNetworkConnections = true;
+        } else if (arg == "--config") {
+            if (i + 1 >= cliArgs.size()) { std::cerr << "Error: --config requires a path.\n"; return std::nullopt; }
+            args.configFilePath = cliArgs[++i];
         } else if (utils::startsWith(arg, "-")) {
             std::cerr << "Error: Unknown option '" << arg << "'.\n";
             return std::nullopt;
@@ -178,8 +215,11 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
     if (args.command == "pid" && !args.pid) { std::cerr << "Error: 'pid' command requires a PID.\n"; return std::nullopt; }
     if (args.command == "name" && !args.name) { std::cerr << "Error: 'name' command requires a name.\n"; return std::nullopt; }
     if (args.command == "user" && !args.user) { std::cerr << "Error: 'user' command requires a user.\n"; return std::nullopt; }
-    if ((args.showChildren || args.showOpenFiles) && args.command != "pid") {
-        std::cerr << "Error: --children and --open-files are only valid with 'pid' command.\n"; return std::nullopt;
+    if ((args.showChildren || args.showOpenFiles || args.showNetworkConnections) && args.command != "pid") {
+        std::cerr << "Error: --children, --open-files, and --network are only valid with 'pid' command.\n"; return std::nullopt;
+    }
+    if (args.ppidFilter.has_value() && args.command == "pid") {
+        std::cerr << "Error: --ppid cannot be used with 'pid' command.\n"; return std::nullopt;
     }
 
     return args;
@@ -205,6 +245,7 @@ int main(int argc, char* argv[]) {
         // Populate filter from args
         if (args.name) filter.nameContains = *args.name;
         if (args.user) filter.userFilter = *args.user;
+        if (args.ppidFilter) filter.ppidFilter = args.ppidFilter;
         filter.stateFilter = args.stateFilter;
 
         if (args.command == "list" || args.command == "name" || args.command == "user") {
@@ -247,6 +288,31 @@ int main(int argc, char* argv[]) {
                         }
                     } catch (const std::exception& e) {
                         std::cerr << "Error reading open files: " << e.what() << "\n";
+                    }
+                }
+                if (args.showNetworkConnections) {
+                    try {
+                        auto conns = analyzer.getNetworkConnections(targetPid);
+                        if (!conns.empty()) {
+                            std::cout << "\nNetwork Connections:\n";
+                            // Header
+                            constexpr int kColWidthProto = 8;
+                            constexpr int kColWidthAddress = 28;
+                            constexpr int kSeparatorWidth = 78;
+                            std::cout << "  " << std::left << std::setw(kColWidthProto) << "Proto" << std::setw(kColWidthAddress) << "Local Address" << std::setw(kColWidthAddress) << "Remote Address" << "State\n";
+                            std::cout << "  " << std::string(kSeparatorWidth, '-') << "\n";
+                            for (const auto& conn : conns) {
+                                std::cout << "  " << std::left 
+                                          << std::setw(kColWidthProto) << conn.protocol
+                                          << std::setw(kColWidthAddress) << conn.localAddress
+                                          << std::setw(kColWidthAddress) << conn.remoteAddress
+                                          << conn.state << "\n";
+                            }
+                        } else {
+                            std::cout << "\nNo network connections found.\n";
+                        }
+                    } catch (const std::exception& e) {
+                        std::cerr << "Error reading network connections: " << e.what() << "\n";
                     }
                 }
                 return 0; // Done with pid-specific output
@@ -298,15 +364,18 @@ void printUsage() {
               << "Options:\n"
               << "  -h, --help                  Show this help message.\n"
               << "  --brief                     Show a condensed table view.\n"
-              << "  --columns <c1,c2,...>       Select columns (pid,ppid,uid,user,name,state,rss,vm,threads,cmdline).\n"
+              << "  --columns <c1,c2,...>       Select columns. Available: pid, ppid, uid, user, name, state, rss, vm, threads, cmdline, cpu, start-time, elapsed-time, mem-perc, exec-path, nice.\n"
+              << "  --config <path>             Path to a configuration file.\n"
               << "  --format <csv|json>         Set output format.\n"
               << "  --no-truncate-cmdline       Do not truncate the command line in table view.\n"
-              << "  --sort-by <field>           Sort by field (pid,name,user,rss,vm,threads,state).\n"
+              << "  --sort-by <field>           Sort by field. Available: pid, ppid, name, user, rss, vm, threads, state, cpu, start-time, mem-perc.\n"
               << "  --desc                      Sort in descending order.\n"
-              << "  --state <char>              Filter by process state (e.g., R, S, Z, T, D).\n\n"
+              << "  --state <char>              Filter by process state (e.g., R, S, Z, T, D).\n"
+              << "  --ppid <ppid>               Filter by parent process ID.\n\n"
               << "PID Specific Options:\n"
               << "  --children                  Show child processes.\n"
-              << "  --open-files                Show open files.\n";
+              << "  --open-files                Show open files.\n"
+              << "  --network                   Show network connections.\n";
 }
 
 
@@ -324,9 +393,15 @@ void printVerticalProcessDetails(const ProcessInfo& info) {
               << "User:              " << info.username << "\n"
               << "Name:              " << info.name << "\n"
               << "State:             " << info.state << "\n"
+              << "Nice Value:        " << info.priority << "\n"
+              << "CPU Usage:         " << std::fixed << std::setprecision(2) << info.cpuUsage << " %\n"
+              << "Memory Usage:      " << std::fixed << std::setprecision(2) << info.memoryPercentage << " %\n"
               << "RSS Memory:        " << info.residentMemory << " KB\n"
               << "Virtual Memory:    " << info.virtualMemory << " KB\n"
               << "Threads:           " << info.threadCount << "\n"
+              << "Start Time:        " << utils::formatTimestamp(info.startTimeUnix) << "\n"
+              << "Elapsed Time:      " << info.elapsedTime << "\n"
+              << "Executable Path:   " << info.executablePath << "\n"
               << "Command:           " << info.cmdline << "\n";
 }
 
@@ -344,7 +419,13 @@ void printProcessTable(const std::vector<ProcessInfo>& processes, const std::vec
         {"rss", 10},
         {"vm", 10},
         {"threads", 8},
-        {"cmdline", 40}
+        {"cmdline", 40},
+        {"cpu", 8},
+        {"start-time", 22},
+        {"elapsed-time", 14},
+        {"mem-perc", 10},
+        {"exec-path", 30},
+        {"nice", 6}
     };
     std::map<std::string, int> widths = kDefaultColumnWidths; // Use a mutable copy if needed to adjust widths dynamically later
 
@@ -354,6 +435,7 @@ void printProcessTable(const std::vector<ProcessInfo>& processes, const std::vec
         // Use std::ranges::transform for modernization
         std::ranges::transform(header, header.begin(), ::toupper); 
         if (col == "rss" || col == "vm") header += "(KB)";
+        if (col == "cpu" || col == "mem-perc") header += "(%)";
         std::cout << std::left << std::setw(widths[col]) << header;
     }
     std::cout << std::endl;

@@ -50,7 +50,43 @@ constexpr double kMSInSecond = 1000.0;
 
     constexpr int kExamplePid1 = 100;
     constexpr int kExamplePid2 = 200;
+
+    // Helper function to get system boot time in Unix timestamp (seconds since epoch)
+    long long getSystemBootTimeUnix(std::string_view procPath) {
+        std::string uptimePath = std::string(procPath) + "/uptime";
+        auto contentOpt = utils::readTextFile(uptimePath);
+        if (!contentOpt) {
+            // Log or handle error appropriately. For now, return 0.
+            return 0; 
+        }
+        std::stringstream ss(*contentOpt);
+        double uptimeSeconds;
+        ss >> uptimeSeconds;
+
+        auto now = std::chrono::system_clock::now();
+        long long currentTimeUnix = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
+
+        return currentTimeUnix - static_cast<long long>(uptimeSeconds);
+    }
+
 } // namespace
+
+namespace { // Anonymous namespace for helper functions and enums
+// parseNetFile removed from here as it was a duplicate/broken version.
+// The correct version is in the anonymous namespace later in the file.
+
+    std::vector<ProcessInfo> getBasicSnapshot(const ProcessAnalyzer& analyzer) {
+        std::vector<ProcessInfo> processes;
+        for (int pid : analyzer.getPids()) {
+            if (auto details = analyzer.getProcessDetails(pid); details.has_value()) {
+                processes.push_back(*details);
+            }
+        }
+        return processes;
+    }
+
+} // Anonymous namespace ends
+
 
 ProcessAnalyzer::ProcessAnalyzer(std::string_view procPath) : procPath(procPath) {}
 
@@ -91,7 +127,7 @@ std::expected<ProcessInfo, AnalyzerErrorDetail> ProcessAnalyzer::getProcessDetai
     info.username = "Unknown";
     info.threadCount = 0;
     info.cmdline = "";
-    // --- Initialize new fields ---
+    // --- Initialize new fields for Iteration 5 ---
     info.startTimeTicks = 0;
     info.executablePath = "";
     info.currentWorkingDirectory = "";
@@ -100,6 +136,11 @@ std::expected<ProcessInfo, AnalyzerErrorDetail> ProcessAnalyzer::getProcessDetai
     info.ioReadBytes = 0;
     info.ioWriteBytes = 0;
     info.priority = 0;
+    // --- Initialize new fields for Iteration 13 ---
+    info.startTimeUnix = 0;
+    info.elapsedTime = "N/A";
+    info.cpuUsage = 0.0F;
+    info.memoryPercentage = 0.0F;
 
     std::string pidPath = procPath + "/" + std::to_string(pid);
     if (!fs::exists(pidPath)) {
@@ -129,7 +170,8 @@ std::expected<ProcessInfo, AnalyzerErrorDetail> ProcessAnalyzer::getProcessDetai
                 std::stringstream(line.substr(line.find(':') + 1)) >> info.ppid;
             } else if (line.starts_with("Uid:")) {
                 std::stringstream(line.substr(line.find(':') + 1)) >> info.uid;
-            } else if (line.starts_with("Threads:")) {
+            }
+            else if (line.starts_with("Threads:")) {
                 std::stringstream(line.substr(line.find(':') + 1)) >> info.threadCount;
             }
         }
@@ -166,6 +208,22 @@ std::expected<ProcessInfo, AnalyzerErrorDetail> ProcessAnalyzer::getProcessDetai
         // Skip to field 22 (starttime)
         for (int i = 0; i < (statFieldsToSkipBeforeStarttime-1); ++i) { std::string dummy; ss >> dummy; }
         ss >> info.startTimeTicks;
+    }
+
+    // Calculate startTimeUnix and elapsedTime
+    long long systemBootTimeUnix = getSystemBootTimeUnix(procPath);
+    if (systemBootTimeUnix != 0) { // Only calculate if boot time is successfully retrieved
+        long systemClockTicks = getSystemClockTicksPerSecond();
+        if (systemClockTicks > 0) {
+            long long processStartTimeSec = info.startTimeTicks / systemClockTicks;
+            info.startTimeUnix = systemBootTimeUnix + processStartTimeSec;
+            
+            // Calculate elapsed time from current time
+            auto now = std::chrono::system_clock::now();
+            long long currentTimeUnix = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
+            long long elapsedSeconds = currentTimeUnix - info.startTimeUnix;
+            info.elapsedTime = utils::formatElapsedTime(elapsedSeconds);
+        }
     }
 
     // Read io file
@@ -221,11 +279,92 @@ std::expected<ProcessInfo, AnalyzerErrorDetail> ProcessAnalyzer::getProcessDetai
 
 std::vector<ProcessInfo> ProcessAnalyzer::snapshot() const {
     std::vector<ProcessInfo> results;
-    for (int pid : getPids()) {
-        if (auto details = getProcessDetails(pid); details.has_value()) {
-            results.push_back(*details);
+    std::map<int, ProcessInfo> processMap; // Use map for efficient lookup by PID
+
+    // First pass: get basic process details
+    auto basicProcesses = getBasicSnapshot(*this);
+    for (const auto& p : basicProcesses) {
+        processMap[p.pid] = p;
+    }
+
+    // Second pass: get CPU usage and update ProcessInfo objects
+    // Using a short duration (e.g., 100ms) for a reasonable "instantaneous" CPU snapshot
+    constexpr int kCpuDurationMs = 100;
+    auto cpuDuration = std::chrono::milliseconds(kCpuDurationMs);
+    
+    // To avoid recursion, we cannot call getAllProcessesCpuUsage here if it calls snapshot()
+    // But now getAllProcessesCpuUsage uses getBasicSnapshot, so it is safe.
+    std::vector<ProcessCpuUsage> allCpuUsage = getAllProcessesCpuUsage(cpuDuration);
+    
+    for (const auto& cpuUsage : allCpuUsage) {
+        if (processMap.contains(cpuUsage.pid)) {
+            processMap[cpuUsage.pid].cpuUsage = static_cast<float>(cpuUsage.cpuPercentage);
         }
     }
+
+    // Third pass: get system memory and update ProcessInfo objects
+    auto systemMemoryInfo = getSystemMemoryInfo();
+    if (systemMemoryInfo.has_value() && systemMemoryInfo->memTotal > 0) {
+        auto totalMemKB = static_cast<float>(systemMemoryInfo->memTotal);
+        for (auto& pair : processMap) {
+            ProcessInfo& info = pair.second;
+            info.memoryPercentage = (static_cast<float>(info.residentMemory) / totalMemKB) * 100.0F;
+        }
+    }
+
+    // Convert map values back to a vector
+    results.reserve(processMap.size());
+    for (const auto& pair : processMap) {
+        results.push_back(pair.second);
+    }
+
+    return results;
+}
+
+// ...
+
+std::vector<ProcessCpuUsage> ProcessAnalyzer::getAllProcessesCpuUsage(std::chrono::milliseconds durationMs) const {
+    auto initialSnapshot = getBasicSnapshot(*this);
+    long long initialTotalSystemTicks = getTotalSystemCpuTimeTicks(procPath);
+
+    if (initialTotalSystemTicks < 0) {
+        throw std::runtime_error("Could not read initial system CPU times.");
+    }
+    
+    std::this_thread::sleep_for(durationMs);
+
+    auto finalSnapshot = getBasicSnapshot(*this);
+    long long finalTotalSystemTicks = getTotalSystemCpuTimeTicks(procPath);
+
+    if (finalTotalSystemTicks < 0) {
+        throw std::runtime_error("Could not read final system CPU times.");
+    }
+
+    long long totalSystemTicksDelta = finalTotalSystemTicks - initialTotalSystemTicks;
+    std::vector<ProcessCpuUsage> results;
+    std::map<int, ProcessInfo> finalSnapshotMap;
+    for(const auto& info : finalSnapshot) {
+        finalSnapshotMap[info.pid] = info;
+    }
+
+    for (const auto& initialInfo : initialSnapshot) {
+        auto it = finalSnapshotMap.find(initialInfo.pid);
+        if (it != finalSnapshotMap.end()) {
+            const auto& finalInfo = it->second;
+            long long processCpuTicksDelta = (finalInfo.cpuUserTimeTicks + finalInfo.cpuKernelTimeTicks) - (initialInfo.cpuUserTimeTicks + initialInfo.cpuKernelTimeTicks);
+            
+            ProcessCpuUsage usage;
+            usage.pid = initialInfo.pid;
+            usage.name = finalInfo.name;
+            if (totalSystemTicksDelta > 0) {
+                usage.cpuPercentage = 100.0 * static_cast<double>(processCpuTicksDelta) / static_cast<double>(totalSystemTicksDelta);
+            } else {
+                usage.cpuPercentage = 0.0;
+            }
+            results.push_back(usage);
+        }
+    }
+
     return results;
 }
 
@@ -378,6 +517,8 @@ std::vector<ProcessInfo> ProcessAnalyzer::queryProcesses(
             case ProcessSortField::ioReadBytes: less = a.ioReadBytes < b.ioReadBytes; break;
             case ProcessSortField::ioWriteBytes: less = a.ioWriteBytes < b.ioWriteBytes; break;
             case ProcessSortField::priority: less = a.priority < b.priority; break;
+            case ProcessSortField::cpuUsage: less = a.cpuUsage < b.cpuUsage; break;          // NEW for Iteration 13
+            case ProcessSortField::memoryPercentage: less = a.memoryPercentage < b.memoryPercentage; break; // NEW for Iteration 13
         }
 
         return (sortOrder == SortOrder::asc) ? less : !less;
@@ -456,51 +597,6 @@ std::optional<ProcessCpuUsage> ProcessAnalyzer::getProcessCpuUsage(int pid, std:
     }
 
     return usage;
-}
-
-std::vector<ProcessCpuUsage> ProcessAnalyzer::getAllProcessesCpuUsage(std::chrono::milliseconds durationMs) const {
-    auto initialSnapshot = snapshot();
-    long long initialTotalSystemTicks = getTotalSystemCpuTimeTicks(procPath);
-
-    if (initialTotalSystemTicks < 0) {
-        throw std::runtime_error("Could not read initial system CPU times.");
-    }
-    
-    std::this_thread::sleep_for(durationMs);
-
-    auto finalSnapshot = snapshot();
-    long long finalTotalSystemTicks = getTotalSystemCpuTimeTicks(procPath);
-
-    if (finalTotalSystemTicks < 0) {
-        throw std::runtime_error("Could not read final system CPU times.");
-    }
-
-    long long totalSystemTicksDelta = finalTotalSystemTicks - initialTotalSystemTicks;
-    std::vector<ProcessCpuUsage> results;
-    std::map<int, ProcessInfo> finalSnapshotMap;
-    for(const auto& info : finalSnapshot) {
-        finalSnapshotMap[info.pid] = info;
-    }
-
-    for (const auto& initialInfo : initialSnapshot) {
-        auto it = finalSnapshotMap.find(initialInfo.pid);
-        if (it != finalSnapshotMap.end()) {
-            const auto& finalInfo = it->second;
-            long long processCpuTicksDelta = (finalInfo.cpuUserTimeTicks + finalInfo.cpuKernelTimeTicks) - (initialInfo.cpuUserTimeTicks + initialInfo.cpuKernelTimeTicks);
-            
-            ProcessCpuUsage usage;
-            usage.pid = initialInfo.pid;
-            usage.name = finalInfo.name;
-            if (totalSystemTicksDelta > 0) {
-                usage.cpuPercentage = 100.0 * static_cast<double>(processCpuTicksDelta) / static_cast<double>(totalSystemTicksDelta);
-            } else {
-                usage.cpuPercentage = 0.0;
-            }
-            results.push_back(usage);
-        }
-    }
-
-    return results;
 }
 
 std::vector<std::string> ProcessAnalyzer::getProcessEnvironment(int pid) const {
@@ -767,7 +863,18 @@ std::vector<ProcessDiskIoUsage> ProcessAnalyzer::getAllProcessesDiskIoUsage(std:
     return results;
 }
 
-enum class TcpState : std::uint8_t {
+
+
+namespace { // Anonymous namespace for helper functions and enums
+
+    // Internal struct to temporarily hold NetworkConnection data along with its inode
+    // for filtering purposes before converting to the public NetworkConnection struct.
+    struct InternalNetworkConnection {
+        NetworkConnection baseConn;
+        int inode;
+    };
+
+    enum class TcpState : std::uint8_t {
         kEstablished = 1,
         kSynSent,
         kSynRecv,
@@ -778,13 +885,18 @@ enum class TcpState : std::uint8_t {
         kCloseWait,
         kLastAck,
         kListen,
-        kClosing
+        kClosing,
+        kUnknown
     };
     const int kIpv6LineDummyCount = 5;
 
-    void parseNetFile(const std::string& filePath, SocketType type, std::vector<NetworkConnection>& connections) {
+    // Helper function to parse /proc/net/tcp, udp, etc. files.
+    // It returns a vector of InternalNetworkConnection, which includes the inode
+    // for later filtering by process's open file descriptors.
+    std::vector<InternalNetworkConnection> parseNetFile(const std::string& filePath, std::string_view protocolPrefix) {
+        std::vector<InternalNetworkConnection> internalConnections;
         auto content = utils::readTextFile(filePath);
-        if (!content) return;
+        if (!content) return internalConnections;
 
         std::stringstream ss(*content);
         std::string line;
@@ -792,92 +904,133 @@ enum class TcpState : std::uint8_t {
 
         while (std::getline(ss, line)) {
             std::stringstream lineSs(line);
-            NetworkConnection conn;
-            conn.type = type;
+            InternalNetworkConnection internalConn;
+            internalConn.baseConn.protocol = protocolPrefix;
 
             int dummy;
-            unsigned long localAddr;
-            unsigned long remoteAddr;
-            int state;
-            int inode;
+            unsigned long localAddrPart1 = 0;
+            unsigned long localAddrPart2 = 0;
+            unsigned long localAddrPart3 = 0;
+            unsigned long localAddrPart4 = 0; // For IPv6
+            unsigned long remoteAddrPart1 = 0;
+            unsigned long remoteAddrPart2 = 0;
+            unsigned long remoteAddrPart3 = 0;
+            unsigned long remoteAddrPart4 = 0; // For IPv6
+            unsigned long localAddr = 0; // For IPv4
+            unsigned long remoteAddr = 0; // For IPv4
+            unsigned int localP = 0;
+            unsigned int remoteP = 0;
+            int state = 0;
             char colon;
 
+            lineSs >> dummy; 
+            lineSs.ignore(std::numeric_limits<std::streamsize>::max(), ' '); // Skip 'sl' column
+
             if (filePath.find('6') != std::string::npos) { // IPv6
-                conn.family = AddressFamily::iPv6;
-                unsigned int localP;
-                unsigned int remoteP;
-                lineSs >> dummy; 
-                lineSs.ignore(std::numeric_limits<std::streamsize>::max(), ' ');
-                lineSs >> std::hex >> localAddr >> colon >> localP
-                       >> remoteAddr >> colon >> remoteP
+                lineSs >> std::hex >> localAddrPart1 >> localAddrPart2 >> localAddrPart3 >> localAddrPart4 >> colon >> localP
+                       >> remoteAddrPart1 >> remoteAddrPart2 >> remoteAddrPart3 >> remoteAddrPart4 >> colon >> remoteP
                        >> state;
                 for(int i=0; i<kIpv6LineDummyCount; ++i) lineSs >> dummy;
-                lineSs >> inode;
+                lineSs >> internalConn.inode;
                 
-                // This parsing is simplified. Real IPv6 addresses are 128-bit.
-                // The file format stores them as four 32-bit hex numbers.
-                // A proper implementation would read these four parts and format them.
-                // For this example, we will just show a placeholder.
-                conn.localAddress = "::1"; // Placeholder
-                conn.localPort = localP;
-                conn.remoteAddress = "::1"; // Placeholder
-                conn.remotePort = remoteP;
+                std::array<char, INET6_ADDRSTRLEN> localStrBuf{};
+                std::array<char, INET6_ADDRSTRLEN> remoteStrBuf{};
+                
+                // Convert 32-bit parts to correct in6_addr structure (handle endianness if necessary, /proc usually gives host byte order for individual parts)
+                in6_addr localIn6Addr;
+                localIn6Addr.__in6_u.__u6_addr32[0] = localAddrPart1;
+                localIn6Addr.__in6_u.__u6_addr32[1] = localAddrPart2;
+                localIn6Addr.__in6_u.__u6_addr32[2] = localAddrPart3;
+                localIn6Addr.__in6_u.__u6_addr32[3] = localAddrPart4;
+                // Need to convert to network byte order before inet_ntop if parts are host byte order.
+                // Assuming /proc output for addrparts is already network byte order for simplicity here.
+                // Or that inet_ntop takes values that are already in host byte order, and converts.
+                // The /proc documentation indicates it's host byte order if `sysctl -a | grep ip_conntrack` shows values.
+                // For direct parsing from /proc/net, usually it's represented as big-endian hex.
+                // Given the original example `0100007F:001B` for IPv4 127.0.0.1:27, the hex is big-endian.
+                // So, the parts read in hex are probably in network byte order already.
+
+                inet_ntop(AF_INET6, &localIn6Addr, localStrBuf.data(), localStrBuf.size());
+                internalConn.baseConn.localAddress = std::string(localStrBuf.data()) + ":" + std::to_string(localP);
+                
+                if(remoteP > 0 || (remoteAddrPart1 || remoteAddrPart2 || remoteAddrPart3 || remoteAddrPart4)) { // Check if remote address/port is meaningful
+                    in6_addr remoteIn6Addr;
+                    remoteIn6Addr.__in6_u.__u6_addr32[0] = remoteAddrPart1;
+                    remoteIn6Addr.__in6_u.__u6_addr32[1] = remoteAddrPart2;
+                    remoteIn6Addr.__in6_u.__u6_addr32[2] = remoteAddrPart3;
+                    remoteIn6Addr.__in6_u.__u6_addr32[3] = remoteAddrPart4;
+                    inet_ntop(AF_INET6, &remoteIn6Addr, remoteStrBuf.data(), remoteStrBuf.size());
+                    internalConn.baseConn.remoteAddress = std::string(remoteStrBuf.data()) + ":" + std::to_string(remoteP);
+                } else {
+                    internalConn.baseConn.remoteAddress = "*"; // For LISTEN or unbound remote
+                }
 
             } else { // IPv4
-                conn.family = AddressFamily::iPv4;
-                unsigned int localP;
-                unsigned int remoteP;
-                lineSs >> dummy;
-                lineSs.ignore(std::numeric_limits<std::streamsize>::max(), ' ');
                 lineSs >> std::hex >> localAddr >> colon >> localP
                        >> remoteAddr >> colon >> remoteP
-                       >> state >> dummy >> dummy >> dummy >> dummy >> dummy >> inode;
-
+                       >> state >> dummy >> dummy >> dummy >> dummy >> dummy >> internalConn.inode;
+                
+                std::array<char, INET_ADDRSTRLEN> localStrBuf{};
+                std::array<char, INET_ADDRSTRLEN> remoteStrBuf{};
+                
+                // Convert IP addresses from network byte order to presentation format
+                // The addresses in /proc/net/tcp are usually in host byte order.
+                // Need to convert to network byte order for `inet_ntop` if it expects that.
+                // `htonl` for localAddr and remoteAddr might be needed depending on system endianness and `inet_ntop` implementation.
+                // Assuming `inet_ntop` can handle host byte order for the `s_addr` member, or `localAddr` is already network byte order.
+                // The common practice is to read hex directly and then use it.
                 struct in_addr localInAddr = { .s_addr = static_cast<in_addr_t>(localAddr) };
                 struct in_addr remoteInAddr = { .s_addr = static_cast<in_addr_t>(remoteAddr) };
-                std::array<char, INET_ADDRSTRLEN> localStr{};
-                std::array<char, INET_ADDRSTRLEN> remoteStr{};
-                inet_ntop(AF_INET, &localInAddr, localStr.data(), localStr.size());
-                inet_ntop(AF_INET, &remoteInAddr, remoteStr.data(), remoteStr.size());
+                inet_ntop(AF_INET, &localInAddr, localStrBuf.data(), localStrBuf.size());
+                inet_ntop(AF_INET, &remoteInAddr, remoteStrBuf.data(), remoteStrBuf.size());
                 
-                conn.localAddress = localStr.data();
-                conn.localPort = localP;
-                if(remoteP > 0){
-                    conn.remoteAddress = remoteStr.data();
-                    conn.remotePort = remoteP;
+                internalConn.baseConn.localAddress = std::string(localStrBuf.data()) + ":" + std::to_string(localP);
+                
+                if(remoteP > 0 || remoteAddr != 0) { // Check if remote address/port is meaningful
+                    internalConn.baseConn.remoteAddress = std::string(remoteStrBuf.data()) + ":" + std::to_string(remoteP);
+                } else {
+                    internalConn.baseConn.remoteAddress = "*"; // For LISTEN or unbound remote
                 }
             }
 
-            conn.inode = inode;
-            // Map state to string
-            switch(static_cast<TcpState>(state)){
-                case TcpState::kEstablished: conn.state = "ESTABLISHED"; break;
-                case TcpState::kSynSent: conn.state = "SYN_SENT"; break;
-                case TcpState::kSynRecv: conn.state = "SYN_RECV"; break;
-                case TcpState::kFinWait1: conn.state = "FIN_WAIT1"; break;
-                case TcpState::kFinWait2: conn.state = "FIN_WAIT2"; break;
-                case TcpState::kTimeWait: conn.state = "TIME_WAIT"; break;
-                case TcpState::kClose: conn.state = "CLOSE"; break;
-                case TcpState::kCloseWait: conn.state = "CLOSE_WAIT"; break;
-                case TcpState::kLastAck: conn.state = "LAST_ACK"; break;
-                case TcpState::kListen: conn.state = "LISTEN"; break;
-                case TcpState::kClosing: conn.state = "CLOSING"; break;
-                default: conn.state = "UNKNOWN"; break;
+            // Map state to string (only for TCP, UDP doesn't have states)
+            if (protocolPrefix.starts_with("TCP")) {
+                switch(static_cast<TcpState>(state)){
+                    case TcpState::kEstablished: internalConn.baseConn.state = "ESTABLISHED"; break;
+                    case TcpState::kSynSent: internalConn.baseConn.state = "SYN_SENT"; break;
+                    case TcpState::kSynRecv: internalConn.baseConn.state = "SYN_RECV"; break;
+                    case TcpState::kFinWait1: internalConn.baseConn.state = "FIN_WAIT1"; break;
+                    case TcpState::kFinWait2: internalConn.baseConn.state = "FIN_WAIT2"; break;
+                    case TcpState::kTimeWait: internalConn.baseConn.state = "TIME_WAIT"; break;
+                    case TcpState::kClose: internalConn.baseConn.state = "CLOSE"; break;
+                    case TcpState::kCloseWait: internalConn.baseConn.state = "CLOSE_WAIT"; break;
+                    case TcpState::kLastAck: internalConn.baseConn.state = "LAST_ACK"; break;
+                    case TcpState::kListen: internalConn.baseConn.state = "LISTEN"; break;
+                    case TcpState::kClosing: internalConn.baseConn.state = "CLOSING"; break;
+                    case TcpState::kUnknown: internalConn.baseConn.state = "UNKNOWN"; break;
+                }
+            } else { // UDP has no states in /proc/net/udp
+                internalConn.baseConn.state = "UNCONN"; // Unconnected or N/A
             }
-            connections.push_back(conn);
+            internalConnections.push_back(internalConn);
         }
+        return internalConnections;
     }
 
-std::vector<NetworkConnection> ProcessAnalyzer::getProcessNetworkConnections(int pid) const {
+} // Anonymous namespace ends
+
+// New for Iteration 13: Network Activity Monitoring
+std::vector<NetworkConnection> ProcessAnalyzer::getNetworkConnections(int pid) const {
     std::vector<NetworkConnection> connections;
     std::map<int, std::string> fds = getOpenFileDescriptors(pid);
     std::set<int> socketInodes;
-    constexpr int kSocketInodePrefixLen = 8;
-    constexpr int kSocketInodeSuffixLen = 9;
+    constexpr int kSocketInodePrefixLen = 8; // "socket:["
+    constexpr int kSocketInodeSuffixLen = 1; // "]"
 
     for (const auto& [fd, path] : fds) {
         if (path.starts_with("socket:[")) {
-            std::string inodeStr = path.substr(kSocketInodePrefixLen, path.length() - kSocketInodeSuffixLen);
+            // Extract the inode number. Path looks like "socket:[12345]"
+            std::string inodeStr = path.substr(kSocketInodePrefixLen, path.length() - kSocketInodePrefixLen - kSocketInodeSuffixLen);
             if(utils::isInteger(inodeStr)){
                 socketInodes.insert(std::stoi(inodeStr));
             }
@@ -886,15 +1039,16 @@ std::vector<NetworkConnection> ProcessAnalyzer::getProcessNetworkConnections(int
 
     if(socketInodes.empty()) return connections;
 
-    std::vector<NetworkConnection> allConnections;
-    parseNetFile(procPath + "/net/tcp", SocketType::tcp, allConnections);
-    parseNetFile(procPath + "/net/tcp6", SocketType::tcp, allConnections);
-    parseNetFile(procPath + "/net/udp", SocketType::udp, allConnections);
-    parseNetFile(procPath + "/net/udp6", SocketType::udp, allConnections);
+    std::vector<InternalNetworkConnection> allInternalConnections;
+    // Call parseNetFile with the correct protocol prefix
+    for (const auto& conn : parseNetFile(procPath + "/net/tcp", "TCP")) { allInternalConnections.push_back(conn); }
+    for (const auto& conn : parseNetFile(procPath + "/net/tcp6", "TCP6")) { allInternalConnections.push_back(conn); }
+    for (const auto& conn : parseNetFile(procPath + "/net/udp", "UDP")) { allInternalConnections.push_back(conn); }
+    for (const auto& conn : parseNetFile(procPath + "/net/udp6", "UDP6")) { allInternalConnections.push_back(conn); }
     
-    for(const auto& conn : allConnections){
-        if(conn.inode.has_value() && socketInodes.contains(*conn.inode)){
-            connections.push_back(conn);
+    for(const auto& internalConn : allInternalConnections){
+        if(socketInodes.contains(internalConn.inode)){
+            connections.push_back(internalConn.baseConn);
         }
     }
 
@@ -982,6 +1136,8 @@ std::generator<ProcessInfo> ProcessAnalyzer::streamQueryProcesses(
             case ProcessSortField::ioReadBytes: less = a.ioReadBytes < b.ioReadBytes; break;
             case ProcessSortField::ioWriteBytes: less = a.ioWriteBytes < b.ioWriteBytes; break;
             case ProcessSortField::priority: less = a.priority < b.priority; break;
+            case ProcessSortField::cpuUsage: less = a.cpuUsage < b.cpuUsage; break;          // NEW for Iteration 13
+            case ProcessSortField::memoryPercentage: less = a.memoryPercentage < b.memoryPercentage; break; // NEW for Iteration 13
             default: less = a.pid < b.pid; break;
         }
         return (sortOrder == SortOrder::asc) ? less : !less;

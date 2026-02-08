@@ -30,6 +30,7 @@ It provides a robust interface to deliver detailed resource usage metrics and ex
 *   **Process Filtering**: Filter processes by various criteria such as name, user, state, parent process ID (PPID), memory usage, executable path, or command line arguments.
 *   **Process Sorting**: Sort processes based on various fields like PID, user, name, memory usage, CPU time, start time, executable path, etc.
 *   **Customizable Output**: Choose which columns to display and output results in different formats (table, CSV, JSON).
+*   **Real-time Monitoring**: Provides dynamic, real-time updates on process resource consumption and status, similar to 'top' or 'htop'.
 *   **Utility Library**: Leverages a robust C++ utility library for common tasks like file system operations, string manipulation, and system interaction.
 
 ## Installation
