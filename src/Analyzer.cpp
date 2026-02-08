@@ -64,7 +64,7 @@ std::vector<int> ProcessAnalyzer::getPids() const {
         for (const auto& entry : fs::directory_iterator(procPath)) {
             if (entry.is_directory()) {
                 std::string filename = entry.path().filename().string();
-                if (Utils::isInteger(filename)) {
+                if (utils::isInteger(filename)) {
                     pids.push_back(std::stoi(filename));
                 }
             }
@@ -112,8 +112,8 @@ std::expected<ProcessInfo, AnalyzerErrorDetail> ProcessAnalyzer::getProcessDetai
 
     // Read status file for some details
     std::string statusPath = pidPath + "/status";
-    if (auto statusContentOpt = Utils::readTextFile(statusPath)) {
-        std::vector<std::string> lines = Utils::split(*statusContentOpt, '\n');
+    if (auto statusContentOpt = utils::readTextFile(statusPath)) {
+        std::vector<std::string> lines = utils::split(*statusContentOpt, '\n');
         for (const auto& line : lines) {
             if (line.starts_with("Name:")) {
                 info.name = line.substr(line.find(':') + 1);
@@ -143,7 +143,7 @@ std::expected<ProcessInfo, AnalyzerErrorDetail> ProcessAnalyzer::getProcessDetai
 
     // Read stat file for CPU times, priority, and start time
     std::string statPath = pidPath + "/stat";
-    if (auto statContentOpt = Utils::readTextFile(statPath)) {
+    if (auto statContentOpt = utils::readTextFile(statPath)) {
         std::stringstream ss(*statContentOpt);
         std::string comm;
         char state;
@@ -170,8 +170,8 @@ std::expected<ProcessInfo, AnalyzerErrorDetail> ProcessAnalyzer::getProcessDetai
 
     // Read io file
     std::string ioPath = pidPath + "/io";
-    if (auto ioContentOpt = Utils::readTextFile(ioPath)) {
-        std::vector<std::string> lines = Utils::split(*ioContentOpt, '\n');
+    if (auto ioContentOpt = utils::readTextFile(ioPath)) {
+        std::vector<std::string> lines = utils::split(*ioContentOpt, '\n');
         for (const auto& line : lines) {
             if (line.starts_with("rchar:")) {
                 std::stringstream(line.substr(line.find(':') + 1)) >> info.ioReadBytes;
@@ -188,7 +188,7 @@ std::expected<ProcessInfo, AnalyzerErrorDetail> ProcessAnalyzer::getProcessDetai
 
     // Read cmdline
     std::string cmdlinePath = pidPath + "/cmdline";
-    if (auto cmdlineContentOpt = Utils::readTextFile(cmdlinePath)) {
+    if (auto cmdlineContentOpt = utils::readTextFile(cmdlinePath)) {
         std::string rawCmdline = *cmdlineContentOpt;
         std::ranges::replace(rawCmdline, '\0', ' ');
         if (!rawCmdline.empty() && rawCmdline.back() == ' ') rawCmdline.pop_back();
@@ -205,7 +205,7 @@ std::expected<ProcessInfo, AnalyzerErrorDetail> ProcessAnalyzer::getProcessDetai
 
     // Read environment variables
     std::string environPath = pidPath + "/environ";
-    if (auto environContentOpt = Utils::readTextFile(environPath)) {
+    if (auto environContentOpt = utils::readTextFile(environPath)) {
         std::string_view content = *environContentOpt;
         size_t start = 0;
         while(start < content.size()) {
@@ -231,7 +231,7 @@ std::vector<ProcessInfo> ProcessAnalyzer::snapshot() const {
 
 std::expected<SystemMemoryInfo, AnalyzerErrorDetail> ProcessAnalyzer::getSystemMemoryInfo() const {
     std::string meminfoPath = procPath + "/meminfo";
-    auto contentOpt = Utils::readTextFile(meminfoPath);
+    auto contentOpt = utils::readTextFile(meminfoPath);
     if (!contentOpt) {
         return std::unexpected(AnalyzerErrorDetail{
             .code = AnalyzerError::fileNotFound,
@@ -264,7 +264,7 @@ std::expected<SystemMemoryInfo, AnalyzerErrorDetail> ProcessAnalyzer::getSystemM
 
 std::expected<SystemLoadAverage, AnalyzerErrorDetail> ProcessAnalyzer::getSystemLoadAverage() const {
     std::string loadavgPath = procPath + "/loadavg";
-    auto contentOpt = Utils::readTextFile(loadavgPath);
+    auto contentOpt = utils::readTextFile(loadavgPath);
     if (!contentOpt) {
         return std::unexpected(AnalyzerErrorDetail{
             .code = AnalyzerError::fileNotFound,
@@ -281,7 +281,7 @@ std::expected<SystemLoadAverage, AnalyzerErrorDetail> ProcessAnalyzer::getSystem
 
 std::expected<SystemCpuStats, AnalyzerErrorDetail> ProcessAnalyzer::getSystemCpuStats() const {
     std::string statPath = procPath + "/stat";
-    auto contentOpt = Utils::readTextFile(statPath);
+    auto contentOpt = utils::readTextFile(statPath);
     if (!contentOpt) {
         return std::unexpected(AnalyzerErrorDetail{
             .code = AnalyzerError::fileNotFound,
@@ -409,7 +409,7 @@ std::map<int, std::string> ProcessAnalyzer::getOpenFileDescriptors(pid_t pid) co
         for (const auto& entry : fs::directory_iterator(fdPath)) {
             if (entry.is_symlink()) {
                 std::string fdStr = entry.path().filename().string();
-                if (Utils::isInteger(fdStr)) {
+                if (utils::isInteger(fdStr)) {
                     int fd = std::stoi(fdStr);
                     try {
                         openFds[fd] = fs::read_symlink(entry.path()).string();
@@ -507,7 +507,7 @@ std::vector<std::string> ProcessAnalyzer::getProcessEnvironment(int pid) const {
     std::vector<std::string> env;
     std::string environPath = procPath + "/" + std::to_string(pid) + "/environ";
 
-    if (auto environContentOpt = Utils::readTextFile(environPath)) {
+    if (auto environContentOpt = utils::readTextFile(environPath)) {
         std::string_view content = *environContentOpt;
         size_t start = 0;
         while(start < content.size()) {
@@ -580,20 +580,20 @@ std::vector<ThreadInfo> ProcessAnalyzer::getProcessThreads(int pid) const {
     for (const auto& entry : fs::directory_iterator(taskPath)) {
         if (entry.is_directory()) {
             std::string tidStr = entry.path().filename().string();
-            if (Utils::isInteger(tidStr)) {
+            if (utils::isInteger(tidStr)) {
                 int tid = std::stoi(tidStr);
                 ThreadInfo thread;
                 thread.tid = tid;
 
                 // Read thread name
                 std::string commPath = entry.path().string() + "/comm";
-                if (auto commContent = Utils::readTextFile(commPath)) {
-                    thread.name = Utils::trim(*commContent);
+                if (auto commContent = utils::readTextFile(commPath)) {
+                    thread.name = utils::trim(*commContent);
                 }
 
                 // Read thread stat
                 std::string statPath = entry.path().string() + "/stat";
-                if (auto statContent = Utils::readTextFile(statPath)) {
+                if (auto statContent = utils::readTextFile(statPath)) {
                     std::stringstream ss(*statContent);
                     std::string comm;
                     std::string dummy;
@@ -614,7 +614,7 @@ for (int i = 0; i < statFieldsToSkipBeforeThreadUtime; ++i) ss >> dummy;
 std::vector<MountPointInfo> ProcessAnalyzer::getSystemDiskUsage() const {
     std::vector<MountPointInfo> mounts;
     std::string mountsPath = procPath + "/mounts";
-    auto contentOpt = Utils::readTextFile(mountsPath);
+    auto contentOpt = utils::readTextFile(mountsPath);
     if (!contentOpt) {
         return mounts;
     }
@@ -648,7 +648,7 @@ std::optional<SystemInfo> ProcessAnalyzer::getSystemInfo() const {
 
     // Uptime
     std::string uptimePath = procPath + "/uptime";
-    if (auto content = Utils::readTextFile(uptimePath)) {
+    if (auto content = utils::readTextFile(uptimePath)) {
         double uptimeSecs;
         std::stringstream ss(*content);
         ss >> uptimeSecs;
@@ -659,14 +659,14 @@ std::optional<SystemInfo> ProcessAnalyzer::getSystemInfo() const {
 
     // Kernel version
     std::string versionPath = procPath + "/version";
-    if (auto content = Utils::readTextFile(versionPath)) {
-        sysInfo.kernelVersion = Utils::trim(*content);
+    if (auto content = utils::readTextFile(versionPath)) {
+        sysInfo.kernelVersion = utils::trim(*content);
     } else {
         return std::nullopt;
     }
 
     // OS Name
-    if (auto content = Utils::readTextFile("/etc/os-release")) {
+    if (auto content = utils::readTextFile("/etc/os-release")) {
         std::stringstream ss(*content);
         std::string line;
         while(std::getline(ss, line)) {
@@ -783,7 +783,7 @@ enum class TcpState : std::uint8_t {
     const int kIpv6LineDummyCount = 5;
 
     void parseNetFile(const std::string& filePath, SocketType type, std::vector<NetworkConnection>& connections) {
-        auto content = Utils::readTextFile(filePath);
+        auto content = utils::readTextFile(filePath);
         if (!content) return;
 
         std::stringstream ss(*content);
@@ -878,7 +878,7 @@ std::vector<NetworkConnection> ProcessAnalyzer::getProcessNetworkConnections(int
     for (const auto& [fd, path] : fds) {
         if (path.starts_with("socket:[")) {
             std::string inodeStr = path.substr(kSocketInodePrefixLen, path.length() - kSocketInodeSuffixLen);
-            if(Utils::isInteger(inodeStr)){
+            if(utils::isInteger(inodeStr)){
                 socketInodes.insert(std::stoi(inodeStr));
             }
         }
@@ -912,7 +912,7 @@ std::generator<int> ProcessAnalyzer::streamPids() const {
     for (const auto& entry : fs::directory_iterator(procPath)) {
         if (entry.is_directory()) {
             std::string filename = entry.path().filename().string();
-            if (Utils::isInteger(filename)) {
+            if (utils::isInteger(filename)) {
                 co_yield std::stoi(filename);
             }
         }

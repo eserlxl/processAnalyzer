@@ -44,6 +44,19 @@ constexpr int kPpid10 = 10;
 constexpr unsigned long kUtime123 = 123;
 constexpr unsigned long kStime45 = 45;
 
+// Iteration 12 constants
+constexpr int kPpid50 = 50;
+constexpr unsigned long long kUser100 = 100;
+constexpr unsigned long long kIdle200 = 200;
+constexpr unsigned long long kCtxt5000 = 5000;
+constexpr unsigned long long kProcesses10 = 10;
+constexpr unsigned long long kUser200 = 200;
+constexpr unsigned long long kIdle400 = 400;
+constexpr double kUptimeSec = 1234.56;
+constexpr double kIdleSec = 789.01;
+constexpr unsigned long long kRxBytes1000 = 1000;
+constexpr unsigned long long kTxBytes2000 = 2000;
+
 // Helper to read file content for verification
 std::string readFileContent(const fs::path& filePath) {
     std::ifstream file(filePath);
@@ -626,6 +639,159 @@ TEST_F(MockProcTest, AddProcessCombinedOptions) {
     // Verify comm
     ASSERT_TRUE(fs::exists(pidPath / "comm"));
     EXPECT_EQ(readFileContent(pidPath / "comm"), options.name + "\n");
+}
+
+// --- Iteration 12 New API Tests ---
+
+TEST_F(MockProcTest, ProcessBuilderFluentApi) {
+    const int pid = 300;
+    mockProc->buildProcess(pid)
+        .withName("fluent_proc")
+        .withParent(kPpid50)
+        .withCmdline({"/bin/fluent", "--mode=fast"})
+        .create();
+
+    fs::path pidPath = mockRootPath / std::to_string(pid);
+    ASSERT_TRUE(fs::exists(pidPath));
+    // Check name (comm)
+    EXPECT_EQ(readFileContent(pidPath / "comm"), "fluent_proc\n");
+    // Check ppid in stat
+    std::string statContent = readFileContent(pidPath / "stat");
+    EXPECT_TRUE(statContent.find(" 50 ") != std::string::npos); // ppid 50
+    // Check cmdline
+    std::vector<std::string> expectedCmd = {"/bin/fluent", "--mode=fast"};
+    ASSERT_EQ(readNullSeparatedStrings(pidPath / "cmdline"), expectedCmd);
+}
+
+TEST_F(MockProcTest, ProcessBuilderWithMaps) {
+    const int pid = 301;
+    mockProc->buildProcess(pid)
+        .withName("mapped_proc")
+        .withMap({.addressRange="1000-2000", .perms="r-xp", .pathname="/lib/libc.so"})
+        .create();
+    
+    fs::path mapsPath = mockRootPath / std::to_string(pid) / "maps";
+    ASSERT_TRUE(fs::exists(mapsPath));
+    std::string mapsContent = readFileContent(mapsPath);
+    EXPECT_TRUE(mapsContent.find("1000-2000 r-xp") != std::string::npos);
+    EXPECT_TRUE(mapsContent.find("/lib/libc.so") != std::string::npos);
+}
+
+TEST_F(MockProcTest, AddThread) {
+    const int parentPid = 400;
+    const int threadId = 401;
+    
+    // First create parent
+    mockProc->buildProcess(parentPid).withName("parent").create();
+    
+    MockProc::AddThreadOptions options;
+    options.name = "child_thread";
+    options.statData.pid = threadId;
+    options.statData.state = 'S';
+    
+    mockProc->addThread(parentPid, threadId, options);
+    
+    fs::path threadPath = mockRootPath / std::to_string(threadId);
+    fs::path taskPath = mockRootPath / std::to_string(parentPid) / "task" / std::to_string(threadId);
+    
+    ASSERT_TRUE(fs::exists(threadPath));
+    ASSERT_TRUE(fs::exists(taskPath));
+    
+    // Check stat in thread dir
+    std::string statContent = readFileContent(threadPath / "stat");
+    EXPECT_TRUE(statContent.find("(child_thread)") != std::string::npos);
+    EXPECT_TRUE(statContent.find(std::to_string(threadId)) != std::string::npos);
+    
+    // Check symlinks
+    ASSERT_TRUE(fs::is_symlink(threadPath / "exe"));
+    // Target should be related to parent (implementation specific, check logic in TestUtils.cpp)
+    // In TestUtils.cpp, I implemented it as symlink to "../parentPid/exe"
+    // However, create_symlink creates a symlink AT path pointing TO target.
+    // If target is relative, it is relative to the directory containing the symlink.
+    // threadPath is root/threadId. parentPath is root/parentPid.
+    // ../parentPid/exe is correct relative path.
+    
+    // fs::read_symlink returns the target path stored in the link.
+    // It does not resolve it to absolute path unless we ask.
+    // So we expect "../400/exe"
+    fs::path symlinkTarget = fs::read_symlink(threadPath / "exe");
+    EXPECT_EQ(symlinkTarget.string(), "../" + std::to_string(parentPid) + "/exe");
+}
+
+TEST_F(MockProcTest, CreateSystemStat) {
+    MockProc::SystemStatData data;
+    data.user = kUser100;
+    data.idle = kIdle200;
+    data.ctxt = kCtxt5000;
+    data.processes = kProcesses10;
+    
+    mockProc->createSystemStat(data);
+    
+    fs::path statPath = mockRootPath / "stat";
+    ASSERT_TRUE(fs::exists(statPath));
+    std::string content = readFileContent(statPath);
+    EXPECT_TRUE(content.find("cpu  100 0 0 200") != std::string::npos);
+    EXPECT_TRUE(content.find("ctxt 5000") != std::string::npos);
+    EXPECT_TRUE(content.find("processes 10") != std::string::npos);
+}
+
+TEST_F(MockProcTest, CreatePerCpuStat) {
+    std::vector<MockProc::SystemStatData> perCpu;
+    MockProc::SystemStatData total;
+    total.user = kUser200;
+    total.idle = kIdle400;
+    perCpu.push_back(total); // cpu
+    
+    MockProc::SystemStatData core0;
+    core0.user = kUser100;
+    core0.idle = kIdle200;
+    perCpu.push_back(core0); // cpu0
+    
+    MockProc::SystemStatData core1;
+    core1.user = kUser100;
+    core1.idle = kIdle200;
+    perCpu.push_back(core1); // cpu1
+    
+    mockProc->createSystemStat(perCpu);
+    
+    fs::path statPath = mockRootPath / "stat";
+    std::string content = readFileContent(statPath);
+    EXPECT_TRUE(content.find("cpu  200") != std::string::npos);
+    EXPECT_TRUE(content.find("cpu0 100") != std::string::npos);
+    EXPECT_TRUE(content.find("cpu1 100") != std::string::npos);
+}
+
+TEST_F(MockProcTest, CreateUptime) {
+    mockProc->createUptime(kUptimeSec, kIdleSec);
+    fs::path uptimePath = mockRootPath / "uptime";
+    ASSERT_TRUE(fs::exists(uptimePath));
+    std::string content = readFileContent(uptimePath);
+    EXPECT_TRUE(content.find("1234.56 789.01") != std::string::npos);
+}
+
+TEST_F(MockProcTest, CreateVersion) {
+    std::string ver = "Linux version 6.0.0-mock";
+    mockProc->createVersion(ver);
+    fs::path verPath = mockRootPath / "version";
+    ASSERT_TRUE(fs::exists(verPath));
+    EXPECT_EQ(readFileContent(verPath), ver + "\n");
+}
+
+TEST_F(MockProcTest, CreateNetDev) {
+    std::vector<MockProc::NetDevStats> devs;
+    MockProc::NetDevStats eth0;
+    eth0.interface = "eth0";
+    eth0.rx_bytes = kRxBytes1000;
+    eth0.tx_bytes = kTxBytes2000;
+    devs.push_back(eth0);
+    
+    mockProc->createNetDev(devs);
+    
+    fs::path netDevPath = mockRootPath / "net" / "dev";
+    ASSERT_TRUE(fs::exists(netDevPath));
+    std::string content = readFileContent(netDevPath);
+    EXPECT_TRUE(content.find("eth0: 1000") != std::string::npos);
+    EXPECT_TRUE(content.find("2000") != std::string::npos);
 }
 
 int main(int argc, char **argv) {

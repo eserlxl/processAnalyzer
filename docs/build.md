@@ -42,4 +42,5 @@ ctest --output-on-failure
 # Or run individual test executables directly
 ./tests/UtilsTest
 ./tests/AnalyzerTest
+./tests/TestUtilsNewApiTest
 ```

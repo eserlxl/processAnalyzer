@@ -12,6 +12,7 @@
 #include <optional>
 #include <string_view>
 #include <functional>
+#include <format>
 
 namespace utils {
 
@@ -27,7 +28,7 @@ enum class UtilsError {
     commandExecutionError, // for specific command execution issues
 };
 
-std::error_code makeErrorCode(UtilsError e);
+std::error_code make_error_code(UtilsError e);
 
 
 template <typename T>
@@ -90,7 +91,9 @@ std::string replaceFirst(std::string_view s, std::string_view from, std::string_
 std::string replaceN(std::string_view s, std::string_view from, std::string_view to, size_t count);
 std::string join(const std::vector<std::string>& parts, std::string_view delimiter);
 template<typename... Args>
-std::string format(std::string_view fmt, Args&&... args);
+std::string format(std::string_view fmt, Args&&... args) {
+    return std::vformat(fmt, std::make_format_args(args...));
+}
 [[deprecated("Use std::format-based Utils::format instead.")]]
 std::string formatStringDeprecated(const char* fmt, ...);
 

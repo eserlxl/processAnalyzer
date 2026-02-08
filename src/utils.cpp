@@ -13,7 +13,7 @@
 #include <cstdio>  // for vsnprintf
 #include <memory>  // for std::unique_ptr
 
-namespace Utils {
+namespace utils {
 
 class UtilsErrorCategory : public std::error_category {
 public:
@@ -23,14 +23,14 @@ public:
 
     [[nodiscard]] std::string message(int ev) const override {
         switch (static_cast<UtilsError>(ev)) {
-            case UtilsError::None: return "Success";
-            case UtilsError::FileNotFound: return "File not found";
-            case UtilsError::PermissionDenied: return "Permission denied";
-            case UtilsError::IOError: return "I/O error";
-            case UtilsError::InvalidArgument: return "Invalid argument";
-            case UtilsError::UnsupportedOperation: return "Unsupported operation";
-            case UtilsError::PathError: return "Path error";
-            case UtilsError::CommandExecutionError: return "Command execution error";
+            case UtilsError::none: return "Success";
+            case UtilsError::fileNotFound: return "File not found";
+            case UtilsError::permissionDenied: return "Permission denied";
+            case UtilsError::ioError: return "I/O error";
+            case UtilsError::invalidArgument: return "Invalid argument";
+            case UtilsError::unsupportedOperation: return "Unsupported operation";
+            case UtilsError::pathError: return "Path error";
+            case UtilsError::commandExecutionError: return "Command execution error";
             default: return "Unknown error";
         }
     }
@@ -41,24 +41,24 @@ const UtilsErrorCategory& utilsCategory() {
     return instance;
 }
 
-std::error_code make_error_code(UtilsError e) {
+std::error_code make_error_code(UtilsError e) { // NOLINT
     return {static_cast<int>(e), utilsCategory()};
 }
 
 // --- Filesystem Operations ---
 
-Result<std::string> readTextFile(const std::filesystem::path& path) {
+utils::Result<std::string> readTextFile(const std::filesystem::path& path) {
     std::error_code ec;
     if (!std::filesystem::exists(path, ec)) {
         if (ec) return std::unexpected(ec);
-        return std::unexpected(make_error_code(UtilsError::FileNotFound));
+        return std::unexpected(make_error_code(UtilsError::fileNotFound));
     }
     // Removed is_regular_file check as it can be problematic for /proc pseudo-files
     
     std::ifstream file(path); 
     if (!file.is_open()) {
         // More specific error for permission issues
-        return std::unexpected(make_error_code(UtilsError::PermissionDenied));
+        return std::unexpected(make_error_code(UtilsError::permissionDenied));
     }
 
     // Read file content using iterators for robustness with pseudo-files
@@ -66,7 +66,7 @@ Result<std::string> readTextFile(const std::filesystem::path& path) {
                         std::istreambuf_iterator<char>());
 
     if (file.bad()) { // Check for I/O errors during reading
-        return std::unexpected(make_error_code(UtilsError::IOError));
+        return std::unexpected(make_error_code(UtilsError::ioError));
     }
     
     return content;
@@ -75,39 +75,39 @@ Result<std::string> readTextFile(const std::filesystem::path& path) {
 Result<void> writeTextFile(const std::filesystem::path& path, std::string_view content) {
     std::ofstream file(path, std::ios::out | std::ios::trunc | std::ios::binary);
     if (!file.is_open()) {
-        return std::unexpected(make_error_code(UtilsError::PermissionDenied));
+        return std::unexpected(make_error_code(UtilsError::permissionDenied));
     }
     if (file.write(content.data(), static_cast<std::streamsize>(content.size()))) {
         return {};
     }
-    return std::unexpected(make_error_code(UtilsError::IOError));
+    return std::unexpected(make_error_code(UtilsError::ioError));
 }
 
 Result<void> appendToFile(const std::filesystem::path& path, std::string_view content) {
     std::ofstream file(path, std::ios::out | std::ios::app | std::ios::binary);
     if (!file.is_open()) {
-        return std::unexpected(make_error_code(UtilsError::PermissionDenied));
+        return std::unexpected(make_error_code(UtilsError::permissionDenied));
     }
     if (file.write(content.data(), static_cast<std::streamsize>(content.size()))) {
         return {};
     }
-    return std::unexpected(make_error_code(UtilsError::IOError));
+    return std::unexpected(make_error_code(UtilsError::ioError));
 }
 
 Result<std::vector<std::string>> readLines(const std::filesystem::path& path) {
     std::error_code ec;
     if (!std::filesystem::exists(path, ec)) {
         if (ec) return std::unexpected(ec);
-        return std::unexpected(make_error_code(UtilsError::FileNotFound));
+        return std::unexpected(make_error_code(UtilsError::fileNotFound));
     }
     if (!std::filesystem::is_regular_file(path, ec)) {
         if (ec) return std::unexpected(ec);
-        return std::unexpected(make_error_code(UtilsError::IOError));
+        return std::unexpected(make_error_code(UtilsError::ioError));
     }
 
     std::ifstream file(path);
     if (!file.is_open()) {
-        return std::unexpected(make_error_code(UtilsError::PermissionDenied));
+        return std::unexpected(make_error_code(UtilsError::permissionDenied));
     }
 
     std::vector<std::string> lines;
@@ -117,7 +117,7 @@ Result<std::vector<std::string>> readLines(const std::filesystem::path& path) {
     }
 
     if (file.bad()) {
-        return std::unexpected(make_error_code(UtilsError::IOError));
+        return std::unexpected(make_error_code(UtilsError::ioError));
     }
     return lines;
 }
@@ -135,7 +135,7 @@ Result<void> remove(const std::filesystem::path& path, bool recursive) {
     std::error_code ec;
     if (!std::filesystem::exists(path, ec)) {
         if (ec) return std::unexpected(ec);
-        return std::unexpected(make_error_code(UtilsError::FileNotFound));
+        return std::unexpected(make_error_code(UtilsError::fileNotFound));
     }
 
     if (recursive) {
@@ -147,7 +147,7 @@ Result<void> remove(const std::filesystem::path& path, bool recursive) {
     if (ec) {
         // Map specific std::error_code to UtilsError if applicable
         if (ec == std::make_error_code(std::errc::permission_denied)) {
-            return std::unexpected(make_error_code(UtilsError::PermissionDenied));
+            return std::unexpected(make_error_code(UtilsError::permissionDenied));
         }
         return std::unexpected(ec); // Return the underlying filesystem error
     }
@@ -158,11 +158,11 @@ Result<std::vector<std::filesystem::path>> listDirectory(const std::filesystem::
     std::error_code ec;
     if (!std::filesystem::exists(path, ec)) {
         if (ec) return std::unexpected(ec);
-        return std::unexpected(make_error_code(UtilsError::FileNotFound));
+        return std::unexpected(make_error_code(UtilsError::fileNotFound));
     }
     if (!std::filesystem::is_directory(path, ec)) {
         if (ec) return std::unexpected(ec);
-        return std::unexpected(make_error_code(UtilsError::IOError)); // Path is not a directory
+        return std::unexpected(make_error_code(UtilsError::ioError)); // Path is not a directory
     }
 
     std::vector<std::filesystem::path> entries;
@@ -187,7 +187,7 @@ Result<void> copyFile(const std::filesystem::path& source, const std::filesystem
     return {};
 }
 
-bool copyFile_deprecated(const std::filesystem::path& source, const std::filesystem::path& destination, std::error_code& ec) {
+bool copyFileDeprecated(const std::filesystem::path& source, const std::filesystem::path& destination, std::error_code& ec) {
     std::filesystem::copy(source, destination, std::filesystem::copy_options::overwrite_existing, ec);
     return !ec;
 }
@@ -201,7 +201,7 @@ Result<void> moveFile(const std::filesystem::path& source, const std::filesystem
     return {};
 }
 
-bool moveFile_deprecated(const std::filesystem::path& source, const std::filesystem::path& destination, std::error_code& ec) {
+bool moveFileDeprecated(const std::filesystem::path& source, const std::filesystem::path& destination, std::error_code& ec) {
     std::filesystem::rename(source, destination, ec);
     return !ec;
 }
@@ -215,17 +215,17 @@ Result<uintmax_t> getFileSize(const std::filesystem::path& filePath) {
     return size;
 }
 
-std::optional<uintmax_t> getFileSize_deprecated(const std::filesystem::path& filePath, std::error_code& ec) {
+std::optional<uintmax_t> getFileSizeDeprecated(const std::filesystem::path& filePath, std::error_code& ec) {
     if (std::filesystem::exists(filePath, ec) && !ec && std::filesystem::is_regular_file(filePath, ec) && !ec) {
         return std::filesystem::file_size(filePath, ec);
     }
     if (!ec) {
-        ec = make_error_code(UtilsError::FileNotFound);
+        ec = make_error_code(UtilsError::fileNotFound);
     }
     return std::nullopt;
 }
 
-bool traverseDirectory_deprecated(const std::filesystem::path& dirPath, const std::function<void(const std::filesystem::path&)>& callback, bool recursive) {
+bool traverseDirectoryDeprecated(const std::filesystem::path& dirPath, const std::function<void(const std::filesystem::path&)>& callback, bool recursive) {
     std::error_code ec;
     if (!std::filesystem::is_directory(dirPath, ec)) {
         return false;
@@ -404,7 +404,7 @@ std::string join(const std::vector<std::string>& parts, std::string_view delimit
     return result;
 }
 
-std::string formatString_deprecated(const char* fmt, ...) {
+std::string formatStringDeprecated(const char* fmt, ...) {
     va_list args;
     va_start(args, fmt);
     
@@ -500,13 +500,13 @@ Result<double> toDouble(std::string_view s) {
         subS = s.substr(1);
     }
     
-    if (subS.empty()) return std::unexpected(make_error_code(UtilsError::InvalidArgument));
+    if (subS.empty()) return std::unexpected(make_error_code(UtilsError::invalidArgument));
 
     auto res = std::from_chars(subS.data(), subS.data() + subS.size(), val);
     if (res.ec == std::errc() && res.ptr == subS.data() + subS.size()) {
         return val;
     }
-    return std::unexpected(make_error_code(UtilsError::InvalidArgument));
+    return std::unexpected(make_error_code(UtilsError::invalidArgument));
 }
 
 Result<long> toLong(std::string_view s, int base) {
@@ -516,16 +516,16 @@ Result<long> toLong(std::string_view s, int base) {
         subS = s.substr(1);
     }
     
-    if (subS.empty()) return std::unexpected(make_error_code(UtilsError::InvalidArgument));
+    if (subS.empty()) return std::unexpected(make_error_code(UtilsError::invalidArgument));
 
     auto res = std::from_chars(subS.data(), subS.data() + subS.size(), val, base);
     if (res.ec == std::errc() && res.ptr == subS.data() + subS.size()) {
         return val;
     }
-    return std::unexpected(make_error_code(UtilsError::InvalidArgument));
+    return std::unexpected(make_error_code(UtilsError::invalidArgument));
 }
 
-std::optional<long> toLong_deprecated(std::string_view s) {
+std::optional<long> toLongDeprecated(std::string_view s) {
     long val;
     std::string_view subS = s;
     if (!s.empty() && s[0] == '+') {
@@ -541,7 +541,7 @@ std::optional<long> toLong_deprecated(std::string_view s) {
     return std::nullopt;
 }
 
-std::optional<double> toDouble_deprecated(std::string_view s) {
+std::optional<double> toDoubleDeprecated(std::string_view s) {
     double val;
     std::string_view subS = s;
     if (!s.empty() && s[0] == '+') {
@@ -565,10 +565,10 @@ Result<bool> parseBool(std::string_view s) {
     if (lowerS == "false" || lowerS == "0" || lowerS == "no") {
         return false;
     }
-    return std::unexpected(make_error_code(UtilsError::InvalidArgument));
+    return std::unexpected(make_error_code(UtilsError::invalidArgument));
 }
 
-std::optional<bool> parseBool_deprecated(std::string_view s) {
+std::optional<bool> parseBoolDeprecated(std::string_view s) {
     std::string lowerS = toLower(s);
     if (lowerS == "true" || lowerS == "1" || lowerS == "yes") {
         return true;
@@ -586,7 +586,7 @@ Result<int> toInt(std::string_view s, int base) {
         subS = s.substr(1);
     }
     
-    if (subS.empty()) return std::unexpected(make_error_code(UtilsError::InvalidArgument));
+    if (subS.empty()) return std::unexpected(make_error_code(UtilsError::invalidArgument));
 
     auto res = std::from_chars(subS.data(), subS.data() + subS.size(), val, base);
     if (res.ec == std::errc() && res.ptr == subS.data() + subS.size()) {
@@ -594,10 +594,10 @@ Result<int> toInt(std::string_view s, int base) {
             return static_cast<int>(val);
         }
     }
-    return std::unexpected(make_error_code(UtilsError::InvalidArgument));
+    return std::unexpected(make_error_code(UtilsError::invalidArgument));
 }
 
-std::optional<int> toInt_deprecated(std::string_view s) {
+std::optional<int> toIntDeprecated(std::string_view s) {
     long val;
     std::string_view subS = s;
     if (!s.empty() && s[0] == '+') {
@@ -624,10 +624,10 @@ Result<float> toFloat(std::string_view s) {
             return static_cast<float>(val);
         }
     }
-    return std::unexpected(make_error_code(UtilsError::InvalidArgument));
+    return std::unexpected(make_error_code(UtilsError::invalidArgument));
 }
 
-std::optional<float> toFloat_deprecated(std::string_view s) {
+std::optional<float> toFloatDeprecated(std::string_view s) {
     double val;
     auto opt = toDouble(s);
     if (opt) {
@@ -646,17 +646,18 @@ Result<std::string> getEnv(const std::string& name) {
     if (value) {
         return std::string(value);
     }
-    return std::unexpected(make_error_code(UtilsError::InvalidArgument));
+    return std::unexpected(make_error_code(UtilsError::invalidArgument));
 }
 
 Result<CommandOutput> executeCommand(const std::string& command) {
     std::string commandRedirect = command + " 2>&1";
     FILE* pipe = popen(commandRedirect.c_str(), "r");
     if (!pipe) {
-        return std::unexpected(make_error_code(UtilsError::CommandExecutionError));
+        return std::unexpected(make_error_code(UtilsError::commandExecutionError));
     }
 
-    std::array<char, 128> buffer;
+    constexpr size_t kBufferSize = 128;
+    std::array<char, kBufferSize> buffer;
     std::string stdoutStr;
     while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
         stdoutStr += buffer.data();
@@ -670,7 +671,7 @@ Result<CommandOutput> executeCommand(const std::string& command) {
     return CommandOutput{stdoutStr, "", exitCode};
 }
 
-bool executeCommand_deprecated(const std::string& command, std::string& stdoutStr, std::string& stderrStr, int& exitCode) {
+bool executeCommandDeprecated(const std::string& command, std::string& stdoutStr, std::string& stderrStr, int& exitCode) {
     std::string commandRedirect = command + " 2>&1";
     FILE* pipe = popen(commandRedirect.c_str(), "r");
     if (!pipe) {
@@ -678,7 +679,8 @@ bool executeCommand_deprecated(const std::string& command, std::string& stdoutSt
         return false;
     }
 
-    std::array<char, 128> buffer;
+    constexpr size_t kBufferSize = 128;
+    std::array<char, kBufferSize> buffer;
     stdoutStr.clear();
     while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
         stdoutStr += buffer.data();

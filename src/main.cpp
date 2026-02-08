@@ -40,7 +40,7 @@ void printVerticalProcessDetails(const ProcessInfo& info);
 
 // Helper to convert string to ProcessSortField
 std::optional<ProcessSortField> stringToProcessSortField(const std::string& s) {
-    std::string lowerS = Utils::toLower(s);
+    std::string lowerS = utils::toLower(s);
     if (lowerS == "pid") return ProcessSortField::pid;
     if (lowerS == "ppid") return ProcessSortField::ppid;
     if (lowerS == "uid") return ProcessSortField::uid;
@@ -71,7 +71,7 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
     }
 
     // First argument is usually the command, unless it's a flag.
-    if (!cliArgs.empty() && !Utils::startsWith(cliArgs[0], "-")) {
+    if (!cliArgs.empty() && !utils::startsWith(cliArgs[0], "-")) {
         args.command = cliArgs[0];
         cliArgs.erase(cliArgs.begin()); // Consume the command
     } else {
@@ -121,12 +121,12 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
             args.briefMode = true;
         } else if (arg == "--columns") {
             if (i + 1 >= cliArgs.size()) { std::cerr << "Error: --columns requires an argument.\n"; return std::nullopt; }
-            args.selectedColumns = Utils::split(cliArgs[++i], ',');
+            args.selectedColumns = utils::split(cliArgs[++i], ',');
         } else if (arg == "--no-truncate-cmdline") {
             args.noTruncateCmdline = true;
         } else if (arg == "--format") {
             if (i + 1 >= cliArgs.size()) { std::cerr << "Error: --format requires an argument.\n"; return std::nullopt; }
-            std::string format = Utils::toLower(cliArgs[++i]);
+            std::string format = utils::toLower(cliArgs[++i]);
             if (format == "csv" || format == "json") {
                 args.outputFormat = format;
             } else {
@@ -137,13 +137,14 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
             args.showChildren = true;
         } else if (arg == "--open-files") {
             args.showOpenFiles = true;
-        } else if (Utils::startsWith(arg, "-")) {
+        } else if (utils::startsWith(arg, "-")) {
             std::cerr << "Error: Unknown option '" << arg << "'.\n";
             return std::nullopt;
         } else {
             // Positional arguments
             if (args.command == "pid" && !args.pid) {
-                if (auto pid = Utils::toLong(arg, 10)) {
+                constexpr int kBase10 = 10;
+                if (auto pid = utils::toLong(arg, kBase10)) {
                     args.pid = (int)*pid;
                 } else {
                     std::cerr << "Error: Invalid PID '" << arg << "'.\n";
@@ -387,7 +388,7 @@ void printProcessTable(const std::vector<ProcessInfo>& processes, const std::vec
 
 void printProcessCsv(const std::vector<ProcessInfo>& processes, const std::vector<std::string>& columns) {
     // Header
-    std::cout << Utils::join(columns, ",") << std::endl;
+    std::cout << utils::join(columns, ",") << std::endl;
 
     // Rows
     for (const auto& info : processes) {
@@ -407,11 +408,11 @@ void printProcessCsv(const std::vector<ProcessInfo>& processes, const std::vecto
 
             // Quote if necessary
             if (value.find(',') != std::string::npos || value.find('"') != std::string::npos) {
-                value = std::string("\"") + Utils::replace(value, "\"", "\"\"") + "\"";
+                value = std::string("\"") + utils::replace(value, "\"", "\"\"") + "\"";
             }
             values.push_back(value);
         }
-        std::cout << Utils::join(values, ",") << std::endl;
+        std::cout << utils::join(values, ",") << std::endl;
     }
 }
 
@@ -439,13 +440,13 @@ void printProcessJson(const std::vector<ProcessInfo>& processes, const std::vect
                 else if (col == "state") value = info.state;
                 else if (col == "cmdline") value = info.cmdline;
                 // Escape quotes and backslashes
-                value = Utils::replace(value, "\\", "\\\\");
-                value = Utils::replace(value, "\"", "\\\"");
+                value = utils::replace(value, "\\", "\\\\");
+                value = utils::replace(value, "\"", "\\\"");
                 ss << "\"" << value << "\"";
             }
             pairs.push_back(ss.str());
         }
-        std::cout << Utils::join(pairs, ",\n");
+        std::cout << utils::join(pairs, ",\n");
         std::cout << "\n  }";
         if (i < processes.size() - 1) {
             std::cout << ",";

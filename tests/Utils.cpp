@@ -9,6 +9,9 @@
 #include <fstream>
 #include <cstdlib>
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+
 // Helper to create a temporary file for testing
 std::filesystem::path createTempFile(const std::string& content) {
     std::filesystem::path tempPath = std::filesystem::temp_directory_path() / ("test_file_" + std::to_string(rand()) + ".txt");
@@ -29,7 +32,7 @@ TEST(UtilsTest, ReadFileExisting) {
     std::string content = "Hello, world!\nThis is a test file.";
     auto filePath = createTempFile(content);
 
-    auto result = Utils::readTextFile(filePath);
+    auto result = utils::readTextFile(filePath);
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result.value(), content);
 
@@ -37,19 +40,19 @@ TEST(UtilsTest, ReadFileExisting) {
 }
 
 TEST(UtilsTest, ReadFileNonExistent) {
-    auto result = Utils::readTextFile("non_existent_file.txt");
+    auto result = utils::readTextFile("non_existent_file.txt");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), Utils::make_error_code(Utils::UtilsError::FileNotFound));
+    EXPECT_EQ(result.error(), utils::make_error_code(utils::UtilsError::fileNotFound));
 }
 
 TEST(UtilsTest, WriteFile) {
     std::string content = "Write test content.";
     std::filesystem::path filePath = std::filesystem::temp_directory_path() / "write_test.txt";
 
-    auto result = Utils::writeTextFile(filePath, content);
+    auto result = utils::writeTextFile(filePath, content);
     ASSERT_TRUE(result.has_value());
 
-    auto readResult = Utils::readTextFile(filePath);
+    auto readResult = utils::readTextFile(filePath);
     ASSERT_TRUE(readResult.has_value());
     EXPECT_EQ(readResult.value(), content);
 
@@ -61,10 +64,10 @@ TEST(UtilsTest, AppendToFile) {
     std::string content2 = "Second line.";
     auto filePath = createTempFile(content1);
 
-    auto result = Utils::appendToFile(filePath, content2);
+    auto result = utils::appendToFile(filePath, content2);
     ASSERT_TRUE(result.has_value());
 
-    auto readResult = Utils::readTextFile(filePath);
+    auto readResult = utils::readTextFile(filePath);
     ASSERT_TRUE(readResult.has_value());
     EXPECT_EQ(readResult.value(), content1 + content2);
 
@@ -75,7 +78,7 @@ TEST(UtilsTest, ReadLines) {
     std::string content = "line 1\nline 2\nline 3\n";
     auto filePath = createTempFile(content);
 
-    auto result = Utils::readLines(filePath);
+    auto result = utils::readLines(filePath);
     ASSERT_TRUE(result.has_value());
     std::vector<std::string> expected = {"line 1", "line 2", "line 3"};
     EXPECT_EQ(result.value(), expected);
@@ -89,7 +92,7 @@ TEST(UtilsTest, CreateDirectories) {
         std::filesystem::remove_all(std::filesystem::temp_directory_path() / "a");
     }
 
-    auto result = Utils::createDirectories(tempPath);
+    auto result = utils::createDirectories(tempPath);
     ASSERT_TRUE(result.has_value());
     EXPECT_TRUE(std::filesystem::exists(tempPath));
     EXPECT_TRUE(std::filesystem::is_directory(tempPath));
@@ -101,7 +104,7 @@ TEST(UtilsTest, Remove) {
     auto filePath = createTempFile("to be removed");
     EXPECT_TRUE(std::filesystem::exists(filePath));
 
-    auto result = Utils::remove(filePath);
+    auto result = utils::remove(filePath);
     ASSERT_TRUE(result.has_value());
     EXPECT_FALSE(std::filesystem::exists(filePath));
 
@@ -110,11 +113,11 @@ TEST(UtilsTest, Remove) {
     std::ofstream(subFilePath) << "content";
     
     // Remove non-empty dir without recursive should fail (standard behavior)
-    auto result2 = Utils::remove(dirPath, false);
+    auto result2 = utils::remove(dirPath, false);
     ASSERT_FALSE(result2.has_value());
     
     // Remove with recursive
-    auto result3 = Utils::remove(dirPath, true);
+    auto result3 = utils::remove(dirPath, true);
     ASSERT_TRUE(result3.has_value());
     EXPECT_FALSE(std::filesystem::exists(dirPath));
 }
@@ -126,7 +129,7 @@ TEST(UtilsTest, ListDirectory) {
     std::ofstream(file1) << "1";
     std::ofstream(file2) << "2";
 
-    auto result = Utils::listDirectory(dirPath);
+    auto result = utils::listDirectory(dirPath);
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result.value().size(), 2);
     
@@ -146,12 +149,12 @@ TEST(UtilsTest, GetFileSize) {
     std::string content = "1234567890";
     auto filePath = createTempFile(content);
     
-    auto sizeResult = Utils::getFileSize(filePath);
+    auto sizeResult = utils::getFileSize(filePath);
     ASSERT_TRUE(sizeResult.has_value());
     EXPECT_EQ(sizeResult.value(), content.size());
     std::filesystem::remove(filePath);
 
-    auto nonExistentResult = Utils::getFileSize("non_existent_file.txt");
+    auto nonExistentResult = utils::getFileSize("non_existent_file.txt");
     ASSERT_FALSE(nonExistentResult.has_value());
     EXPECT_EQ(nonExistentResult.error(), std::make_error_code(std::errc::no_such_file_or_directory));
 }
@@ -161,11 +164,11 @@ TEST(UtilsTest, CopyFile) {
     auto srcPath = createTempFile(content);
     auto destPath = std::filesystem::temp_directory_path() / "dest_file.txt";
 
-    auto result = Utils::copyFile(srcPath, destPath);
+    auto result = utils::copyFile(srcPath, destPath);
     ASSERT_TRUE(result.has_value());
     EXPECT_TRUE(std::filesystem::exists(destPath));
 
-    auto readResult = Utils::readTextFile(destPath);
+    auto readResult = utils::readTextFile(destPath);
     ASSERT_TRUE(readResult.has_value());
     EXPECT_EQ(readResult.value(), content);
 
@@ -178,12 +181,12 @@ TEST(UtilsTest, MoveFile) {
     auto srcPath = createTempFile(content);
     auto destPath = std::filesystem::temp_directory_path() / "dest_file_moved.txt";
 
-    auto result = Utils::moveFile(srcPath, destPath);
+    auto result = utils::moveFile(srcPath, destPath);
     ASSERT_TRUE(result.has_value());
     EXPECT_FALSE(std::filesystem::exists(srcPath));
     EXPECT_TRUE(std::filesystem::exists(destPath));
 
-    auto readResult = Utils::readTextFile(destPath);
+    auto readResult = utils::readTextFile(destPath);
     ASSERT_TRUE(readResult.has_value());
     EXPECT_EQ(readResult.value(), content);
 
@@ -193,14 +196,14 @@ TEST(UtilsTest, MoveFile) {
 TEST(UtilsTest, TraverseDirectory) {
     auto dirPath = createTempDir();
     auto subDir = dirPath / "subdir";
-    ASSERT_TRUE(Utils::createDirectories(subDir));
+    ASSERT_TRUE(utils::createDirectories(subDir));
     auto file1 = dirPath / "file1.txt";
     auto file2 = subDir / "file2.txt";
     std::ofstream(file1) << "1";
     std::ofstream(file2) << "2";
 
     std::vector<std::filesystem::path> paths;
-    bool result = Utils::traverseDirectory_deprecated(dirPath, [&paths](const auto& path){
+    bool result = utils::traverseDirectoryDeprecated(dirPath, [&paths](const auto& path){
         paths.push_back(path);
     }, true);
 
@@ -209,7 +212,7 @@ TEST(UtilsTest, TraverseDirectory) {
 
     // Non-recursive
     paths.clear();
-    result = Utils::traverseDirectory_deprecated(dirPath, [&paths](const auto& path){
+    result = utils::traverseDirectoryDeprecated(dirPath, [&paths](const auto& path){
         paths.push_back(path);
     }, false);
     
@@ -221,273 +224,273 @@ TEST(UtilsTest, TraverseDirectory) {
 
 TEST(UtilsTest, Exists) {
     auto filePath = createTempFile("temp");
-    EXPECT_TRUE(Utils::exists(filePath));
+    EXPECT_TRUE(utils::exists(filePath));
     std::filesystem::remove(filePath);
-    EXPECT_FALSE(Utils::exists(filePath));
+    EXPECT_FALSE(utils::exists(filePath));
 
     auto dirPath = createTempDir();
-    EXPECT_TRUE(Utils::exists(dirPath));
+    EXPECT_TRUE(utils::exists(dirPath));
     std::filesystem::remove(dirPath); // Remove directory
-    EXPECT_FALSE(Utils::exists(dirPath));
+    EXPECT_FALSE(utils::exists(dirPath));
 }
 
 TEST(UtilsTest, IsFile) {
     auto filePath = createTempFile("temp");
-    EXPECT_TRUE(Utils::isFile(filePath));
+    EXPECT_TRUE(utils::isFile(filePath));
     std::filesystem::remove(filePath);
-    EXPECT_FALSE(Utils::isFile(filePath));
+    EXPECT_FALSE(utils::isFile(filePath));
 
     auto dirPath = createTempDir();
-    EXPECT_FALSE(Utils::isFile(dirPath));
+    EXPECT_FALSE(utils::isFile(dirPath));
     std::filesystem::remove(dirPath);
 }
 
 TEST(UtilsTest, IsDirectory) {
     auto dirPath = createTempDir();
-    EXPECT_TRUE(Utils::isDirectory(dirPath));
+    EXPECT_TRUE(utils::isDirectory(dirPath));
     std::filesystem::remove(dirPath);
-    EXPECT_FALSE(Utils::isDirectory(dirPath));
+    EXPECT_FALSE(utils::isDirectory(dirPath));
 
     auto filePath = createTempFile("temp");
-    EXPECT_FALSE(Utils::isDirectory(filePath));
+    EXPECT_FALSE(utils::isDirectory(filePath));
     std::filesystem::remove(filePath);
 }
 
 TEST(UtilsTest, Trim) {
-    EXPECT_EQ(Utils::trim("  hello  "), "hello");
-    EXPECT_EQ(Utils::trim("hello"), "hello");
-    EXPECT_EQ(Utils::trim("  hello"), "hello");
-    EXPECT_EQ(Utils::trim("hello  "), "hello");
-    EXPECT_EQ(Utils::trim(""), "");
-    EXPECT_EQ(Utils::trim("   "), "");
-    EXPECT_EQ(Utils::trim("\t\n hello \r\v"), "hello");
+    EXPECT_EQ(utils::trim("  hello  "), "hello");
+    EXPECT_EQ(utils::trim("hello"), "hello");
+    EXPECT_EQ(utils::trim("  hello"), "hello");
+    EXPECT_EQ(utils::trim("hello  "), "hello");
+    EXPECT_EQ(utils::trim(""), "");
+    EXPECT_EQ(utils::trim("   "), "");
+    EXPECT_EQ(utils::trim("\t\n hello \r\v"), "hello");
 }
 
 TEST(UtilsTest, StartsWith) {
-    EXPECT_TRUE(Utils::startsWith("hello world", "hello"));
-    EXPECT_FALSE(Utils::startsWith("hello world", "world"));
-    EXPECT_TRUE(Utils::startsWith("hello", "hello"));
-    EXPECT_FALSE(Utils::startsWith("hello", "hellos"));
-    EXPECT_TRUE(Utils::startsWith("", ""));
-    EXPECT_TRUE(Utils::startsWith("hello", ""));
+    EXPECT_TRUE(utils::startsWith("hello world", "hello"));
+    EXPECT_FALSE(utils::startsWith("hello world", "world"));
+    EXPECT_TRUE(utils::startsWith("hello", "hello"));
+    EXPECT_FALSE(utils::startsWith("hello", "hellos"));
+    EXPECT_TRUE(utils::startsWith("", ""));
+    EXPECT_TRUE(utils::startsWith("hello", ""));
 }
 
 TEST(UtilsTest, EndsWith) {
-    EXPECT_TRUE(Utils::endsWith("hello world", "world"));
-    EXPECT_FALSE(Utils::endsWith("hello world", "hello"));
-    EXPECT_TRUE(Utils::endsWith("world", "world"));
-    EXPECT_FALSE(Utils::endsWith("world", "helloworld"));
-    EXPECT_TRUE(Utils::endsWith("", ""));
-    EXPECT_TRUE(Utils::endsWith("hello", ""));
+    EXPECT_TRUE(utils::endsWith("hello world", "world"));
+    EXPECT_FALSE(utils::endsWith("hello world", "hello"));
+    EXPECT_TRUE(utils::endsWith("world", "world"));
+    EXPECT_FALSE(utils::endsWith("world", "helloworld"));
+    EXPECT_TRUE(utils::endsWith("", ""));
+    EXPECT_TRUE(utils::endsWith("hello", ""));
 }
 
 TEST(UtilsTest, Contains) {
-    EXPECT_TRUE(Utils::contains("hello world", "lo wo"));
-    EXPECT_FALSE(Utils::contains("hello world", "foo"));
-    EXPECT_TRUE(Utils::contains("hello", "hello"));
-    EXPECT_TRUE(Utils::contains("hello", ""));
-    EXPECT_FALSE(Utils::contains("", "a"));
+    EXPECT_TRUE(utils::contains("hello world", "lo wo"));
+    EXPECT_FALSE(utils::contains("hello world", "foo"));
+    EXPECT_TRUE(utils::contains("hello", "hello"));
+    EXPECT_TRUE(utils::contains("hello", ""));
+    EXPECT_FALSE(utils::contains("", "a"));
 }
 
 TEST(UtilsTest, StartsWithIgnoreCase) {
-    EXPECT_TRUE(Utils::startsWithIgnoreCase("Hello World", "hello"));
-    EXPECT_FALSE(Utils::startsWithIgnoreCase("Hello World", "world"));
-    EXPECT_TRUE(Utils::startsWithIgnoreCase("HELLO", "hello"));
+    EXPECT_TRUE(utils::startsWithIgnoreCase("Hello World", "hello"));
+    EXPECT_FALSE(utils::startsWithIgnoreCase("Hello World", "world"));
+    EXPECT_TRUE(utils::startsWithIgnoreCase("HELLO", "hello"));
 }
 
 TEST(UtilsTest, EndsWithIgnoreCase) {
-    EXPECT_TRUE(Utils::endsWithIgnoreCase("Hello World", "WORLD"));
-    EXPECT_FALSE(Utils::endsWithIgnoreCase("Hello World", "HELLO"));
-    EXPECT_TRUE(Utils::endsWithIgnoreCase("WORLD", "world"));
+    EXPECT_TRUE(utils::endsWithIgnoreCase("Hello World", "WORLD"));
+    EXPECT_FALSE(utils::endsWithIgnoreCase("Hello World", "HELLO"));
+    EXPECT_TRUE(utils::endsWithIgnoreCase("WORLD", "world"));
 }
 
 TEST(UtilsTest, ContainsIgnoreCase) {
-    EXPECT_TRUE(Utils::containsIgnoreCase("Hello World", "lo wo"));
-    EXPECT_TRUE(Utils::containsIgnoreCase("Hello World", "LO WO"));
-    EXPECT_FALSE(Utils::containsIgnoreCase("Hello World", "foo"));
+    EXPECT_TRUE(utils::containsIgnoreCase("Hello World", "lo wo"));
+    EXPECT_TRUE(utils::containsIgnoreCase("Hello World", "LO WO"));
+    EXPECT_FALSE(utils::containsIgnoreCase("Hello World", "foo"));
 }
 
 TEST(UtilsTest, ToLower) {
-    EXPECT_EQ(Utils::toLower("HELLO World"), "hello world");
-    EXPECT_EQ(Utils::toLower("123!@#"), "123!@#");
-    EXPECT_EQ(Utils::toLower(""), "");
+    EXPECT_EQ(utils::toLower("HELLO World"), "hello world");
+    EXPECT_EQ(utils::toLower("123!@#"), "123!@#");
+    EXPECT_EQ(utils::toLower(""), "");
 }
 
 TEST(UtilsTest, ToUpper) {
-    EXPECT_EQ(Utils::toUpper("hello World"), "HELLO WORLD");
-    EXPECT_EQ(Utils::toUpper("123!@#"), "123!@#");
-    EXPECT_EQ(Utils::toUpper(""), "");
+    EXPECT_EQ(utils::toUpper("hello World"), "HELLO WORLD");
+    EXPECT_EQ(utils::toUpper("123!@#"), "123!@#");
+    EXPECT_EQ(utils::toUpper(""), "");
 }
 
 TEST(UtilsTest, Replace) {
-    EXPECT_EQ(Utils::replace("hello world", "world", "universe"), "hello universe");
-    EXPECT_EQ(Utils::replace("banana", "a", "o"), "bonono");
-    EXPECT_EQ(Utils::replace("hello", "l", ""), "heo");
-    EXPECT_EQ(Utils::replace("hello", "", "x"), "hello");
-    EXPECT_EQ(Utils::replace("", "a", "b"), "");
+    EXPECT_EQ(utils::replace("hello world", "world", "universe"), "hello universe");
+    EXPECT_EQ(utils::replace("banana", "a", "o"), "bonono");
+    EXPECT_EQ(utils::replace("hello", "l", ""), "heo");
+    EXPECT_EQ(utils::replace("hello", "", "x"), "hello");
+    EXPECT_EQ(utils::replace("", "a", "b"), "");
 }
 
 TEST(UtilsTest, ReplaceFirst) {
-    EXPECT_EQ(Utils::replaceFirst("banana", "a", "o"), "bonana");
-    EXPECT_EQ(Utils::replaceFirst("hello world world", "world", "galaxy"), "hello galaxy world");
-    EXPECT_EQ(Utils::replaceFirst("test", "not_found", "x"), "test");
+    EXPECT_EQ(utils::replaceFirst("banana", "a", "o"), "bonana");
+    EXPECT_EQ(utils::replaceFirst("hello world world", "world", "galaxy"), "hello galaxy world");
+    EXPECT_EQ(utils::replaceFirst("test", "not_found", "x"), "test");
 }
 
 TEST(UtilsTest, ReplaceN) {
-    EXPECT_EQ(Utils::replaceN("banana", "a", "o", 2), "bonona");
-    EXPECT_EQ(Utils::replaceN("ababab", "ab", "c", 2), "ccab");
-    EXPECT_EQ(Utils::replaceN("test", "t", "x", 10), "xesx"); // replace all
+    EXPECT_EQ(utils::replaceN("banana", "a", "o", 2), "bonona");
+    EXPECT_EQ(utils::replaceN("ababab", "ab", "c", 2), "ccab");
+    EXPECT_EQ(utils::replaceN("test", "t", "x", 10), "xesx"); // replace all
 }
 
 TEST(UtilsTest, Format) {
-    EXPECT_EQ(Utils::format("Hello, {}!", "world"), "Hello, world!");
-    EXPECT_EQ(Utils::format("Number: {}", 123), "Number: 123");
-    EXPECT_EQ(Utils::format("{} {} {}", -5, 3.14, "test"), "-5 3.14 test");
+    EXPECT_EQ(utils::format("Hello, {}!", "world"), "Hello, world!");
+    EXPECT_EQ(utils::format("Number: {}", 123), "Number: 123");
+    EXPECT_EQ(utils::format("{} {} {}", -5, 3.14, "test"), "-5 3.14 test");
 }
 
 TEST(UtilsTest, Join) {
     std::vector<std::string> parts = {"one", "two", "three"};
-    EXPECT_EQ(Utils::join(parts, ","), "one,two,three");
-    EXPECT_EQ(Utils::join(parts, "---"), "one---two---three");
-    EXPECT_EQ(Utils::join({"single"}, ","), "single");
-    EXPECT_EQ(Utils::join({}, ","), "");
+    EXPECT_EQ(utils::join(parts, ","), "one,two,three");
+    EXPECT_EQ(utils::join(parts, "---"), "one---two---three");
+    EXPECT_EQ(utils::join({"single"}, ","), "single");
+    EXPECT_EQ(utils::join({}, ","), "");
 }
 
 TEST(UtilsTest, SplitCharDelimiter) {
     std::vector<std::string> expected = {"one", "two", "three"};
-    EXPECT_EQ(Utils::split("one,two,three", ',', false), expected);
+    EXPECT_EQ(utils::split("one,two,three", ',', false), expected);
 
     expected = {"one", "two", "three", ""};
-    EXPECT_EQ(Utils::split("one,two,three,", ',', false), expected);
+    EXPECT_EQ(utils::split("one,two,three,", ',', false), expected);
 
     expected = {"one", "two", "three"};
-    EXPECT_EQ(Utils::split("one,two,three,", ',', true), expected);
+    EXPECT_EQ(utils::split("one,two,three,", ',', true), expected);
 
     expected = {};
-    EXPECT_EQ(Utils::split("", ',', false), expected);
+    EXPECT_EQ(utils::split("", ',', false), expected);
 
     expected = {"a", "b"};
-    EXPECT_EQ(Utils::split("a,,b", ',', true), expected);
+    EXPECT_EQ(utils::split("a,,b", ',', true), expected);
     
     expected = {"a", "", "b"};
-    EXPECT_EQ(Utils::split("a,,b", ',', false), expected);
+    EXPECT_EQ(utils::split("a,,b", ',', false), expected);
 }
 
 TEST(UtilsTest, SplitStringDelimiter) {
     std::vector<std::string> expected = {"one", "two", "three"};
-    EXPECT_EQ(Utils::split("one||two||three", "||", false), expected);
+    EXPECT_EQ(utils::split("one||two||three", "||", false), expected);
 
     expected = {"one", "two", "three", ""};
-    EXPECT_EQ(Utils::split("one||two||three||", "||", false), expected);
+    EXPECT_EQ(utils::split("one||two||three||", "||", false), expected);
 
     expected = {"one", "two", "three"};
-    EXPECT_EQ(Utils::split("one||two||three||", "||", true), expected);
+    EXPECT_EQ(utils::split("one||two||three||", "||", true), expected);
 
     expected = {};
-    EXPECT_EQ(Utils::split("", "||", false), expected);
+    EXPECT_EQ(utils::split("", "||", false), expected);
 
     expected = {"a", "b"};
-    EXPECT_EQ(Utils::split("a||||b", "||", true), expected);
+    EXPECT_EQ(utils::split("a||||b", "||", true), expected);
 
     expected = {"a", "", "b"};
-    EXPECT_EQ(Utils::split("a||||b", "||", false), expected);
+    EXPECT_EQ(utils::split("a||||b", "||", false), expected);
 }
 
 TEST(UtilsTest, IsInteger) {
-    EXPECT_TRUE(Utils::isInteger("123"));
-    EXPECT_TRUE(Utils::isInteger("-456"));
-    EXPECT_TRUE(Utils::isInteger("+789"));
-    EXPECT_FALSE(Utils::isInteger("123a"));
-    EXPECT_FALSE(Utils::isInteger("12.3"));
-    EXPECT_FALSE(Utils::isInteger(""));
-    EXPECT_TRUE(Utils::isInteger("0"));
-    EXPECT_FALSE(Utils::isInteger("-"));
-    EXPECT_FALSE(Utils::isInteger("+"));
+    EXPECT_TRUE(utils::isInteger("123"));
+    EXPECT_TRUE(utils::isInteger("-456"));
+    EXPECT_TRUE(utils::isInteger("+789"));
+    EXPECT_FALSE(utils::isInteger("123a"));
+    EXPECT_FALSE(utils::isInteger("12.3"));
+    EXPECT_FALSE(utils::isInteger(""));
+    EXPECT_TRUE(utils::isInteger("0"));
+    EXPECT_FALSE(utils::isInteger("-"));
+    EXPECT_FALSE(utils::isInteger("+"));
 }
 
 TEST(UtilsTest, IsFloatingPoint) {
-    EXPECT_TRUE(Utils::isFloatingPoint("123.45"));
-    EXPECT_TRUE(Utils::isFloatingPoint("-12.3"));
-    EXPECT_TRUE(Utils::isFloatingPoint("+0.5"));
-    EXPECT_TRUE(Utils::isFloatingPoint(".5"));
-    EXPECT_TRUE(Utils::isFloatingPoint("123."));
-    EXPECT_FALSE(Utils::isFloatingPoint("12.3.4"));
-    EXPECT_FALSE(Utils::isFloatingPoint("abc"));
-    EXPECT_FALSE(Utils::isFloatingPoint(""));
-    EXPECT_TRUE(Utils::isFloatingPoint("0.0"));
-    EXPECT_FALSE(Utils::isFloatingPoint("."));
-    EXPECT_FALSE(Utils::isFloatingPoint("-"));
-    EXPECT_FALSE(Utils::isFloatingPoint("+"));
-    EXPECT_TRUE(Utils::isFloatingPoint("123"));
+    EXPECT_TRUE(utils::isFloatingPoint("123.45"));
+    EXPECT_TRUE(utils::isFloatingPoint("-12.3"));
+    EXPECT_TRUE(utils::isFloatingPoint("+0.5"));
+    EXPECT_TRUE(utils::isFloatingPoint(".5"));
+    EXPECT_TRUE(utils::isFloatingPoint("123."));
+    EXPECT_FALSE(utils::isFloatingPoint("12.3.4"));
+    EXPECT_FALSE(utils::isFloatingPoint("abc"));
+    EXPECT_FALSE(utils::isFloatingPoint(""));
+    EXPECT_TRUE(utils::isFloatingPoint("0.0"));
+    EXPECT_FALSE(utils::isFloatingPoint("."));
+    EXPECT_FALSE(utils::isFloatingPoint("-"));
+    EXPECT_FALSE(utils::isFloatingPoint("+"));
+    EXPECT_TRUE(utils::isFloatingPoint("123"));
     
     // Scientific notation
-    EXPECT_TRUE(Utils::isFloatingPoint("1.23e4"));
-    EXPECT_TRUE(Utils::isFloatingPoint("1.23E4"));
-    EXPECT_TRUE(Utils::isFloatingPoint("1e-5"));
-    EXPECT_TRUE(Utils::isFloatingPoint("1.2E+2"));
-    EXPECT_FALSE(Utils::isFloatingPoint("1e"));
-    EXPECT_FALSE(Utils::isFloatingPoint("e5"));
+    EXPECT_TRUE(utils::isFloatingPoint("1.23e4"));
+    EXPECT_TRUE(utils::isFloatingPoint("1.23E4"));
+    EXPECT_TRUE(utils::isFloatingPoint("1e-5"));
+    EXPECT_TRUE(utils::isFloatingPoint("1.2E+2"));
+    EXPECT_FALSE(utils::isFloatingPoint("1e"));
+    EXPECT_FALSE(utils::isFloatingPoint("e5"));
 }
 
 TEST(UtilsTest, ToLong) {
-    EXPECT_EQ(Utils::toLong("123", 10).value_or(0), 123L);
-    EXPECT_EQ(Utils::toLong("-456", 10).value_or(0), -456L);
-    EXPECT_EQ(Utils::toLong("+789", 10).value_or(0), 789L);
-    EXPECT_FALSE(Utils::toLong("123a", 10).has_value());
-    EXPECT_FALSE(Utils::toLong("12.3", 10).has_value());
-    EXPECT_FALSE(Utils::toLong("", 10).has_value());
-    EXPECT_TRUE(Utils::toLong("0", 10).has_value());
-    EXPECT_FALSE(Utils::toLong("-", 10).has_value());
-    EXPECT_FALSE(Utils::toLong("+", 10).has_value());
+    EXPECT_EQ(utils::toLong("123", 10).value_or(0), 123L);
+    EXPECT_EQ(utils::toLong("-456", 10).value_or(0), -456L);
+    EXPECT_EQ(utils::toLong("+789", 10).value_or(0), 789L);
+    EXPECT_FALSE(utils::toLong("123a", 10).has_value());
+    EXPECT_FALSE(utils::toLong("12.3", 10).has_value());
+    EXPECT_FALSE(utils::toLong("", 10).has_value());
+    EXPECT_TRUE(utils::toLong("0", 10).has_value());
+    EXPECT_FALSE(utils::toLong("-", 10).has_value());
+    EXPECT_FALSE(utils::toLong("+", 10).has_value());
 
     // Overflow check
-    EXPECT_FALSE(Utils::toLong("9223372036854775808", 10).has_value());
-    EXPECT_FALSE(Utils::toLong("-9223372036854775809", 10).has_value());
+    EXPECT_FALSE(utils::toLong("9223372036854775808", 10).has_value());
+    EXPECT_FALSE(utils::toLong("-9223372036854775809", 10).has_value());
 }
 
 TEST(UtilsTest, ToDouble) {
-    EXPECT_DOUBLE_EQ(Utils::toDouble("123.45").value_or(0.0), 123.45);
-    EXPECT_DOUBLE_EQ(Utils::toDouble("-12.3").value_or(0.0), -12.3);
-    EXPECT_DOUBLE_EQ(Utils::toDouble("+0.5").value_or(0.0), 0.5);
-    EXPECT_DOUBLE_EQ(Utils::toDouble(".5").value_or(0.0), 0.5);
-    EXPECT_DOUBLE_EQ(Utils::toDouble("123.").value_or(0.0), 123.0);
-    EXPECT_FALSE(Utils::toDouble("12.3.4").has_value());
-    EXPECT_FALSE(Utils::toDouble("abc").has_value());
-    EXPECT_FALSE(Utils::toDouble("").has_value());
-    EXPECT_TRUE(Utils::toDouble("0.0").has_value());
-    EXPECT_FALSE(Utils::toDouble(".").has_value());
-    EXPECT_FALSE(Utils::toDouble("-").has_value());
-    EXPECT_FALSE(Utils::toDouble("+").has_value());
+    EXPECT_DOUBLE_EQ(utils::toDouble("123.45").value_or(0.0), 123.45);
+    EXPECT_DOUBLE_EQ(utils::toDouble("-12.3").value_or(0.0), -12.3);
+    EXPECT_DOUBLE_EQ(utils::toDouble("+0.5").value_or(0.0), 0.5);
+    EXPECT_DOUBLE_EQ(utils::toDouble(".5").value_or(0.0), 0.5);
+    EXPECT_DOUBLE_EQ(utils::toDouble("123.").value_or(0.0), 123.0);
+    EXPECT_FALSE(utils::toDouble("12.3.4").has_value());
+    EXPECT_FALSE(utils::toDouble("abc").has_value());
+    EXPECT_FALSE(utils::toDouble("").has_value());
+    EXPECT_TRUE(utils::toDouble("0.0").has_value());
+    EXPECT_FALSE(utils::toDouble(".").has_value());
+    EXPECT_FALSE(utils::toDouble("-").has_value());
+    EXPECT_FALSE(utils::toDouble("+").has_value());
     
     // Scientific notation
-    EXPECT_DOUBLE_EQ(Utils::toDouble("1.23e4").value_or(0.0), 12300.0);
-    EXPECT_DOUBLE_EQ(Utils::toDouble("1e-2").value_or(0.0), 0.01);
+    EXPECT_DOUBLE_EQ(utils::toDouble("1.23e4").value_or(0.0), 12300.0);
+    EXPECT_DOUBLE_EQ(utils::toDouble("1e-2").value_or(0.0), 0.01);
 }
 
 TEST(UtilsTest, ParseBool) {
-    EXPECT_TRUE(Utils::parseBool("true").value_or(false));
-    EXPECT_TRUE(Utils::parseBool("TRUE").value_or(false));
-    EXPECT_TRUE(Utils::parseBool("1").value_or(false));
-    EXPECT_TRUE(Utils::parseBool("yes").value_or(false));
-    EXPECT_FALSE(Utils::parseBool("false").value_or(true));
-    EXPECT_FALSE(Utils::parseBool("FALSE").value_or(true));
-    EXPECT_FALSE(Utils::parseBool("0").value_or(true));
-    EXPECT_FALSE(Utils::parseBool("no").value_or(true));
-    EXPECT_FALSE(Utils::parseBool("invalid").has_value());
-    EXPECT_FALSE(Utils::parseBool("").has_value());
+    EXPECT_TRUE(utils::parseBool("true").value_or(false));
+    EXPECT_TRUE(utils::parseBool("TRUE").value_or(false));
+    EXPECT_TRUE(utils::parseBool("1").value_or(false));
+    EXPECT_TRUE(utils::parseBool("yes").value_or(false));
+    EXPECT_FALSE(utils::parseBool("false").value_or(true));
+    EXPECT_FALSE(utils::parseBool("FALSE").value_or(true));
+    EXPECT_FALSE(utils::parseBool("0").value_or(true));
+    EXPECT_FALSE(utils::parseBool("no").value_or(true));
+    EXPECT_FALSE(utils::parseBool("invalid").has_value());
+    EXPECT_FALSE(utils::parseBool("").has_value());
 }
 
 TEST(UtilsTest, ToInt) {
-    EXPECT_EQ(Utils::toInt("123", 10).value_or(0), 123);
-    EXPECT_EQ(Utils::toInt("-456", 10).value_or(0), -456);
-    EXPECT_FALSE(Utils::toInt("2147483648", 10).has_value()); // Out of range
-    EXPECT_FALSE(Utils::toInt("abc", 10).has_value());
+    EXPECT_EQ(utils::toInt("123", 10).value_or(0), 123);
+    EXPECT_EQ(utils::toInt("-456", 10).value_or(0), -456);
+    EXPECT_FALSE(utils::toInt("2147483648", 10).has_value()); // Out of range
+    EXPECT_FALSE(utils::toInt("abc", 10).has_value());
 }
 
 TEST(UtilsTest, ToFloat) {
-    EXPECT_FLOAT_EQ(Utils::toFloat("123.45").value_or(0.0F), 123.45F);
-    EXPECT_FLOAT_EQ(Utils::toFloat("-12.3").value_or(0.0F), -12.3F);
-    EXPECT_FALSE(Utils::toFloat("3.5e40").has_value()); // Out of range for float
+    EXPECT_FLOAT_EQ(utils::toFloat("123.45").value_or(0.0F), 123.45F);
+    EXPECT_FLOAT_EQ(utils::toFloat("-12.3").value_or(0.0F), -12.3F);
+    EXPECT_FALSE(utils::toFloat("3.5e40").has_value()); // Out of range for float
 }
 
 TEST(UtilsTest, GetEnv) {
@@ -498,13 +501,13 @@ TEST(UtilsTest, GetEnv) {
     setenv("TEST_VAR", "test_value", 1);
     #endif
 
-    auto value = Utils::getEnv("TEST_VAR");
+    auto value = utils::getEnv("TEST_VAR");
     ASSERT_TRUE(value.has_value());
     if (value) { // Redundant check for static analyzer
         EXPECT_EQ(*value, "test_value");
     }
 
-    auto nonExistent = Utils::getEnv("NON_EXISTENT_VAR_XYZ_123");
+    auto nonExistent = utils::getEnv("NON_EXISTENT_VAR_XYZ_123");
     EXPECT_FALSE(nonExistent.has_value());
 }
 
@@ -513,14 +516,14 @@ TEST(UtilsTest, ExecuteCommand) {
     std::string stderrStr;
     int exitCode;
 
-    bool result = Utils::executeCommand_deprecated("echo 'hello world'", stdoutStr, stderrStr, exitCode);
+    bool result = utils::executeCommandDeprecated("echo 'hello world'", stdoutStr, stderrStr, exitCode);
     ASSERT_TRUE(result);
     EXPECT_EQ(exitCode, 0);
-    EXPECT_EQ(Utils::trim(stdoutStr), "hello world");
+    EXPECT_EQ(utils::trim(stdoutStr), "hello world");
     
     // Test command that fails
-    result = Utils::executeCommand_deprecated("ls non_existent_dir_12345", stdoutStr, stderrStr, exitCode);
+    result = utils::executeCommandDeprecated("ls non_existent_dir_12345", stdoutStr, stderrStr, exitCode);
     ASSERT_TRUE(result);
     EXPECT_NE(exitCode, 0);
-    EXPECT_TRUE(Utils::contains(stdoutStr, "No such file or directory"));
+    EXPECT_TRUE(utils::contains(stdoutStr, "No such file or directory"));
 }

@@ -53,6 +53,8 @@ To list all running processes:
 ./processAnalyzer list
 ```
 
+> **Note:** Some process information may be restricted to the owner or the root user. If you don't see expected details, try running with `sudo`.
+
 To see available commands and options:
 
 ```bash
@@ -87,7 +89,7 @@ The project includes a robust `Utils` namespace in `src/utils.cpp` and `include/
 *   Numeric parsing and validation
 *   System interaction (environment variables, process execution)
 
-For a comprehensive overview and usage examples of the utility library, please see [docs/UTILS.md](docs/UTILS.md).
+**Recent updates include enhancements and a new API for improved functionality.** For a comprehensive overview and usage examples of the utility library, including details on the new API, please see [docs/UTILS.md](docs/UTILS.md).
 
 ## Contributing
 

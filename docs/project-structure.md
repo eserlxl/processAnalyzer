@@ -36,6 +36,7 @@ processAnalyzer/
 └───tests/                      # Source files for unit and integration tests.
     ├───AnalyzerTest.cpp        # Unit tests for the Analyzer class.
     ├───CMakeLists.txt          # CMake configuration for building the tests.
+    ├───TestUtils.cpp           # Implementation of test utility helpers.
     ├───TestUtils.h             # Utility functions and helpers for the test suite.
     ├───TestUtilsNewApiTest.cpp # Tests for new APIs within TestUtils.
     └───Utils.cpp               # Unit tests for the Utils library.
