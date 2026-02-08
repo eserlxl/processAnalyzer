@@ -24,6 +24,30 @@ struct ProcessInfo {
     std::string cmdline;
 };
 
+// New structures and enums for Iteration 3 filtering and sorting
+struct ProcessFilter {
+    std::optional<std::string> nameContains; // For name filter
+    std::optional<std::string> userFilter;   // For user filter
+    std::optional<char> stateFilter;         // 'R', 'S', 'Z', etc.
+};
+
+enum class ProcessSortField {
+    PID,
+    PPID, // Though not directly sortable from command line yet, useful internally
+    UID,
+    USER,
+    NAME,
+    STATE,
+    RSS,
+    VM,
+    THREADS
+};
+
+enum class SortOrder {
+    ASC,
+    DESC
+};
+
 // Predicate for filtering processes
 using ProcessPredicate = std::function<bool(const ProcessInfo&)>;
 
@@ -41,9 +65,28 @@ public:
     std::vector<ProcessInfo> getProcessesByName(std::string_view name) const;
     std::vector<ProcessInfo> getProcessesByUser(std::string_view username) const;
 
-    [[deprecated("Use snapshot() or findProcesses() instead")]]
-    void printAllProcesses() const;
-    
+    // New method for general process query with filtering and sorting
+    // Contract: Returns processes matching filter, sorted as specified.
+    // Throws: std::runtime_error if procPath is invalid or permissions issues.
+    std::vector<ProcessInfo> queryProcesses(
+        const ProcessFilter& filter = {},
+        ProcessSortField sortBy = ProcessSortField::PID,
+        SortOrder sortOrder = SortOrder::ASC
+    ) const;
+
+    // New method to get child processes
+    // Contract: Returns a vector of ProcessInfo for direct children of the given PID.
+    //           Returns empty vector if no children or PID not found.
+    // Throws: std::runtime_error for permissions issues.
+    std::vector<ProcessInfo> getChildProcesses(int pid) const;
+
+    // New method to get open files for a process
+    // Contract: Returns a vector of strings, each representing an open file path.
+    //           Returns empty vector if no files or PID not found/inaccessible.
+    // Throws: std::runtime_error for permissions issues.
+    std::vector<std::string> getProcessOpenFiles(int pid) const;
+
+
 private:
     std::string procPath;
 };

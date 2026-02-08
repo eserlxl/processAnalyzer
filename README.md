@@ -1,6 +1,7 @@
 # processAnalyzer
 
 ![License](https://img.shields.io/badge/License-GPLv3-blue.svg)
+![Platform](https://img.shields.io/badge/Platform-Linux-lightgrey.svg)
 
 ## Table of Contents
 * [Features](#features)
@@ -20,18 +21,21 @@ A powerful and lightweight C++ command-line tool designed for in-depth analysis 
 ## Features
 
 *   **List Processes**: Enumerate all running processes with key information.
-*   **Process Details**: Obtain comprehensive details for a specific process ID (PID).
-*   **Process Filtering**: Filter processes by various criteria such as name or user.
+*   **Process Details**: Obtain comprehensive details for a specific process ID (PID), including its child processes and open files.
+*   **Process Filtering**: Filter processes by various criteria such as name, user, or state.
+*   **Process Sorting**: Sort processes based on various fields like PID, user, name, memory usage, etc.
+*   **Customizable Output**: Choose which columns to display and output results in different formats (table, CSV, JSON).
 *   **Utility Library**: Leverages a robust C++ utility library for common tasks like file system operations, string manipulation, and system interaction.
 
 ## Quick Start
 
 Follow these steps to quickly build and run `processAnalyzer` on your system.
 
-### Prerequisites
+### System Requirements
 
-*   A C++ compiler (e.g., GCC, Clang)
-*   CMake (version 3.10 or higher)
+*   **Operating System**: Linux (relies on `/proc` filesystem)
+*   A C++ compiler (e.g., GCC, Clang) supporting C++23
+*   CMake (version 3.17 or higher)
 *   Make (or Ninja build system)
 
 ### Building from Source
@@ -60,6 +64,28 @@ Once built, you can run `processAnalyzer` from the `build` directory:
 
 # Get detailed information for a process with PID 1234
 ./processAnalyzer pid 1234
+
+# Filter processes by name and sort by RSS memory in descending order
+./processAnalyzer name chrome --sort-by rss --desc
+
+# List processes with state 'R' (running) and output in JSON format
+./processAnalyzer list --state R --format json
+
+# Show children processes and open files for PID 1
+./processAnalyzer pid 1 --children --open-files
+```
+
+### Running Tests
+
+To verify the build, you can run the included unit tests:
+
+```bash
+# Run all tests using CTest
+ctest --output-on-failure
+
+# Or run individual test executables directly
+./tests/UtilsTest
+./tests/AnalyzerTest
 ```
 
 ## Usage

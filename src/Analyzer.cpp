@@ -158,20 +158,87 @@ std::vector<ProcessInfo> ProcessAnalyzer::getProcessesByUser(std::string_view us
     });
 }
 
-void ProcessAnalyzer::printAllProcesses() const {
-    auto processes = snapshot();
-    std::cout << std::left << std::setw(8) << "PID" 
-              << std::setw(15) << "User"
-              << std::setw(20) << "Name" 
-              << std::setw(20) << "State" 
-              << std::setw(10) << "RSS(KB)" << std::endl;
-    std::cout << std::string(73, '-') << std::endl;
+std::vector<ProcessInfo> ProcessAnalyzer::queryProcesses(
+    const ProcessFilter& filter,
+    ProcessSortField sortBy,
+    SortOrder sortOrder
+) const {
+    std::vector<ProcessInfo> allProcesses = snapshot();
+    std::vector<ProcessInfo> filteredProcesses;
 
-    for (const auto& info : processes) {
-        std::cout << std::left << std::setw(8) << info.pid 
-                  << std::setw(15) << info.username.substr(0, 14)
-                  << std::setw(20) << info.name.substr(0, 19) 
-                  << std::setw(20) << info.state.substr(0, 19) 
-                  << std::setw(10) << info.residentMemory << std::endl;
+    // Apply filtering
+    for (const auto& process : allProcesses) {
+        bool nameMatch = true;
+        if (filter.nameContains) {
+            nameMatch = (process.name.find(*filter.nameContains) != std::string::npos);
+        }
+
+        bool userMatch = true;
+        if (filter.userFilter) {
+            userMatch = (process.username == *filter.userFilter);
+        }
+
+        bool stateMatch = true;
+        if (filter.stateFilter) {
+            // State in /proc/status is usually "S (sleeping)", so we check the first char.
+            stateMatch = (process.state.length() > 0 && process.state[0] == *filter.stateFilter);
+        }
+
+        if (nameMatch && userMatch && stateMatch) {
+            filteredProcesses.push_back(process);
+        }
     }
+
+    // Apply sorting
+    std::sort(filteredProcesses.begin(), filteredProcesses.end(), 
+        [&](const ProcessInfo& a, const ProcessInfo& b) {
+        bool less = false;
+        switch (sortBy) {
+            case ProcessSortField::PID: less = a.pid < b.pid; break;
+            case ProcessSortField::PPID: less = a.ppid < b.ppid; break;
+            case ProcessSortField::UID: less = a.uid < b.uid; break;
+            case ProcessSortField::USER: less = a.username < b.username; break;
+            case ProcessSortField::NAME: less = a.name < b.name; break;
+            case ProcessSortField::STATE: less = a.state < b.state; break;
+            case ProcessSortField::RSS: less = a.residentMemory < b.residentMemory; break;
+            case ProcessSortField::VM: less = a.virtualMemory < b.virtualMemory; break;
+            case ProcessSortField::THREADS: less = a.threadCount < b.threadCount; break;
+        }
+
+        return (sortOrder == SortOrder::ASC) ? less : !less;
+    });
+
+    return filteredProcesses;
+}
+
+std::vector<ProcessInfo> ProcessAnalyzer::getChildProcesses(int pid) const {
+    std::vector<ProcessInfo> allProcesses = snapshot();
+    std::vector<ProcessInfo> children;
+    for (const auto& process : allProcesses) {
+        if (process.ppid == pid) {
+            children.push_back(process);
+        }
+    }
+    return children;
+}
+
+std::vector<std::string> ProcessAnalyzer::getProcessOpenFiles(int pid) const {
+    std::vector<std::string> openFiles;
+    std::string fdPath = procPath + "/" + std::to_string(pid) + "/fd";
+
+    if (!fs::exists(fdPath) || !fs::is_directory(fdPath)) {
+        // Return empty if directory doesn't exist (e.g., process not found, permissions)
+        return openFiles;
+    }
+
+    try {
+        for (const auto& entry : fs::directory_iterator(fdPath)) {
+            // Each entry in /proc/<pid>/fd is a symlink to the actual file
+            openFiles.push_back(fs::read_symlink(entry.path()).string());
+        }
+    } catch (const fs::filesystem_error& e) {
+        // Catch permission denied or other filesystem errors
+        throw std::runtime_error("Failed to read open files for PID " + std::to_string(pid) + ": " + e.what());
+    }
+    return openFiles;
 }
