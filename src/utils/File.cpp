@@ -6,8 +6,6 @@
 #include <vector>
 #include <iterator>
 #include <random>
-#include <sstream>
-#include <iomanip>
 
 namespace utils {
 
@@ -71,19 +69,19 @@ Result<void> writeBinaryFile(const ::std::filesystem::path& path, ::std::span<co
     return ::std::unexpected(make_error_code(UtilsError::ioError));
 }
 
-Result<void> writeTextFileAtomic(const ::std::filesystem::path& path, ::std::string_view content) {
-    // Write to a temp file in the same directory then rename
+template <typename Writer>
+Result<void> doAtomicWrite(const ::std::filesystem::path& path, Writer writer) {
     auto parent = path.parent_path();
     if (parent.empty()) parent = ".";
-    
+
     ::std::error_code ec;
     if (!::std::filesystem::exists(parent, ec)) {
         return ::std::unexpected(make_error_code(UtilsError::fileNotFound));
     }
 
     auto tempPath = parent / (path.filename().string() + "." + generateRandomString(kTempFileSuffixLen) + ".tmp");
-    
-    auto writeResult = writeTextFile(tempPath, content);
+
+    auto writeResult = writer(tempPath);
     if (!writeResult) {
         ::std::filesystem::remove(tempPath, ec); // Try cleanup
         return writeResult;
@@ -95,33 +93,19 @@ Result<void> writeTextFileAtomic(const ::std::filesystem::path& path, ::std::str
         return ::std::unexpected(ec);
     }
     return {};
+}
+
+Result<void> writeTextFileAtomic(const ::std::filesystem::path& path, ::std::string_view content) {
+    return doAtomicWrite(path, [&](const ::std::filesystem::path& tempPath) {
+        return writeTextFile(tempPath, content);
+    });
 }
 
 Result<void> writeBinaryFileAtomic(const ::std::filesystem::path& path, ::std::span<const ::std::byte> content) {
-     auto parent = path.parent_path();
-    if (parent.empty()) parent = ".";
-    
-    ::std::error_code ec;
-    if (!::std::filesystem::exists(parent, ec)) {
-        return ::std::unexpected(make_error_code(UtilsError::fileNotFound));
-    }
-
-    auto tempPath = parent / (path.filename().string() + "." + generateRandomString(kTempFileSuffixLen) + ".tmp");
-    
-    auto writeResult = writeBinaryFile(tempPath, content);
-    if (!writeResult) {
-        ::std::filesystem::remove(tempPath, ec); 
-        return writeResult;
-    }
-
-    ::std::filesystem::rename(tempPath, path, ec);
-    if (ec) {
-        ::std::filesystem::remove(tempPath, ec);
-        return ::std::unexpected(ec);
-    }
-    return {};
+    return doAtomicWrite(path, [&](const ::std::filesystem::path& tempPath) {
+        return writeBinaryFile(tempPath, content);
+    });
 }
-
 Result<void> appendToBinaryFile(const ::std::filesystem::path& path, ::std::span<const ::std::byte> content) {
     ::std::ofstream file(path, ::std::ios::out | ::std::ios::app | ::std::ios::binary);
     if (!file.is_open()) {
