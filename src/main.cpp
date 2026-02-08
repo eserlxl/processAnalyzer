@@ -91,7 +91,9 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
         if (arg == "--help" || arg == "-h") {
             args.showHelp = true;
             return args;
-        } else if (arg == "--state") {
+        }
+        
+        if (arg == "--state") {
             if (i + 1 >= cliArgs.size()) { 
                 std::cerr << "Error: --state requires an argument.\n"; 
                 return std::nullopt; 
@@ -170,100 +172,105 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
 }
 
 int main(int argc, char* argv[]) {
-    auto argsOpt = parseCommandLine(argc, std::span(argv, argc));
-    if (!argsOpt) {
-        return 1;
-    }
-    ParsedArguments args = *argsOpt;
-
-    if (args.showHelp) {
-        printUsage();
-        return 0;
-    }
-
-    ProcessAnalyzer analyzer("/proc");
-    std::vector<ProcessInfo> processesToDisplay;
-    ProcessFilter filter;
-    
-    // Populate filter from args
-    if (args.name) filter.nameContains = *args.name;
-    if (args.user) filter.userFilter = *args.user;
-    filter.stateFilter = args.stateFilter;
-
-    if (args.command == "list" || args.command == "name" || args.command == "user") {
-        processesToDisplay = analyzer.queryProcesses(filter, args.sortBy.value_or(ProcessSortField::PID), args.sortOrder);
-    } else if (args.command == "pid") {
-        if (!args.pid.has_value()) {
-            std::cerr << "Internal error: PID expected.\n";
+    try {
+        auto argsOpt = parseCommandLine(argc, std::span(argv, argc));
+        if (!argsOpt) {
             return 1;
         }
-        int targetPid = 0;
-        if (args.pid.has_value()) {
-             targetPid = args.pid.value();
-        } else {
-             // Should never happen due to check above
-             return 1;
+        ParsedArguments args = *argsOpt;
+
+        if (args.showHelp) {
+            printUsage();
+            return 0;
         }
 
-        auto infoOpt = analyzer.getProcessDetails(targetPid);
-        if (!infoOpt) {
-            std::cerr << "Error: Process with PID " << targetPid << " not found.\n";
+        ProcessAnalyzer analyzer("/proc");
+        std::vector<ProcessInfo> processesToDisplay;
+        ProcessFilter filter;
+        
+        // Populate filter from args
+        if (args.name) filter.nameContains = *args.name;
+        if (args.user) filter.userFilter = *args.user;
+        filter.stateFilter = args.stateFilter;
+
+        if (args.command == "list" || args.command == "name" || args.command == "user") {
+            processesToDisplay = analyzer.queryProcesses(filter, args.sortBy.value_or(ProcessSortField::PID), args.sortOrder);
+        } else if (args.command == "pid") {
+            if (!args.pid.has_value()) {
+                std::cerr << "Internal error: PID expected.\n";
+                return 1;
+            }
+            int targetPid = 0;
+            if (args.pid.has_value()) {
+                 targetPid = args.pid.value();
+            } else {
+                 // Should never happen due to check above
+                 return 1;
+            }
+
+            auto infoOpt = analyzer.getProcessDetails(targetPid);
+            if (!infoOpt) {
+                std::cerr << "Error: Process with PID " << targetPid << " not found.\n";
+                return 1;
+            }
+            
+            // If --columns is not used, print vertical details and exit.
+            if (args.selectedColumns.empty() && !args.outputFormat) {
+                printVerticalProcessDetails(*infoOpt);
+                if (args.showChildren) {
+                    auto children = analyzer.getChildProcesses(targetPid);
+                    if (!children.empty()) {
+                        std::cout << "\nChildren:\n";
+                        printProcessTable(children, getDefaultColumnsForTable(false), args.noTruncateCmdline);
+                    } else {
+                        std::cout << "\nNo children found.\n";
+                    }
+                }
+                if (args.showOpenFiles) {
+                    try {
+                        auto fds = analyzer.getOpenFileDescriptors(targetPid);
+                        if (!fds.empty()) {
+                            std::cout << "\nOpen Files:\n";
+                            for (const auto& [fd, path] : fds) {
+                                std::cout << "  fd " << std::setw(3) << fd << ": " << path << "\n";
+                            }
+                        } else {
+                            std::cout << "\nNo open files found.\n";
+                        }
+                    } catch (const std::exception& e) {
+                        std::cerr << "Error reading open files: " << e.what() << "\n";
+                    }
+                }
+                return 0; // Done with pid-specific output
+            }
+            // Otherwise, add to list for table/csv/json output
+            processesToDisplay.push_back(*infoOpt);
+
+        } else {
+            std::cerr << "Error: Unknown command '" << args.command << "'.\n";
+            printUsage();
             return 1;
         }
         
-        // If --columns is not used, print vertical details and exit.
-        if (args.selectedColumns.empty() && !args.outputFormat) {
-            printVerticalProcessDetails(*infoOpt);
-            if (args.showChildren) {
-                auto children = analyzer.getChildProcesses(targetPid);
-                if (!children.empty()) {
-                    std::cout << "\nChildren:\n";
-                    printProcessTable(children, getDefaultColumnsForTable(false), args.noTruncateCmdline);
-                } else {
-                    std::cout << "\nNo children found.\n";
-                }
-            }
-            if (args.showOpenFiles) {
-                try {
-                    auto fds = analyzer.getOpenFileDescriptors(targetPid);
-                    if (!fds.empty()) {
-                        std::cout << "\nOpen Files:\n";
-                        for (const auto& [fd, path] : fds) {
-                            std::cout << "  fd " << std::setw(3) << fd << ": " << path << "\n";
-                        }
-                    } else {
-                        std::cout << "\nNo open files found.\n";
-                    }
-                } catch (const std::exception& e) {
-                    std::cerr << "Error reading open files: " << e.what() << "\n";
-                }
-            }
-            return 0; // Done with pid-specific output
+        // Determine columns for output
+        std::vector<std::string> columns = args.selectedColumns;
+        if (columns.empty()) {
+            columns = getDefaultColumnsForTable(args.command == "list" && !args.briefMode);
         }
-        // Otherwise, add to list for table/csv/json output
-        processesToDisplay.push_back(*infoOpt);
 
-    } else {
-        std::cerr << "Error: Unknown command '" << args.command << "'.\n";
-        printUsage();
+        // Output formatting
+        if (processesToDisplay.empty() && args.command != "pid") {
+            std::cout << "No processes found matching criteria.\n";
+        } else if (args.outputFormat == "csv") {
+            printProcessCsv(processesToDisplay, columns);
+        } else if (args.outputFormat == "json") {
+            printProcessJson(processesToDisplay, columns);
+        } else {
+            printProcessTable(processesToDisplay, columns, args.noTruncateCmdline);
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "Unhandled exception: " << e.what() << "\n";
         return 1;
-    }
-    
-    // Determine columns for output
-    std::vector<std::string> columns = args.selectedColumns;
-    if (columns.empty()) {
-        columns = getDefaultColumnsForTable(args.command == "list" && !args.briefMode);
-    }
-
-    // Output formatting
-    if (processesToDisplay.empty() && args.command != "pid") {
-        std::cout << "No processes found matching criteria.\n";
-    } else if (args.outputFormat == "csv") {
-        printProcessCsv(processesToDisplay, columns);
-    } else if (args.outputFormat == "json") {
-        printProcessJson(processesToDisplay, columns);
-    } else {
-        printProcessTable(processesToDisplay, columns, args.noTruncateCmdline);
     }
 
     return 0;

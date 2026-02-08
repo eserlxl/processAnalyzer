@@ -9,6 +9,7 @@
 #include <fstream>
 #include <iostream>
 #include <cstdlib>
+#include <sstream> // For stringstream
 
 // Helper to create a temporary file for testing
 std::filesystem::path createTempFile(const std::string& content) {
@@ -369,4 +370,3 @@ TEST(UtilsTest, GetEnv) {
     auto nonExistent = Utils::getEnv("NON_EXISTENT_VAR_XYZ_123");
     EXPECT_FALSE(nonExistent.has_value());
 }
-

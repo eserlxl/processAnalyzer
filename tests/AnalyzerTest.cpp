@@ -100,7 +100,7 @@ TEST_F(ProcessAnalyzerTest, GetProcessDetailsWithMock) {
     ProcessAnalyzer analyzer(mockProc->getPath());
     auto infoOpt = analyzer.getProcessDetails(kMyAppPid);
     ASSERT_TRUE(infoOpt.has_value());
-    const auto& info = *infoOpt;
+    const auto& info = infoOpt.value(); // NOLINT(bugprone-unchecked-optional-access)
     EXPECT_EQ(info.pid, kMyAppPid);
     EXPECT_EQ(info.ppid, kInitPid);
     EXPECT_EQ(info.name, "my-app");
@@ -131,7 +131,7 @@ TEST_F(ProcessAnalyzerTest, GetProcessDetailsForZombieProcess) {
     ProcessAnalyzer analyzer(mockProc->getPath());
     auto infoOpt = analyzer.getProcessDetails(kZombiePid);
     ASSERT_TRUE(infoOpt.has_value());
-    const auto& info = *infoOpt;
+    const auto& info = infoOpt.value(); // NOLINT(bugprone-unchecked-optional-access)
     EXPECT_EQ(info.pid, kZombiePid);
     EXPECT_EQ(info.ppid, kMyAppPid);
     EXPECT_EQ(info.name, "defunct");
@@ -150,16 +150,16 @@ TEST_F(ProcessAnalyzerTest, GetProcessDetailsHandlesIOAndStatMissingGracefully) 
     ProcessAnalyzer analyzer(mockProc->getPath());
     auto infoOpt = analyzer.getProcessDetails(kNoStatPid);
     ASSERT_TRUE(infoOpt.has_value());
-    EXPECT_EQ(infoOpt->ioReadBytes, 0);
-    EXPECT_EQ(infoOpt->cpuUserTimeTicks, 0);
-    EXPECT_EQ(infoOpt->name, "no-stat-io");
+    EXPECT_EQ(infoOpt.value().ioReadBytes, 0); // NOLINT(bugprone-unchecked-optional-access)
+    EXPECT_EQ(infoOpt.value().cpuUserTimeTicks, 0); // NOLINT(bugprone-unchecked-optional-access)
+    EXPECT_EQ(infoOpt.value().name, "no-stat-io"); // NOLINT(bugprone-unchecked-optional-access)
 }
 
 TEST_F(ProcessAnalyzerTest, GetSystemMemoryInfo) {
     ProcessAnalyzer analyzer(mockProc->getPath());
     auto memInfoOpt = analyzer.getSystemMemoryInfo();
     ASSERT_TRUE(memInfoOpt.has_value());
-    const auto& memInfo = *memInfoOpt;
+    const auto& memInfo = memInfoOpt.value(); // NOLINT(bugprone-unchecked-optional-access)
     EXPECT_EQ(memInfo.memTotal, 16384000);
     EXPECT_EQ(memInfo.memFree, 8192000);
     EXPECT_EQ(memInfo.memAvailable, 10240000);
@@ -178,7 +178,7 @@ TEST_F(ProcessAnalyzerTest, GetSystemLoadAverage) {
     ProcessAnalyzer analyzer(mockProc->getPath());
     auto loadAvgOpt = analyzer.getSystemLoadAverage();
     ASSERT_TRUE(loadAvgOpt.has_value());
-    const auto& loadAvg = *loadAvgOpt;
+    const auto& loadAvg = loadAvgOpt.value(); // NOLINT(bugprone-unchecked-optional-access)
     EXPECT_DOUBLE_EQ(loadAvg.oneMin, 0.50);
     EXPECT_DOUBLE_EQ(loadAvg.fiveMin, 1.20);
     EXPECT_DOUBLE_EQ(loadAvg.fifteenMin, 1.50);
@@ -193,7 +193,7 @@ TEST_F(ProcessAnalyzerTest, GetSystemCpuStats) {
     ProcessAnalyzer analyzer(mockProc->getPath());
     auto cpuStatsOpt = analyzer.getSystemCpuStats();
     ASSERT_TRUE(cpuStatsOpt.has_value());
-    const auto& cpuStats = *cpuStatsOpt;
+    const auto& cpuStats = cpuStatsOpt.value(); // NOLINT(bugprone-unchecked-optional-access)
     EXPECT_EQ(cpuStats.user, 1000);
     EXPECT_EQ(cpuStats.nice, 200);
     EXPECT_EQ(cpuStats.system, 800);
@@ -340,7 +340,7 @@ TEST_F(ProcessAnalyzerTest, GetParentProcess) {
     ProcessAnalyzer analyzer(mockProc->getPath());
     auto parentOpt = analyzer.getParentProcess(kMyAppPid);
     ASSERT_TRUE(parentOpt.has_value());
-    EXPECT_EQ(parentOpt->pid, kInitPid);
+    EXPECT_EQ(parentOpt.value().pid, kInitPid); // NOLINT(bugprone-unchecked-optional-access)
 
     // Test for pid 1 (parent is 0)
     parentOpt = analyzer.getParentProcess(kInitPid);
@@ -388,5 +388,5 @@ TEST_F(ProcessAnalyzerTest, GetProcessCpuUsage) {
     // Usage: 100.0 * 40 / 150 = 26.66%
     constexpr double expectedUsage = 100.0 * 40.0 / 150.0;
     ASSERT_TRUE(usageOpt.has_value());
-    EXPECT_NEAR(usageOpt->cpuPercentage, expectedUsage, 1.0);
+    EXPECT_NEAR(usageOpt.value().cpuPercentage, expectedUsage, 1.0); // NOLINT(bugprone-unchecked-optional-access)
 }

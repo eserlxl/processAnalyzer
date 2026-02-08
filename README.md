@@ -1,7 +1,7 @@
 # processAnalyzer
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Build Status](https://travis-ci.org/user/repo.svg?branch=main)](https://travis-ci.org/user/repo)
+
 
 `processAnalyzer` is a high-performance, lightweight C++ command-line utility designed for the real-time inspection and monitoring of system processes. 
 
@@ -15,6 +15,7 @@ It provides a robust interface to deliver detailed resource usage metrics and ex
 * [Project Structure](#project-structure)
 * [Utility Library (`Utils` Namespace)](#utility-library-utils-namespace)
 * [Contributing](#contributing)
+* [API Reference](#api-reference)
 * [Changelog](#changelog)
 * [License](#license)
 
@@ -76,6 +77,10 @@ For a comprehensive overview and usage examples of the utility library, please s
 ## Contributing
 
 We welcome contributions to `processAnalyzer`! Please see our [contribution guidelines](docs/contributing.md) for details on how to get started, report bugs, and suggest new features.
+
+## API Reference
+
+For detailed information on the `processAnalyzer` C++ API, including classes, functions, and data structures, please refer to the [API Reference documentation](docs/api-reference.md).
 
 ## Changelog
 
