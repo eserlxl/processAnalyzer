@@ -149,9 +149,9 @@ TEST_F(ProcessAnalyzerTest, GetProcessDetailsForZombieProcess) {
     EXPECT_EQ(info.name, "defunct");
     EXPECT_EQ(info.state.substr(0,1), "Z");
     EXPECT_EQ(info.residentMemory, 0);
-    EXPECT_TRUE(info.executablePath.empty());
-    EXPECT_TRUE(info.currentWorkingDirectory.empty());
-    EXPECT_TRUE(info.cmdline.empty());
+    EXPECT_EQ(info.executablePath, "[unreadable]");
+    EXPECT_EQ(info.currentWorkingDirectory, "[unreadable]");
+    EXPECT_EQ(info.cmdline, "[unreadable]");
     EXPECT_TRUE(info.environmentVariables.empty());
 }
 
@@ -330,8 +330,10 @@ TEST_F(ProcessAnalyzerTest, QueryProcessesSorting) {
     ASSERT_TRUE(resultsResult.has_value());
     results = *resultsResult;
     ASSERT_EQ(results.size(), 4);
-    EXPECT_EQ(results[0].pid, kZombiePid); // Empty path comes first
-    EXPECT_EQ(results[1].pid, kInitPid);
+    EXPECT_EQ(results[0].pid, kInitPid);
+    EXPECT_EQ(results[1].pid, kKthreaddPid);
+    EXPECT_EQ(results[2].pid, kMyAppPid);
+    EXPECT_EQ(results[3].pid, kZombiePid);
 }
 
 TEST_F(ProcessAnalyzerTest, GetProcessOpenFileDetails) {
@@ -529,4 +531,29 @@ TEST_F(ProcessAnalyzerTest, GetPerCpuUsage) {
     
     // Total usage: 100%
     EXPECT_NEAR(usageResult->cpuUsages[0].cpuPercentage, 100.0, 1.0);
+}
+
+TEST_F(ProcessAnalyzerTest, GetNetworkConnectionsIPv6) {
+    ProcessAnalyzer analyzer(mockProc->getPath());
+
+    // Setup mock /proc/net/tcp6 file with space-separated hex address parts.
+    // The address is ::ffff:172.16.1.1, which in hex is 00000000 00000000 0000ffff ac100101.
+    // The inode is 54321.
+    mockProc->createFile("net/tcp6",
+        "  sl  local_address                         remote_address                        st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode\n"
+        "   0: 00000000000000000000FFFFAC100101:0050 00000000000000000000000000000000:0000 0A 00000000:00000000 00:00000000 00000000     0        0 54321 2 0000000000000000 100 0 0 10 0\n"
+    );
+
+    // Setup file descriptors for a mock process to link to the socket inode.
+    mockProc->createProcFdLink(kMyAppPid, 10, "socket:[54321]");
+
+    auto connectionsResult = analyzer.getNetworkConnections(kMyAppPid);
+    ASSERT_TRUE(connectionsResult.has_value());
+    const auto& connections = *connectionsResult;
+
+    ASSERT_EQ(connections.size(), 1);
+    EXPECT_EQ(connections[0].protocol, "TCP6");
+    EXPECT_EQ(connections[0].localAddress, "::ffff:172.16.1.1:80");
+    EXPECT_EQ(connections[0].remoteAddress, "*");
+    EXPECT_EQ(connections[0].state, "LISTEN");
 }

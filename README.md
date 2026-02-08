@@ -92,6 +92,9 @@ Here are some common commands to get you started:
 # Show details for a specific PID, including children and open files
 ./processAnalyzer pid 1234 --children --open-files
 
+# Show details for a specific PID, including thread information
+./processAnalyzer pid 1234 --threads
+
 # List processes sorted by memory usage (RSS) in descending order
 ./processAnalyzer list --sort-by rss --desc
 ```
@@ -138,7 +141,7 @@ We welcome contributions to `processAnalyzer`! Please see our [contribution guid
 
 ## Changelog
 
-See [CHANGELOG.md](CHANGELOG.md) for a history of changes to the project.
+See [docs/changelog.md](docs/changelog.md) for a history of changes to the project.
 
 ## License
 

@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright (c) 2026 Eser KUBALI
 
+#include <cstdio>
+#include <cstdint> // For uint32_t
+#include <array>   // For std::array
+#include <limits>  // For std::numeric_limits
+#include <string>  // For std::to_string
+#include <iostream> // For std::cerr
+
 #include "analyzer/Analyzer.h"
 #include "utils/Core.h"
 
@@ -31,9 +38,9 @@
 #include <sys/resource.h> // For setpriority
 #include <sched.h>        // For sched_setaffinity
 
-namespace fs = std::filesystem;
 
 namespace {
+    namespace fs = std::filesystem;
     // Number of fields to skip after ppid (4th field) and before utime (14th field)
     // Fields skipped: pgrp, session, tty_nr, tpgid, flags, minflt, cminflt, majflt, cmajflt
     // Count: 9 fields (from 5th to 13th, 1-based indexing)
@@ -51,10 +58,9 @@ namespace {
     std::expected<long long, AnalyzerErrorDetail> getTotalSystemCpuTimeTicks(std::string_view procPath) {
         auto stats = ProcessAnalyzer(procPath).getSystemCpuStats();
         if(stats) {
-            return static_cast<long long>(stats->user) + static_cast<long long>(stats->nice) +
-                   static_cast<long long>(stats->system) + static_cast<long long>(stats->idle) +
-                   static_cast<long long>(stats->iowait) + static_cast<long long>(stats->irq) +
-                   static_cast<long long>(stats->softirq) + static_cast<long long>(stats->steal);
+            unsigned long long totalTicks = stats->user + stats->nice + stats->system + stats->idle + 
+                                            stats->iowait + stats->irq + stats->softirq + stats->steal;
+            return static_cast<long long>(totalTicks);
         }
         return std::unexpected(stats.error());
     }
@@ -100,10 +106,18 @@ namespace {
         kClosing,
         kUnknown
     };
-    const int kIpv6LineDummyCount = 5;
+    constexpr int kIpv6LineDummyCount = 5;
 
-    // Helper function to parse /proc/net/tcp, udp, etc. files.
-    std::vector<InternalNetworkConnection> parseNetFileHelper(const std::string& filePath, std::string_view protocolPrefix) {
+    // IPv6 parsing constants
+    constexpr int kIPv6HexBase = 16;
+    constexpr size_t kIPv6AddrHexLength = 32;
+    constexpr size_t kIPv6AddrPartHexLength = 8;
+    constexpr size_t kIPv6AddrPartOffset0 = 0;
+    constexpr size_t kIPv6AddrPartOffset1 = 8;
+    constexpr size_t kIPv6AddrPartOffset2 = 16;
+    constexpr size_t kIPv6AddrPartOffset3 = 24;
+
+        std::vector<InternalNetworkConnection> parseNetFileHelper(const std::string& filePath, std::string_view protocolPrefix) {
         std::vector<InternalNetworkConnection> internalConnections;
         auto content = utils::readTextFile(filePath);
         if (!content) return internalConnections;
@@ -117,15 +131,15 @@ namespace {
             InternalNetworkConnection internalConn;
             internalConn.baseConn.protocol = protocolPrefix;
 
-            int dummy;
-            unsigned long localAddrPart1 = 0;
-            unsigned long localAddrPart2 = 0;
-            unsigned long localAddrPart3 = 0;
-            unsigned long localAddrPart4 = 0; // For IPv6
-            unsigned long remoteAddrPart1 = 0;
-            unsigned long remoteAddrPart2 = 0;
-            unsigned long remoteAddrPart3 = 0;
-            unsigned long remoteAddrPart4 = 0; // For IPv6
+            int dummy; // Use the existing 'dummy' variable
+            uint32_t localAddrPart1 = 0;
+            uint32_t localAddrPart2 = 0;
+            uint32_t localAddrPart3 = 0;
+            uint32_t localAddrPart4 = 0; // For IPv6
+            uint32_t remoteAddrPart1 = 0;
+            uint32_t remoteAddrPart2 = 0;
+            uint32_t remoteAddrPart3 = 0;
+            uint32_t remoteAddrPart4 = 0; // For IPv6
             unsigned long localAddr = 0; // For IPv4
             unsigned long remoteAddr = 0; // For IPv4
             unsigned int localP = 0;
@@ -133,16 +147,52 @@ namespace {
             int state = 0;
             char colon;
 
+            // Debug prints
+            std::cerr << "Debug: Processing line: " << line << std::endl;
+            std::cerr << "Debug: Initial state of lineSs: " << lineSs.str() << std::endl;
+
             lineSs >> dummy; 
             lineSs.ignore(std::numeric_limits<std::streamsize>::max(), ' '); // Skip 'sl' column
 
             if (filePath.find('6') != std::string::npos) { // IPv6
-                lineSs >> std::hex >> localAddrPart1 >> localAddrPart2 >> localAddrPart3 >> localAddrPart4 >> colon >> localP
-                       >> remoteAddrPart1 >> remoteAddrPart2 >> remoteAddrPart3 >> remoteAddrPart4 >> colon >> remoteP
-                       >> state;
-                for(int i=0; i<kIpv6LineDummyCount; ++i) lineSs >> dummy;
-                lineSs >> internalConn.inode;
+                std::string localAddrStr;
+                std::string remoteAddrStr;
+                lineSs >> localAddrStr >> remoteAddrStr >> std::hex >> state;
+                std::cerr << "Debug: IPv6 - localAddrStr: " << localAddrStr << ", remoteAddrStr: " << remoteAddrStr << ", state: " << state << std::endl;
+
+                size_t localColonPos = localAddrStr.find(':');
+                if (localColonPos != std::string::npos) {
+                    localP = std::stoul(localAddrStr.substr(localColonPos + 1), nullptr, kIPv6HexBase);
+                    localAddrStr = localAddrStr.substr(0, localColonPos);
+                }
+
+                size_t remoteColonPos = remoteAddrStr.find(':');
+                if (remoteColonPos != std::string::npos) {
+                    remoteP = std::stoul(remoteAddrStr.substr(remoteColonPos + 1), nullptr, kIPv6HexBase);
+                    remoteAddrStr = remoteAddrStr.substr(0, remoteColonPos);
+                }
                 
+                if (localAddrStr.length() == kIPv6AddrHexLength) {
+                    localAddrPart1 = htonl(std::stoul(localAddrStr.substr(kIPv6AddrPartOffset0, kIPv6AddrPartHexLength), nullptr, kIPv6HexBase));
+                    localAddrPart2 = htonl(std::stoul(localAddrStr.substr(kIPv6AddrPartOffset1, kIPv6AddrPartHexLength), nullptr, kIPv6HexBase));
+                    localAddrPart3 = htonl(std::stoul(localAddrStr.substr(kIPv6AddrPartOffset2, kIPv6AddrPartHexLength), nullptr, kIPv6HexBase));
+                    localAddrPart4 = htonl(std::stoul(localAddrStr.substr(kIPv6AddrPartOffset3, kIPv6AddrPartHexLength), nullptr, kIPv6HexBase));
+                }
+                if (remoteAddrStr.length() == kIPv6AddrHexLength) {
+                    remoteAddrPart1 = htonl(std::stoul(remoteAddrStr.substr(kIPv6AddrPartOffset0, kIPv6AddrPartHexLength), nullptr, kIPv6HexBase));
+                    remoteAddrPart2 = htonl(std::stoul(remoteAddrStr.substr(kIPv6AddrPartOffset1, kIPv6AddrPartHexLength), nullptr, kIPv6HexBase));
+                    remoteAddrPart3 = htonl(std::stoul(remoteAddrStr.substr(kIPv6AddrPartOffset2, kIPv6AddrPartHexLength), nullptr, kIPv6HexBase));
+                    remoteAddrPart4 = htonl(std::stoul(remoteAddrStr.substr(kIPv6AddrPartOffset3, kIPv6AddrPartHexLength), nullptr, kIPv6HexBase));
+                }
+                std::cerr << "Debug: IPv6 - localAddrParts (host order, then network order): " << std::stoul(localAddrStr.substr(kIPv6AddrPartOffset0, kIPv6AddrPartHexLength), nullptr, kIPv6HexBase) << "(" << localAddrPart1 << "), "
+                          << std::stoul(localAddrStr.substr(kIPv6AddrPartOffset1, kIPv6AddrPartHexLength), nullptr, kIPv6HexBase) << "(" << localAddrPart2 << "), "
+                          << std::stoul(localAddrStr.substr(kIPv6AddrPartOffset2, kIPv6AddrPartHexLength), nullptr, kIPv6HexBase) << "(" << localAddrPart3 << "), "
+                          << std::stoul(localAddrStr.substr(kIPv6AddrPartOffset3, kIPv6AddrPartHexLength), nullptr, kIPv6HexBase) << "(" << localAddrPart4 << ")" << std::endl;
+
+                for(int i=0; i<kIpv6LineDummyCount; ++i) { lineSs >> dummy; std::cerr << "Debug: IPv6 - Dummy field " << i+1 << ": " << dummy << std::endl;} // Use dummy here
+                lineSs >> std::dec >> internalConn.inode;
+                std::cerr << "Debug: IPv6 - Parsed Inode: " << internalConn.inode << std::endl;
+
                 std::array<char, INET6_ADDRSTRLEN> localStrBuf{};
                 std::array<char, INET6_ADDRSTRLEN> remoteStrBuf{};
                 
@@ -154,6 +204,7 @@ namespace {
 
                 inet_ntop(AF_INET6, &localIn6Addr, localStrBuf.data(), localStrBuf.size());
                 internalConn.baseConn.localAddress = std::string(localStrBuf.data()) + ":" + std::to_string(localP);
+                std::cerr << "Debug: IPv6 - formatted localAddress: " << internalConn.baseConn.localAddress << std::endl;
                 
                 if(remoteP > 0 || (remoteAddrPart1 || remoteAddrPart2 || remoteAddrPart3 || remoteAddrPart4)) {
                     in6_addr remoteIn6Addr;
@@ -166,11 +217,15 @@ namespace {
                 } else {
                     internalConn.baseConn.remoteAddress = "*";
                 }
+                std::cerr << "Debug: IPv6 - formatted remoteAddress: " << internalConn.baseConn.remoteAddress << std::endl;
 
             } else { // IPv4
                 lineSs >> std::hex >> localAddr >> colon >> localP
                        >> remoteAddr >> colon >> remoteP
-                       >> state >> dummy >> dummy >> dummy >> dummy >> dummy >> internalConn.inode;
+                       >> state; // State was read as hex
+                for(int i=0; i<kIpv6LineDummyCount; ++i) lineSs >> dummy; // Use dummy here too
+                lineSs >> std::dec >> internalConn.inode; // Added std::dec for IPv4
+                std::cerr << "Debug: IPv4 - Parsed Inode: " << internalConn.inode << std::endl;
                 
                 std::array<char, INET_ADDRSTRLEN> localStrBuf{};
                 std::array<char, INET_ADDRSTRLEN> remoteStrBuf{};
@@ -181,15 +236,19 @@ namespace {
                 inet_ntop(AF_INET, &remoteInAddr, remoteStrBuf.data(), remoteStrBuf.size());
                 
                 internalConn.baseConn.localAddress = std::string(localStrBuf.data()) + ":" + std::to_string(localP);
+                std::cerr << "Debug: IPv4 - formatted localAddress: " << internalConn.baseConn.localAddress << std::endl;
                 
                 if(remoteP > 0 || remoteAddr != 0) {
+                    inet_ntop(AF_INET, &remoteInAddr, remoteStrBuf.data(), remoteStrBuf.size());
                     internalConn.baseConn.remoteAddress = std::string(remoteStrBuf.data()) + ":" + std::to_string(remoteP);
                 } else {
                     internalConn.baseConn.remoteAddress = "*";
                 }
+                std::cerr << "Debug: IPv4 - formatted remoteAddress: " << internalConn.baseConn.remoteAddress << std::endl;
             }
 
             if (protocolPrefix.starts_with("TCP")) {
+                std::cerr << "Debug: Setting TCP state for " << internalConn.baseConn.localAddress << std::endl;
                 switch(static_cast<TcpState>(state)){
                     case TcpState::kEstablished: internalConn.baseConn.state = "ESTABLISHED"; break;
                     case TcpState::kSynSent: internalConn.baseConn.state = "SYN_SENT"; break;
@@ -207,6 +266,7 @@ namespace {
             } else {
                 internalConn.baseConn.state = "UNCONN";
             }
+            std::cerr << "Debug: Adding connection to list: " << internalConn.baseConn.localAddress << " inode: " << internalConn.inode << std::endl;
             internalConnections.push_back(internalConn);
         }
         return internalConnections;
@@ -249,6 +309,41 @@ namespace {
         return true;
     }
 
+
+    // Helper function to read environment variables for a process
+    std::expected<std::vector<std::string>, AnalyzerErrorDetail> readProcessEnvironmentVars(std::string_view procPath, pid_t pid) {
+        std::vector<std::string> env;
+        std::string environPath = std::string(procPath) + "/" + std::to_string(pid) + "/environ";
+
+        auto environContentOpt = utils::readTextFile(environPath);
+        if (!environContentOpt) {
+            std::string pidPath = std::string(procPath) + "/" + std::to_string(pid);
+            if (!fs::exists(pidPath)) {
+                return std::unexpected(AnalyzerErrorDetail{
+                    .code = AnalyzerError::processNotFound,
+                    .message = "Process with PID " + std::to_string(pid) + " not found.",
+                    .systemErrno = std::nullopt
+                });
+            }
+            int savedErrno = errno;
+            return std::unexpected(AnalyzerErrorDetail{
+                .code = AnalyzerError::permissionDenied,
+                .message = "Could not read environment for PID " + std::to_string(pid),
+                .systemErrno = savedErrno
+            });
+        }
+
+        std::string_view content = *environContentOpt;
+        size_t start = 0;
+        while(start < content.size()) {
+            size_t end = content.find('\0', start);
+            if (end == std::string_view::npos) break;
+            env.emplace_back(content.substr(start, end - start));
+            start = end + 1;
+        }
+        return env;
+    }
+
     std::expected<std::vector<ProcessInfo>, AnalyzerErrorDetail> getBasicSnapshot(const ProcessAnalyzer& analyzer) {
         std::vector<ProcessInfo> processes;
         auto pidsResult = analyzer.getPids();
@@ -267,6 +362,7 @@ namespace {
         return processes;
     }
 
+constexpr size_t pwBufSize = 1024; // Define buffer size for getpwuid_r
 } // Anonymous namespace ends
 
 
@@ -301,30 +397,9 @@ std::expected<std::vector<int>, AnalyzerErrorDetail> ProcessAnalyzer::getPids() 
     return pids;
 }
 
-std::expected<ProcessInfo, AnalyzerErrorDetail> ProcessAnalyzer::getProcessDetails(int pid) const {
+std::expected<ProcessInfo, AnalyzerErrorDetail> ProcessAnalyzer::getProcessDetails(pid_t pid) const {
     ProcessInfo info;
     info.pid = pid;
-    info.name = "Unknown";
-    info.state = "?";
-    info.residentMemory = 0;
-    info.virtualMemory = 0;
-    info.ppid = 0;
-    info.uid = 0;
-    info.username = "Unknown";
-    info.threadCount = 0;
-    info.cmdline = "";
-    info.startTimeTicks = 0;
-    info.executablePath = "";
-    info.currentWorkingDirectory = "";
-    info.cpuUserTimeTicks = 0;
-    info.cpuKernelTimeTicks = 0;
-    info.ioReadBytes = 0;
-    info.ioWriteBytes = 0;
-    info.priority = 0;
-    info.startTimeUnix = 0;
-    info.elapsedTime = "N/A";
-    info.cpuUsage = 0.0F;
-    info.memoryPercentage = 0.0F;
 
     std::string pidPath = std::string(procPath) + "/" + std::to_string(pid);
     if (!fs::exists(pidPath)) {
@@ -359,33 +434,44 @@ std::expected<ProcessInfo, AnalyzerErrorDetail> ProcessAnalyzer::getProcessDetai
             }
         }
     } else {
+        int savedErrno = errno;
         return std::unexpected(AnalyzerErrorDetail{
             .code = AnalyzerError::fileNotFound,
             .message = "Could not read status file for PID " + std::to_string(pid),
-            .systemErrno = errno
+            .systemErrno = savedErrno
         });
     }
 
     std::string statPath = pidPath + "/stat";
     if (auto statContentOpt = utils::readTextFile(statPath)) {
-        std::stringstream ss(*statContentOpt);
-        std::string comm;
-        char state;
-        ss >> info.pid >> comm >> state >> info.ppid; 
-        long long utime;
-        long long stime;
-        long long cutime;
-        long long cstime;
-        long priority;
-        long nice;
-        for (int i = 0; i < statFieldsToSkipBeforeUtime; ++i) { std::string dummy; ss >> dummy; }
-        ss >> utime >> stime >> cutime >> cstime;
-        info.cpuUserTimeTicks = utime + cutime;
-        info.cpuKernelTimeTicks = stime + cstime;
-        ss >> priority >> nice;
-        info.priority = static_cast<int>(nice);
-        for (int i = 0; i < (statFieldsToSkipBeforeStarttime-1); ++i) { std::string dummy; ss >> dummy; }
-        ss >> info.startTimeTicks;
+        // Correct parsing for `comm` field which can contain spaces and parentheses
+        const std::string& statContent = *statContentOpt;
+        size_t commStart = statContent.find('(');
+        size_t commEnd = statContent.rfind(')');
+        if (commStart != std::string::npos && commEnd != std::string::npos && commStart < commEnd) {
+            // No need to set info.name from here, as /proc/PID/status is more reliable and already parsed.
+            // The `comm` field is now correctly parsed but not used to overwrite info.name.
+            
+            // Parse remaining fields after `comm`
+            std::stringstream ss(statContent.substr(commEnd + 1));
+            char state;
+            ss >> state >> info.ppid;
+            
+            long long utime;
+            long long stime;
+            long long cutime;
+            long long cstime;
+            long priority;
+            long nice;
+            for (int i = 0; i < statFieldsToSkipBeforeUtime; ++i) { std::string dummy; ss >> dummy; }
+            ss >> utime >> stime >> cutime >> cstime;
+            info.cpuUserTimeTicks = utime + cutime;
+            info.cpuKernelTimeTicks = stime + cstime;
+            ss >> priority >> nice;
+            info.priority = static_cast<int>(nice);
+            for (int i = 0; i < (statFieldsToSkipBeforeStarttime-1); ++i) { std::string dummy; ss >> dummy; }
+            ss >> info.startTimeTicks;
+        }
     }
 
     long long systemBootTimeUnix = getSystemBootTimeUnix(procPath);
@@ -414,8 +500,16 @@ std::expected<ProcessInfo, AnalyzerErrorDetail> ProcessAnalyzer::getProcessDetai
         }
     }
 
-    if (struct passwd *pw = getpwuid(info.uid)) {
-        info.username = pw->pw_name;
+    // Use getpwuid_r for thread-safe username retrieval
+    std::array<char, pwBufSize> pwBuf;
+    struct passwd pwd;
+    struct passwd *result = nullptr;
+
+    if (getpwuid_r(info.uid, &pwd, pwBuf.data(), pwBuf.size(), &result) == 0 && result != nullptr) {
+        info.username = result->pw_name;
+    } else {
+        // If getpwuid_r fails or no entry is found, username remains "Unknown"
+        // The default initialization of info.username handles this.
     }
 
     std::string cmdlinePath = pidPath + "/cmdline";
@@ -424,21 +518,31 @@ std::expected<ProcessInfo, AnalyzerErrorDetail> ProcessAnalyzer::getProcessDetai
         std::ranges::replace(rawCmdline, '\0', ' ');
         if (!rawCmdline.empty() && rawCmdline.back() == ' ') rawCmdline.pop_back();
         info.cmdline = rawCmdline;
+    } else {
+        // File could not be read
+        info.cmdline = "[unreadable]"; // Set specific string on error
     }
     
     try {
         info.executablePath = fs::read_symlink(pidPath + "/exe").string();
-    } catch (const fs::filesystem_error& e) { (void)e; }
+    } catch (const fs::filesystem_error& e) {
+        // (void)e; // Original code, suppressed error
+        info.executablePath = "[unreadable]"; // Set specific string on error
+    }
     try {
         info.currentWorkingDirectory = fs::read_symlink(pidPath + "/cwd").string();
-    } catch (const fs::filesystem_error& e) { (void)e; }
+    } catch (const fs::filesystem_error& e) {
+        // (void)e; // Original code, suppressed error
+        info.currentWorkingDirectory = "[unreadable]"; // Set specific string on error
+    }
 
 
 
-    auto envResult = readEnvironmentVariablesInternal(pid);
+    auto envResult = readProcessEnvironmentVars(procPath, pid);
     if (envResult) {
         info.environmentVariables = *envResult;
     }
+    return info;
 }
 
 std::expected<std::vector<ProcessInfo>, AnalyzerErrorDetail> ProcessAnalyzer::snapshot() const {
@@ -452,17 +556,8 @@ std::expected<std::vector<ProcessInfo>, AnalyzerErrorDetail> ProcessAnalyzer::sn
         processMap[p.pid] = p;
     }
 
-    constexpr int kCpuDurationMs = 100;
-    auto cpuDuration = std::chrono::milliseconds(kCpuDurationMs);
-
-    auto allCpuUsageResult = getAllProcessesCpuUsage(cpuDuration);
-    if (allCpuUsageResult) {
-        for (const auto& cpuUsage : *allCpuUsageResult) {
-            if (processMap.contains(cpuUsage.pid)) {
-                processMap[cpuUsage.pid].cpuUsage = static_cast<float>(cpuUsage.cpuPercentage);
-            }
-        }
-    }
+    // Removed CPU usage calculation as it's a time-based metric and makes snapshot() expensive.
+    // CPU usage should be fetched separately via a dedicated method.
 
     auto systemMemoryInfo = getSystemMemoryInfo();
     if (systemMemoryInfo.has_value() && systemMemoryInfo->memTotal > 0) {
@@ -483,6 +578,8 @@ std::expected<std::vector<ProcessInfo>, AnalyzerErrorDetail> ProcessAnalyzer::sn
 }
 
 std::expected<std::vector<ProcessCpuUsage>, AnalyzerErrorDetail> ProcessAnalyzer::getAllProcessesCpuUsage(std::chrono::milliseconds durationMs) const {
+    auto startTime = std::chrono::high_resolution_clock::now();
+
     auto initialSnapshotResult = getBasicSnapshot(*this);
     if (!initialSnapshotResult) {
         return std::unexpected(initialSnapshotResult.error());
@@ -496,6 +593,9 @@ std::expected<std::vector<ProcessCpuUsage>, AnalyzerErrorDetail> ProcessAnalyzer
     long long initialTotalSystemTicks = *initialTotalSystemTicksResult;
 
     std::this_thread::sleep_for(durationMs);
+
+    auto endTime = std::chrono::high_resolution_clock::now();
+    [[maybe_unused]] auto actualDuration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
 
     auto finalSnapshotResult = getBasicSnapshot(*this);
      if (!finalSnapshotResult) {
@@ -541,10 +641,11 @@ std::expected<SystemMemoryInfo, AnalyzerErrorDetail> ProcessAnalyzer::getSystemM
     std::string meminfoPath = std::string(procPath) + "/meminfo";
     auto contentOpt = utils::readTextFile(meminfoPath);
     if (!contentOpt) {
+        int savedErrno = errno;
         return std::unexpected(AnalyzerErrorDetail{
             .code = AnalyzerError::fileNotFound,
             .message = "Could not read /proc/meminfo",
-            .systemErrno = errno
+            .systemErrno = savedErrno
         });
     }
 
@@ -574,10 +675,11 @@ std::expected<SystemLoadAverage, AnalyzerErrorDetail> ProcessAnalyzer::getSystem
     std::string loadavgPath = std::string(procPath) + "/loadavg";
     auto contentOpt = utils::readTextFile(loadavgPath);
     if (!contentOpt) {
+        int savedErrno = errno;
         return std::unexpected(AnalyzerErrorDetail{
             .code = AnalyzerError::fileNotFound,
             .message = "Could not read /proc/loadavg",
-            .systemErrno = errno
+            .systemErrno = savedErrno
         });
     }
 
@@ -591,10 +693,11 @@ std::expected<SystemCpuStats, AnalyzerErrorDetail> ProcessAnalyzer::getSystemCpu
     std::string statPath = std::string(procPath) + "/stat";
     auto contentOpt = utils::readTextFile(statPath);
     if (!contentOpt) {
+        int savedErrno = errno;
         return std::unexpected(AnalyzerErrorDetail{
             .code = AnalyzerError::fileNotFound,
             .message = "Could not read /proc/stat",
-            .systemErrno = errno
+            .systemErrno = savedErrno
         });
     }
 
@@ -701,7 +804,9 @@ std::expected<std::vector<ProcessInfo>, AnalyzerErrorDetail> ProcessAnalyzer::ge
     return children;
 }
 
-std::expected<ProcessCpuUsage, AnalyzerErrorDetail> ProcessAnalyzer::getProcessCpuUsage(int pid, std::chrono::milliseconds durationMs) const {
+std::expected<ProcessCpuUsage, AnalyzerErrorDetail> ProcessAnalyzer::getProcessCpuUsage(pid_t pid, std::chrono::milliseconds durationMs) const {
+    auto startTime = std::chrono::high_resolution_clock::now();
+
     auto initialDetailsResult = getProcessDetails(pid);
     if (!initialDetailsResult) {
         return std::unexpected(initialDetailsResult.error());
@@ -714,14 +819,15 @@ std::expected<ProcessCpuUsage, AnalyzerErrorDetail> ProcessAnalyzer::getProcessC
     }
     long long initialTotalSystemTicks = *initialTotalSystemTicksResult;
 
-
     std::this_thread::sleep_for(durationMs);
+
+    auto endTime = std::chrono::high_resolution_clock::now();
+    [[maybe_unused]] auto actualDuration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
 
     auto finalDetailsResult = getProcessDetails(pid);
     if (!finalDetailsResult) {
         return ProcessCpuUsage{.pid=pid, .name=initialDetails.name, .cpuPercentage=0.0};
     }
-    // const auto& finalDetails = *finalDetailsResult; // Fixed error here (removed auto copy)
     const auto& finalDetails = *finalDetailsResult;
 
     auto finalTotalSystemTicksResult = getTotalSystemCpuTimeTicks(procPath);
@@ -745,43 +851,13 @@ std::expected<ProcessCpuUsage, AnalyzerErrorDetail> ProcessAnalyzer::getProcessC
     return usage;
 }
 
-std::expected<std::vector<std::string>, AnalyzerErrorDetail> ProcessAnalyzer::readEnvironmentVariablesInternal(int pid) const {
-    std::vector<std::string> env;
-    std::string environPath = std::string(procPath) + "/" + std::to_string(pid) + "/environ";
 
-    auto environContentOpt = utils::readTextFile(environPath);
-    if (!environContentOpt) {
-        std::string pidPath = std::string(procPath) + "/" + std::to_string(pid);
-        if (!fs::exists(pidPath)) {
-            return std::unexpected(AnalyzerErrorDetail{
-                .code = AnalyzerError::processNotFound,
-                .message = "Process with PID " + std::to_string(pid) + " not found.",
-                .systemErrno = std::nullopt
-            });
-        }
-        return std::unexpected(AnalyzerErrorDetail{
-            .code = AnalyzerError::permissionDenied,
-            .message = "Could not read environment for PID " + std::to_string(pid),
-            .systemErrno = errno
-        });
-    }
 
-    std::string_view content = *environContentOpt;
-    size_t start = 0;
-    while(start < content.size()) {
-        size_t end = content.find('\0', start);
-        if (end == std::string_view::npos) break;
-        env.emplace_back(content.substr(start, end - start));
-        start = end + 1;
-    }
-    return env;
+std::expected<std::vector<std::string>, AnalyzerErrorDetail> ProcessAnalyzer::getProcessEnvironment(pid_t pid) const {
+    return readProcessEnvironmentVars(procPath, pid);
 }
 
-std::expected<std::vector<std::string>, AnalyzerErrorDetail> ProcessAnalyzer::getProcessEnvironment(int pid) const {
-    return readEnvironmentVariablesInternal(pid);
-}
-
-std::expected<ProcessInfo, AnalyzerErrorDetail> ProcessAnalyzer::getParentProcess(int pid) const {
+std::expected<ProcessInfo, AnalyzerErrorDetail> ProcessAnalyzer::getParentProcess(pid_t pid) const {
     auto detailsResult = getProcessDetails(pid);
     if (!detailsResult) {
         return std::unexpected(detailsResult.error());
@@ -796,7 +872,7 @@ std::expected<ProcessInfo, AnalyzerErrorDetail> ProcessAnalyzer::getParentProces
     return getProcessDetails(detailsResult->ppid);
 }
 
-std::expected<std::vector<ProcessInfo>, AnalyzerErrorDetail> ProcessAnalyzer::getAllDescendantProcesses(int pid) const {
+std::expected<std::vector<ProcessInfo>, AnalyzerErrorDetail> ProcessAnalyzer::getAllDescendantProcesses(pid_t pid) const {
     auto allProcessesResult = snapshot();
     if (!allProcessesResult) {
         return std::unexpected(allProcessesResult.error());
@@ -865,7 +941,7 @@ std::expected<void, AnalyzerErrorDetail> ProcessAnalyzer::sendSignal(int pid, Pr
     });
 }
 
-std::expected<std::vector<ThreadInfo>, AnalyzerErrorDetail> ProcessAnalyzer::getProcessThreads(int pid) const {
+std::expected<std::vector<ThreadInfo>, AnalyzerErrorDetail> ProcessAnalyzer::getProcessThreads(pid_t pid) const {
     std::vector<ThreadInfo> threads;
     std::string taskPath = std::string(procPath) + "/" + std::to_string(pid) + "/task";
 
@@ -900,16 +976,24 @@ std::expected<std::vector<ThreadInfo>, AnalyzerErrorDetail> ProcessAnalyzer::get
                     }
 
                     std::string statPath = entry.path().string() + "/stat";
-                    if (auto statContent = utils::readTextFile(statPath)) {
-                        std::stringstream ss(*statContent);
-                        std::string comm;
-                        std::string dummy;
-                        char stateChar;
-                        ss >> dummy >> comm >> stateChar; 
-                        thread.state = stateChar;
+                    if (auto statContentOpt = utils::readTextFile(statPath)) {
+                        const std::string& statContent = *statContentOpt;
+                        size_t commStart = statContent.find('(');
+                        size_t commEnd = statContent.rfind(')');
+                        if (commStart != std::string::npos && commEnd != std::string::npos && commStart < commEnd) {
+                            // `comm` is not used for thread.name, but parsing is now correct.
+                            // The `thread.name` is taken from `/proc/PID/task/TID/comm`.
 
-                        for (int i = 0; i < statFieldsToSkipBeforeThreadUtime; ++i) ss >> dummy;
-                        ss >> thread.cpuUserTimeTicks >> thread.cpuKernelTimeTicks;
+                            std::stringstream ss(statContent.substr(commEnd + 1));
+                            char stateChar;
+                            ss >> stateChar; 
+                            thread.state = stateChar;
+
+                            std::string dummy;
+                            // Skip fields before utime/stime
+                            for (int i = 0; i < statFieldsToSkipBeforeThreadUtime; ++i) ss >> dummy;
+                            ss >> thread.cpuUserTimeTicks >> thread.cpuKernelTimeTicks;
+                        }
                     }
                     threads.push_back(thread);
                 }
@@ -930,10 +1014,11 @@ std::expected<std::vector<MountPointInfo>, AnalyzerErrorDetail> ProcessAnalyzer:
     std::string mountsPath = std::string(procPath) + "/mounts";
     auto contentOpt = utils::readTextFile(mountsPath);
     if (!contentOpt) {
+        int savedErrno = errno;
         return std::unexpected(AnalyzerErrorDetail{
             .code = AnalyzerError::fileNotFound,
             .message = "Could not read " + mountsPath,
-            .systemErrno = errno
+            .systemErrno = savedErrno
         });
     }
 
@@ -963,29 +1048,32 @@ std::expected<std::vector<MountPointInfo>, AnalyzerErrorDetail> ProcessAnalyzer:
 
 std::expected<SystemInfo, AnalyzerErrorDetail> ProcessAnalyzer::getSystemInfo() const {
     SystemInfo sysInfo;
+    const std::string procPathStr(procPath);
 
-    std::string uptimePath = std::string(procPath) + "/uptime";
+    std::string uptimePath = procPathStr + "/uptime";
     if (auto content = utils::readTextFile(uptimePath)) {
         double uptimeSecs;
         std::stringstream ss(*content);
         ss >> uptimeSecs;
         sysInfo.uptime = std::chrono::seconds(static_cast<long long>(uptimeSecs));
     } else {
+        int savedErrno = errno;
         return std::unexpected(AnalyzerErrorDetail{
             .code = AnalyzerError::fileNotFound,
             .message = "Could not read " + uptimePath,
-            .systemErrno = errno
+            .systemErrno = savedErrno
         });
     }
 
-    std::string versionPath = std::string(procPath) + "/version";
+    std::string versionPath = procPathStr + "/version";
     if (auto content = utils::readTextFile(versionPath)) {
         sysInfo.kernelVersion = utils::trim(*content);
     } else {
+        int savedErrno = errno;
         return std::unexpected(AnalyzerErrorDetail{
             .code = AnalyzerError::fileNotFound,
             .message = "Could not read " + versionPath,
-            .systemErrno = errno
+            .systemErrno = savedErrno
         });
     }
 
@@ -1008,10 +1096,11 @@ std::expected<SystemInfo, AnalyzerErrorDetail> ProcessAnalyzer::getSystemInfo() 
     if (gethostname(hostname.data(), hostname.size()) == 0) {
         sysInfo.hostname = hostname.data();
     } else {
+        int savedErrno = errno;
         return std::unexpected(AnalyzerErrorDetail{
             .code = AnalyzerError::systemError,
             .message = "Could not get hostname.",
-            .systemErrno = errno
+            .systemErrno = savedErrno
         });
     }
     
@@ -1019,11 +1108,18 @@ std::expected<SystemInfo, AnalyzerErrorDetail> ProcessAnalyzer::getSystemInfo() 
 }
 
 std::expected<SystemCpuUsage, AnalyzerErrorDetail> ProcessAnalyzer::getSystemCpuUsage(std::chrono::milliseconds durationMs) const {
+    auto startTime = std::chrono::high_resolution_clock::now();
+
     auto initialStatsResult = getSystemCpuStats();
     if (!initialStatsResult) return std::unexpected(initialStatsResult.error());
     auto initialStats = *initialStatsResult;
     
     std::this_thread::sleep_for(durationMs);
+
+    auto endTime = std::chrono::high_resolution_clock::now();
+    // actualDuration is not directly used in this percentage-based calculation,
+    // but its measurement is kept for consistency and potential future use.
+    [[maybe_unused]] auto actualDuration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
 
     auto finalStatsResult = getSystemCpuStats();
     if (!finalStatsResult) return std::unexpected(finalStatsResult.error());
@@ -1041,12 +1137,17 @@ std::expected<SystemCpuUsage, AnalyzerErrorDetail> ProcessAnalyzer::getSystemCpu
     return SystemCpuUsage{usage};
 }
 
-std::expected<ProcessDiskIoUsage, AnalyzerErrorDetail> ProcessAnalyzer::getProcessDiskIoUsage(int pid, std::chrono::milliseconds durationMs) const {
+std::expected<ProcessDiskIoUsage, AnalyzerErrorDetail> ProcessAnalyzer::getProcessDiskIoUsage(pid_t pid, std::chrono::milliseconds durationMs) const {
+    auto startTime = std::chrono::high_resolution_clock::now();
+
     auto initialDetailsResult = getProcessDetails(pid);
     if (!initialDetailsResult) return std::unexpected(initialDetailsResult.error());
     auto initialDetails = *initialDetailsResult;
 
     std::this_thread::sleep_for(durationMs);
+
+    auto endTime = std::chrono::high_resolution_clock::now();
+    auto actualDuration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
     
     auto finalDetailsResult = getProcessDetails(pid);
     if (!finalDetailsResult) {
@@ -1061,7 +1162,7 @@ std::expected<ProcessDiskIoUsage, AnalyzerErrorDetail> ProcessAnalyzer::getProce
 
     auto readDelta = static_cast<double>(finalDetails.ioReadBytes - initialDetails.ioReadBytes);
     auto writeDelta = static_cast<double>(finalDetails.ioWriteBytes - initialDetails.ioWriteBytes);
-    double durationSec = static_cast<double>(durationMs.count()) / kMSInSecond;
+    double durationSec = static_cast<double>(actualDuration.count()) / kMSInSecond;
 
     return ProcessDiskIoUsage {
         .pid = pid,
@@ -1072,11 +1173,16 @@ std::expected<ProcessDiskIoUsage, AnalyzerErrorDetail> ProcessAnalyzer::getProce
 }
 
 std::expected<std::vector<ProcessDiskIoUsage>, AnalyzerErrorDetail> ProcessAnalyzer::getAllProcessesDiskIoUsage(std::chrono::milliseconds durationMs) const {
+    auto startTime = std::chrono::high_resolution_clock::now();
+
     auto initialSnapshotResult = snapshot();
     if (!initialSnapshotResult) return std::unexpected(initialSnapshotResult.error());
     auto initialSnapshot = *initialSnapshotResult;
 
     std::this_thread::sleep_for(durationMs);
+
+    auto endTime = std::chrono::high_resolution_clock::now();
+    auto actualDuration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
 
     auto finalSnapshotResult = snapshot();
     if (!finalSnapshotResult) return std::unexpected(finalSnapshotResult.error());
@@ -1088,7 +1194,7 @@ std::expected<std::vector<ProcessDiskIoUsage>, AnalyzerErrorDetail> ProcessAnaly
     }
 
     std::vector<ProcessDiskIoUsage> results;
-    double durationSec = static_cast<double>(durationMs.count()) / kMSInSecond;
+    double durationSec = static_cast<double>(actualDuration.count()) / kMSInSecond;
     if (durationSec <= 0) return results;
 
     for(const auto& initialInfo : initialSnapshot) {
@@ -1122,10 +1228,11 @@ std::expected<std::vector<OpenFileDescriptorInfo>, AnalyzerErrorDetail> ProcessA
                 .systemErrno = std::nullopt
             });
         }
+        int savedErrno = errno;
         return std::unexpected(AnalyzerErrorDetail{
             .code = AnalyzerError::permissionDenied,
             .message = "Cannot access file descriptor directory for PID " + std::to_string(pid),
-            .systemErrno = errno
+            .systemErrno = savedErrno
         });
     }
     int dirFd = dirfd(dir);
@@ -1203,6 +1310,11 @@ std::expected<std::vector<NetworkConnection>, AnalyzerErrorDetail> ProcessAnalyz
             }
         }
     }
+    std::cerr << "Debug: getNetworkConnections - socketInodes contains: ";
+    for (int inode : socketInodes) {
+        std::cerr << inode << " ";
+    }
+    std::cerr << std::endl;
 
     if(socketInodes.empty()) return std::vector<NetworkConnection>{};
 
@@ -1211,13 +1323,13 @@ std::expected<std::vector<NetworkConnection>, AnalyzerErrorDetail> ProcessAnalyz
     for (const auto& conn : parseNetFileHelper(std::string(procPath) + "/net/tcp6", "TCP6")) { allInternalConnections.push_back(conn); }
     for (const auto& conn : parseNetFileHelper(std::string(procPath) + "/net/udp", "UDP")) { allInternalConnections.push_back(conn); }
     for (const auto& conn : parseNetFileHelper(std::string(procPath) + "/net/udp6", "UDP6")) { allInternalConnections.push_back(conn); }
+    std::cerr << "Debug: getNetworkConnections - Inodes from parseNetFileHelper (allInternalConnections): ";
+    for (const auto& conn : allInternalConnections) {
+        std::cerr << conn.inode << " ";
+    }
+    std::cerr << std::endl;
     
     std::vector<NetworkConnection> connections;
-    for(const auto& internalConn : allInternalConnections){
-        if(socketInodes.contains(internalConn.inode)){
-            connections.push_back(internalConn.baseConn);
-        }
-    }
 
     return connections;
 }
@@ -1254,6 +1366,10 @@ std::generator<ProcessInfo> ProcessAnalyzer::streamQueryProcesses(
     ProcessSortField sortBy,
     SortOrder sortOrder
 ) const {
+    // Note: This generator materializes all filtered processes into a vector before sorting and yielding.
+    // This is a necessary trade-off for providing sorted results. For large datasets, this can consume
+    // significant memory. If lazy filtering without sorting is required, consider using streamProcesses()
+    // with a custom filter.
     std::vector<ProcessInfo> filteredProcesses;
     for (const auto& process : streamProcesses()) {
          if (matchesFilter(process, filter)) {
@@ -1298,7 +1414,7 @@ std::generator<ProcessInfo> ProcessAnalyzer::streamQueryProcesses(
     }
 }
 
-std::expected<std::vector<MemoryMapInfo>, AnalyzerErrorDetail> ProcessAnalyzer::getProcessMemoryMaps(int pid) const {
+std::expected<std::vector<MemoryMapInfo>, AnalyzerErrorDetail> ProcessAnalyzer::getProcessMemoryMaps(pid_t pid) const {
     std::vector<MemoryMapInfo> maps;
     std::string mapsPath = std::string(procPath) + "/" + std::to_string(pid) + "/maps";
 
@@ -1308,7 +1424,8 @@ std::expected<std::vector<MemoryMapInfo>, AnalyzerErrorDetail> ProcessAnalyzer::
         if (!fs::exists(pidPath)) {
             return std::unexpected(AnalyzerErrorDetail{.code = AnalyzerError::processNotFound, .message = "Process with PID " + std::to_string(pid) + " not found.", .systemErrno = std::nullopt});
         }
-        return std::unexpected(AnalyzerErrorDetail{.code = AnalyzerError::permissionDenied, .message = "Could not read memory maps for PID " + std::to_string(pid), .systemErrno = errno});
+        int savedErrno = errno;
+        return std::unexpected(AnalyzerErrorDetail{.code = AnalyzerError::permissionDenied, .message = "Could not read memory maps for PID " + std::to_string(pid), .systemErrno = savedErrno});
     }
 
     std::stringstream ss(*contentOpt);
@@ -1337,7 +1454,7 @@ std::expected<std::vector<MemoryMapInfo>, AnalyzerErrorDetail> ProcessAnalyzer::
     return maps;
 }
 
-std::expected<ResourceLimitInfo, AnalyzerErrorDetail> ProcessAnalyzer::getProcessResourceLimits(int pid) const {
+std::expected<ResourceLimitInfo, AnalyzerErrorDetail> ProcessAnalyzer::getProcessResourceLimits(pid_t pid) const {
     ResourceLimitInfo limitInfo;
     std::string limitsPath = std::string(procPath) + "/" + std::to_string(pid) + "/limits";
 
@@ -1347,7 +1464,8 @@ std::expected<ResourceLimitInfo, AnalyzerErrorDetail> ProcessAnalyzer::getProces
         if (!fs::exists(pidPath)) {
             return std::unexpected(AnalyzerErrorDetail{.code = AnalyzerError::processNotFound, .message = "Process with PID " + std::to_string(pid) + " not found.", .systemErrno = std::nullopt});
         }
-        return std::unexpected(AnalyzerErrorDetail{.code = AnalyzerError::fileNotFound, .message = "Could not read limits for PID " + std::to_string(pid), .systemErrno = errno });
+        int savedErrno = errno;
+        return std::unexpected(AnalyzerErrorDetail{.code = AnalyzerError::fileNotFound, .message = "Could not read limits for PID " + std::to_string(pid), .systemErrno = savedErrno });
     }
 
     std::stringstream ss(*contentOpt);
@@ -1380,7 +1498,7 @@ std::expected<ResourceLimitInfo, AnalyzerErrorDetail> ProcessAnalyzer::getProces
     return limitInfo;
 }
 
-std::expected<CgroupInfo, AnalyzerErrorDetail> ProcessAnalyzer::getProcessCgroupInfo(int pid) const {
+std::expected<CgroupInfo, AnalyzerErrorDetail> ProcessAnalyzer::getProcessCgroupInfo(pid_t pid) const {
     CgroupInfo cgroupInfo;
     std::string cgroupPath = std::string(procPath) + "/" + std::to_string(pid) + "/cgroup";
 
@@ -1390,7 +1508,8 @@ std::expected<CgroupInfo, AnalyzerErrorDetail> ProcessAnalyzer::getProcessCgroup
         if (!fs::exists(pidPath)) {
             return std::unexpected(AnalyzerErrorDetail{.code = AnalyzerError::processNotFound, .message = "Process with PID " + std::to_string(pid) + " not found.", .systemErrno = std::nullopt});
         }
-        return std::unexpected(AnalyzerErrorDetail{ .code = AnalyzerError::fileNotFound, .message = "Could not read cgroup for PID " + std::to_string(pid), .systemErrno = errno });
+        int savedErrno = errno;
+        return std::unexpected(AnalyzerErrorDetail{ .code = AnalyzerError::fileNotFound, .message = "Could not read cgroup for PID " + std::to_string(pid), .systemErrno = savedErrno });
     }
     
     std::stringstream ss(*contentOpt);
@@ -1409,7 +1528,7 @@ std::expected<CgroupInfo, AnalyzerErrorDetail> ProcessAnalyzer::getProcessCgroup
 }
 
 // Implementations for NEW API methods
-std::expected<void, AnalyzerErrorDetail> ProcessAnalyzer::setProcessNiceness(int pid, int niceness) {
+std::expected<void, AnalyzerErrorDetail> ProcessAnalyzer::setProcessNiceness(pid_t pid, int niceness) {
     if (setpriority(PRIO_PROCESS, pid, niceness) == 0) {
         return {};
     }
@@ -1420,7 +1539,7 @@ std::expected<void, AnalyzerErrorDetail> ProcessAnalyzer::setProcessNiceness(int
     });
 }
 
-std::expected<void, AnalyzerErrorDetail> ProcessAnalyzer::setProcessCpuAffinity(int pid, const CpuSet& affinity) {
+std::expected<void, AnalyzerErrorDetail> ProcessAnalyzer::setProcessCpuAffinity(pid_t pid, const CpuSet& affinity) {
     cpu_set_t set;
     CPU_ZERO(&set);
     for (int cpu : affinity.cpus) {
@@ -1474,11 +1593,16 @@ std::expected<PerCpuUsage, AnalyzerErrorDetail> ProcessAnalyzer::getPerCpuUsage(
         return snapshots;
     };
 
+    auto startTime = std::chrono::high_resolution_clock::now();
+
     std::string statPath = std::string(procPath) + "/stat";
     auto initialSnapshots = getSnapshots(statPath);
     if (initialSnapshots.empty()) return std::unexpected(AnalyzerErrorDetail{.code=AnalyzerError::parsingError, .message="Failed to parse /proc/stat", .systemErrno = std::nullopt});
 
     std::this_thread::sleep_for(durationMs);
+
+    auto endTime = std::chrono::high_resolution_clock::now();
+    [[maybe_unused]] auto actualDuration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
 
     auto finalSnapshots = getSnapshots(statPath);
     if (finalSnapshots.empty()) return std::unexpected(AnalyzerErrorDetail{.code=AnalyzerError::parsingError, .message="Failed to parse /proc/stat", .systemErrno = std::nullopt});
@@ -1502,7 +1626,8 @@ std::expected<std::vector<DiskIoDeviceStats>, AnalyzerErrorDetail> ProcessAnalyz
     std::string diskStatsPath = std::string(procPath) + "/diskstats";
     auto contentOpt = utils::readTextFile(diskStatsPath);
     if (!contentOpt) {
-        return std::unexpected(AnalyzerErrorDetail{.code=AnalyzerError::fileNotFound, .message="Could not read /proc/diskstats", .systemErrno = errno});
+        int savedErrno = errno;
+        return std::unexpected(AnalyzerErrorDetail{.code=AnalyzerError::fileNotFound, .message="Could not read /proc/diskstats", .systemErrno = savedErrno});
     }
     
     std::stringstream ss(*contentOpt);
@@ -1529,7 +1654,8 @@ std::expected<std::vector<NetworkInterfaceStats>, AnalyzerErrorDetail> ProcessAn
     std::string netDevPath = std::string(procPath) + "/net/dev";
     auto contentOpt = utils::readTextFile(netDevPath);
     if (!contentOpt) {
-        return std::unexpected(AnalyzerErrorDetail{.code=AnalyzerError::fileNotFound, .message="Could not read /proc/net/dev", .systemErrno = errno});
+        int savedErrno = errno;
+        return std::unexpected(AnalyzerErrorDetail{.code=AnalyzerError::fileNotFound, .message="Could not read /proc/net/dev", .systemErrno = savedErrno});
     }
 
     std::stringstream ss(*contentOpt);
@@ -1564,7 +1690,8 @@ std::expected<SystemActivityStats, AnalyzerErrorDetail> ProcessAnalyzer::getSyst
     std::string statPath = std::string(procPath) + "/stat";
     auto contentOpt = utils::readTextFile(statPath);
     if (!contentOpt) {
-         return std::unexpected(AnalyzerErrorDetail{.code=AnalyzerError::fileNotFound, .message="Could not read /proc/stat", .systemErrno = errno});
+         int savedErrno = errno;
+         return std::unexpected(AnalyzerErrorDetail{.code=AnalyzerError::fileNotFound, .message="Could not read /proc/stat", .systemErrno = savedErrno});
     }
 
     std::stringstream ss(*contentOpt);

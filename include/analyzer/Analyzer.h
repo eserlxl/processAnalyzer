@@ -53,39 +53,39 @@ enum class ProcessSignal {
 };
 
 struct ProcessInfo {
-    int pid;
-    int ppid;
-    uint32_t uid;
-    std::string username;
-    std::string name;
-    std::string state;
-    long residentMemory; // in KB (formerly memory_usage)
-    long virtualMemory;  // in KB
-    int threadCount;
-    std::string cmdline;
+    pid_t pid = 0;
+    pid_t ppid = 0;
+    uid_t uid = 0;
+    std::string username = "Unknown";
+    std::string name = "Unknown";
+    std::string state = "?";
+    long long residentMemory = 0; // in KB (formerly memory_usage)
+    long long virtualMemory = 0;  // in KB
+    long threadCount = 0;
+    std::string cmdline = "";
 
     // --- New Fields for Iteration 5 ---
-    long long startTimeTicks; // Process start time in clock ticks since system boot
-    long long startTimeUnix;  // Process start time as Unix timestamp (seconds since epoch) - NEW for Iteration 13
-    std::string elapsedTime;  // Formatted string representing uptime, e.g., "01:23:45" or "1d 2h" - NEW for Iteration 13
-    std::string executablePath; // Path to the executable file (symlink /proc/<pid>/exe)
-    std::string currentWorkingDirectory; // Current working directory (symlink /proc/<pid>/cwd)
-    std::vector<std::string> environmentVariables; // Environment variables (from /proc/<pid>/environ)
-    long long cpuUserTimeTicks; // User mode CPU time in clock ticks
-    long long cpuKernelTimeTicks; // Kernel mode CPU time in clock ticks
-    long long ioReadBytes;      // Total bytes read by the process (from /proc/<pid>/io)
-    long long ioWriteBytes;     // Total bytes written by the process (from /proc/<pid>/io)
-    int priority;               // Process priority (nice value)
+    long long startTimeTicks = 0; // Process start time in clock ticks since system boot
+    long long startTimeUnix = 0;  // Process start time as Unix timestamp (seconds since epoch) - NEW for Iteration 13
+    std::string elapsedTime = "N/A";  // Formatted string representing uptime, e.g., "01:23:45" or "1d 2h" - NEW for Iteration 13
+    std::string executablePath = ""; // Path to the executable file (symlink /proc/<pid>/exe)
+    std::string currentWorkingDirectory = ""; // Current working directory (symlink /proc/<pid>/cwd)
+    std::vector<std::string> environmentVariables = {}; // Environment variables (from /proc/<pid>/environ)
+    long long cpuUserTimeTicks = 0; // User mode CPU time in clock ticks
+    long long cpuKernelTimeTicks = 0; // Kernel mode CPU time in clock ticks
+    long long ioReadBytes = 0;      // Total bytes read by the process (from /proc/<pid>/io)
+    long long ioWriteBytes = 0;     // Total bytes written by the process (from /proc/<pid>/io)
+    int priority = 0;               // Process priority (nice value)
     
     // --- New Fields for Iteration 13 ---
-    float cpuUsage;             // Percentage of CPU usage.
-    float memoryPercentage;     // Percentage of total system memory used by the process (RSS-based).
+    float cpuUsage = 0.0F;             // Percentage of CPU usage.
+    float memoryPercentage = 0.0F;     // Percentage of total system memory used by the process (RSS-based).
 };
 
 struct ProcessCpuUsage {
-    int pid;
-    std::string name;
-    double cpuPercentage; // CPU usage as a percentage (e.g., 50.5 for 50.5% CPU)
+    pid_t pid = 0;
+    std::string name = "";
+    double cpuPercentage = 0.0; // CPU usage as a percentage (e.g., 50.5 for 50.5% CPU)
                           // Note: This is an instantaneous/delta percentage between two calls.
 };
 
@@ -135,28 +135,28 @@ enum class SocketType {
 };
 
 struct NetworkConnection {
-    std::string protocol;    // e.g., "TCP", "UDP", "TCP6", "UDP6"
-    std::string localAddress;  // Local IP address, e.g., "127.0.0.1"
-    std::string remoteAddress; // Remote IP address, e.g., "192.168.1.100" or "*"
-    uint16_t localPort;        // Local port number
-    uint16_t remotePort;       // Remote port number (0 if not connected/LISTEN)
-    std::string state;       // Connection state, e.g., "ESTABLISHED", "LISTEN", "TIME_WAIT"
-    int inode;               // Socket inode number
-    AddressFamily addressFamily; // IPv4 or IPv6
-    SocketType socketType;     // TCP or UDP (or RAW/UNIX if expanded)
+    std::string protocol = "";    // e.g., "TCP", "UDP", "TCP6", "UDP6"
+    std::string localAddress = "";  // Local IP address, e.g., "127.0.0.1"
+    std::string remoteAddress = ""; // Remote IP address, e.g., "192.168.1.100" or "*"
+    uint16_t localPort = 0;        // Local port number
+    uint16_t remotePort = 0;       // Remote port number (0 if not connected/LISTEN)
+    std::string state = "";       // Connection state, e.g., "ESTABLISHED", "LISTEN", "TIME_WAIT"
+    int inode = 0;               // Socket inode number
+    AddressFamily addressFamily = AddressFamily::unknown; // IPv4 or IPv6
+    SocketType socketType = SocketType::unknown;     // TCP or UDP (or RAW/UNIX if expanded)
 };
 
 // New for Iteration 9: Disk I/O Rate per Process
 struct ProcessDiskIoUsage {
-    int pid;
-    std::string name;
+    pid_t pid = 0;
+    std::string name = "";
     double readBytesPerSecond;  // Disk read rate in bytes per second
     double writeBytesPerSecond; // Disk write rate in bytes per second
 };
 
 // New for Iteration 9: Process Threads Details
 struct ThreadInfo {
-    int tid;                // Thread ID (which is also the PID of the kernel's representation of the thread)
+    pid_t tid = 0;                // Thread ID (which is also the PID of the kernel's representation of the thread)
     std::string name;       // Thread name (from /proc/[pid]/task/[tid]/comm)
     std::string state;      // Thread state (from /proc/[pid]/task/[tid]/stat)
     long long cpuUserTimeTicks;    // User mode CPU time in clock ticks for this thread
