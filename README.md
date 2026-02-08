@@ -16,6 +16,7 @@
 * [API Reference](#api-reference)
 * [Project Structure](#project-structure)
 * [Utility Library (`utils` Namespace)](#utility-library-utils-namespace)
+* [Testing](#testing)
 * [Configuration](#configuration)
 * [Contributing](#contributing)
 * [Changelog](#changelog)
@@ -128,6 +129,12 @@ For a detailed breakdown of the project directory structure, see [docs/project-s
 -   Time and hashing utilities
 
 For complete documentation of all functions, error codes, and usage examples, please refer to the **[Utils Library Documentation](docs/UTILS.md)**.
+
+## Testing
+
+`processAnalyzer` includes a comprehensive suite of unit tests to ensure reliability and correctness.
+
+For instructions on how to build and run the tests, please refer to the [Build Instructions](docs/build.md#running-tests).
 
 ## Configuration
 

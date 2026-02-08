@@ -9,7 +9,7 @@
 
 namespace utils {
 
-std::string formatElapsedTime(long long seconds) {
+::std::string formatElapsedTime(long long seconds) {
     if (seconds < 0) return "N/A";
     
     constexpr long long kSecondsPerMinute = 60;
@@ -23,14 +23,14 @@ std::string formatElapsedTime(long long seconds) {
     long long minutes = seconds / kSecondsPerMinute;
     seconds %= kSecondsPerMinute;
 
-    std::string result;
+    ::std::string result;
     if (days > 0) {
-        result += std::to_string(days) + "d ";
+        result += ::std::to_string(days) + "d ";
     }
     // Always show H:M:S, even if days are present. Pad with leading zeros.
-    std::string h = std::to_string(hours);
-    std::string m = std::to_string(minutes);
-    std::string s = std::to_string(seconds);
+    ::std::string h = ::std::to_string(hours);
+    ::std::string m = ::std::to_string(minutes);
+    ::std::string s = ::std::to_string(seconds);
     if (h.length() == 1) h = "0" + h;
     if (m.length() == 1) m = "0" + m;
     if (s.length() == 1) s = "0" + s;
@@ -39,52 +39,52 @@ std::string formatElapsedTime(long long seconds) {
     return result;
 }
 
-std::string formatTimestamp(long long unixTimestamp) {
+::std::string formatTimestamp(long long unixTimestamp) {
     if (unixTimestamp <= 0) { // Handle invalid or epoch timestamps gracefully
         return "N/A";
     }
 
     // Use standard C time functions for portability
-    auto tt = static_cast<std::time_t>(unixTimestamp);
-    std::tm tmBuf{};
+    auto tt = static_cast<::std::time_t>(unixTimestamp);
+    ::std::tm tmBuf{};
     
     // Use localtime_r for thread safety if available, or localtime
 #if defined(_POSIX_C_SOURCE) || defined(_BSD_SOURCE) || defined(_SVID_SOURCE) || defined(_XOPEN_SOURCE)
-    localtime_r(&tt, &tmBuf);
+    ::localtime_r(&tt, &tmBuf);
 #else
     // Fallback for non-POSIX
-    if (std::tm* tmp = std::localtime(&tt)) {
+    if (::std::tm* tmp = ::std::localtime(&tt)) {
         tmBuf = *tmp;
     }
 #endif
 
     constexpr size_t kBufferSize = 64;
-    std::array<char, kBufferSize> buffer{};
+    ::std::array<char, kBufferSize> buffer{};
     // %Z or %z for timezone
-    if (std::strftime(buffer.data(), buffer.size(), "%Y-%m-%d %H:%M:%S %Z", &tmBuf)) {
+    if (::std::strftime(buffer.data(), buffer.size(), "%Y-%m-%d %H:%M:%S %Z", &tmBuf)) {
         return {buffer.data()};
     }
     return "N/A";
 }
 
-Result<std::chrono::system_clock::time_point> getCurrentSystemTime() {
-    return std::unexpected(make_error_code(UtilsError::unsupportedOperation));
+Result<::std::chrono::system_clock::time_point> getCurrentSystemTime() {
+    return ::std::unexpected(make_error_code(UtilsError::unsupportedOperation));
 }
 
-Result<std::chrono::steady_clock::time_point> getCurrentSteadyTime() {
-    return std::unexpected(make_error_code(UtilsError::unsupportedOperation));
+Result<::std::chrono::steady_clock::time_point> getCurrentSteadyTime() {
+    return ::std::unexpected(make_error_code(UtilsError::unsupportedOperation));
 }
 
-Result<std::string> formatTimestamp(std::chrono::system_clock::time_point tp, std::string_view formatStr) {
+Result<::std::string> formatTimestamp(::std::chrono::system_clock::time_point tp, ::std::string_view formatStr) {
     (void)tp;
     (void)formatStr;
-    return std::unexpected(make_error_code(UtilsError::unsupportedOperation));
+    return ::std::unexpected(make_error_code(UtilsError::unsupportedOperation));
 }
 
-Result<std::chrono::system_clock::time_point> parseTimestamp(std::string_view timestampStr, std::string_view formatStr) {
+Result<::std::chrono::system_clock::time_point> parseTimestamp(::std::string_view timestampStr, ::std::string_view formatStr) {
     (void)timestampStr;
     (void)formatStr;
-    return std::unexpected(make_error_code(UtilsError::unsupportedOperation));
+    return ::std::unexpected(make_error_code(UtilsError::unsupportedOperation));
 }
 
 } // namespace utils

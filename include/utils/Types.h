@@ -52,16 +52,12 @@ enum class UtilsError {
     timeParseError,
 };
 
-std::error_code make_error_code(UtilsError e);
-
-template <typename T>
-using Result = std::expected<T, std::error_code>;
-
-} // namespace utils
-
 namespace std {
 template <>
-struct is_error_code_enum<utils::UtilsError> : true_type {};
+struct is_error_code_enum<utils::UtilsError> : std::true_type {};
+
+template <>
+struct is_error_condition_enum<utils::UtilsError> : std::true_type {};
 }
 
 #endif // UTILS_TYPES_H

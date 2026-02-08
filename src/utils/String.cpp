@@ -225,41 +225,41 @@ std::vector<std::string> split(std::string_view s, std::string_view delimiter, b
 }
 
 // Stubs
-Result<std::string> urlEncode(std::string_view s) {
+Result<::std::string> urlEncode(::std::string_view s) {
     (void)s;
-    return std::unexpected(make_error_code(UtilsError::unsupportedOperation));
+    return ::std::unexpected(make_error_code(UtilsError::unsupportedOperation));
 }
 
-Result<std::string> urlDecode(std::string_view s) {
+Result<::std::string> urlDecode(::std::string_view s) {
     (void)s;
-    return std::unexpected(make_error_code(UtilsError::unsupportedOperation));
+    return ::std::unexpected(make_error_code(UtilsError::unsupportedOperation));
 }
 
-Result<std::string> base64Encode(std::string_view s) {
+Result<::std::string> base64Encode(::std::string_view s) {
     (void)s;
-    return std::unexpected(make_error_code(UtilsError::unsupportedOperation));
+    return ::std::unexpected(make_error_code(UtilsError::unsupportedOperation));
 }
 
-Result<std::string> base64Decode(std::string_view s) {
+Result<::std::string> base64Decode(::std::string_view s) {
     (void)s;
-    return std::unexpected(make_error_code(UtilsError::unsupportedOperation));
+    return ::std::unexpected(make_error_code(UtilsError::unsupportedOperation));
 }
 
-Result<std::string> base64Encode(std::span<const std::byte> data) {
+Result<::std::string> base64Encode(::std::span<const ::std::byte> data) {
     (void)data;
-    return std::unexpected(make_error_code(UtilsError::unsupportedOperation));
+    return ::std::unexpected(make_error_code(UtilsError::unsupportedOperation));
 }
 
-Result<std::vector<std::byte>> base64DecodeToBytes(std::string_view s) {
+Result<::std::vector<::std::byte>> base64DecodeToBytes(::std::string_view s) {
     (void)s;
-    return std::unexpected(make_error_code(UtilsError::unsupportedOperation));
+    return ::std::unexpected(make_error_code(UtilsError::unsupportedOperation));
 }
 
-Result<std::string> generateUuid() {
-    return std::unexpected(make_error_code(UtilsError::unsupportedOperation));
+Result<::std::string> generateUuid() {
+    return ::std::unexpected(make_error_code(UtilsError::unsupportedOperation));
 }
 
-bool equalsIgnoreCase(std::string_view s1, std::string_view s2) {
+bool equalsIgnoreCase(::std::string_view s1, ::std::string_view s2) {
     (void)s1;
     (void)s2;
     return false;
@@ -267,164 +267,164 @@ bool equalsIgnoreCase(std::string_view s1, std::string_view s2) {
 
 // --- Numeric Parsing/Validation ---
 
-bool isInteger(std::string_view s) {
+bool isInteger(::std::string_view s) {
     if (s.empty()) return false;
     size_t start = 0;
     if (s[0] == '-' || s[0] == '+') {
         start = 1;
     }
     if (start == s.size()) return false;
-    return std::all_of(s.begin() + start, s.end(), [](unsigned char c){ return std::isdigit(c); });
+    return ::std::all_of(s.begin() + start, s.end(), [](unsigned char c){ return ::std::isdigit(c); });
 }
 
-bool isFloatingPoint(std::string_view s) {
+bool isFloatingPoint(::std::string_view s) {
     return toDouble(s).has_value();
 }
 
-Result<double> toDouble(std::string_view s) {
+Result<double> toDouble(::std::string_view s) {
     double val;
-    std::string_view subS = s;
+    ::std::string_view subS = s;
     if (!s.empty() && s[0] == '+') {
         subS = s.substr(1);
     }
     
-    if (subS.empty()) return std::unexpected(make_error_code(UtilsError::invalidArgument));
+    if (subS.empty()) return ::std::unexpected(make_error_code(UtilsError::invalidArgument));
 
-    auto res = std::from_chars(subS.data(), subS.data() + subS.size(), val);
-    if (res.ec == std::errc() && res.ptr == subS.data() + subS.size()) {
+    auto res = ::std::from_chars(subS.data(), subS.data() + subS.size(), val);
+    if (res.ec == ::std::errc() && res.ptr == subS.data() + subS.size()) {
         return val;
     }
-    return std::unexpected(make_error_code(UtilsError::invalidArgument));
+    return ::std::unexpected(make_error_code(UtilsError::invalidArgument));
 }
 
-Result<long> toLong(std::string_view s, int base) {
+Result<long> toLong(::std::string_view s, int base) {
     long val;
-    std::string_view subS = s;
+    ::std::string_view subS = s;
     if (!s.empty() && s[0] == '+') {
         subS = s.substr(1);
     }
     
-    if (subS.empty()) return std::unexpected(make_error_code(UtilsError::invalidArgument));
+    if (subS.empty()) return ::std::unexpected(make_error_code(UtilsError::invalidArgument));
 
-    auto res = std::from_chars(subS.data(), subS.data() + subS.size(), val, base);
-    if (res.ec == std::errc() && res.ptr == subS.data() + subS.size()) {
+    auto res = ::std::from_chars(subS.data(), subS.data() + subS.size(), val, base);
+    if (res.ec == ::std::errc() && res.ptr == subS.data() + subS.size()) {
         return val;
     }
-    return std::unexpected(make_error_code(UtilsError::invalidArgument));
+    return ::std::unexpected(make_error_code(UtilsError::invalidArgument));
 }
 
-std::optional<long> toLongDeprecated(std::string_view s) {
+::std::optional<long> toLongDeprecated(::std::string_view s) {
     long val;
-    std::string_view subS = s;
+    ::std::string_view subS = s;
     if (!s.empty() && s[0] == '+') {
         subS = s.substr(1);
     }
     
-    if (subS.empty()) return std::nullopt;
+    if (subS.empty()) return ::std::nullopt;
 
-    auto res = std::from_chars(subS.data(), subS.data() + subS.size(), val);
-    if (res.ec == std::errc() && res.ptr == subS.data() + subS.size()) {
+    auto res = ::std::from_chars(subS.data(), subS.data() + subS.size(), val);
+    if (res.ec == ::std::errc() && res.ptr == subS.data() + subS.size()) {
         return val;
     }
-    return std::nullopt;
+    return ::std::nullopt;
 }
 
-std::optional<double> toDoubleDeprecated(std::string_view s) {
+::std::optional<double> toDoubleDeprecated(::std::string_view s) {
     double val;
-    std::string_view subS = s;
+    ::std::string_view subS = s;
     if (!s.empty() && s[0] == '+') {
         subS = s.substr(1);
     }
     
-    if (subS.empty()) return std::nullopt;
+    if (subS.empty()) return ::std::nullopt;
 
-    auto res = std::from_chars(subS.data(), subS.data() + subS.size(), val);
-    if (res.ec == std::errc() && res.ptr == subS.data() + subS.size()) {
+    auto res = ::std::from_chars(subS.data(), subS.data() + subS.size(), val);
+    if (res.ec == ::std::errc() && res.ptr == subS.data() + subS.size()) {
         return val;
     }
-    return std::nullopt;
+    return ::std::nullopt;
 }
 
-Result<bool> parseBool(std::string_view s) {
-    std::string lowerS = toLower(s);
+Result<bool> parseBool(::std::string_view s) {
+    ::std::string lowerS = toLower(s);
     if (lowerS == "true" || lowerS == "1" || lowerS == "yes") {
         return true;
     }
     if (lowerS == "false" || lowerS == "0" || lowerS == "no") {
         return false;
     }
-    return std::unexpected(make_error_code(UtilsError::invalidArgument));
+    return ::std::unexpected(make_error_code(UtilsError::invalidArgument));
 }
 
-std::optional<bool> parseBoolDeprecated(std::string_view s) {
-    std::string lowerS = toLower(s);
+::std::optional<bool> parseBoolDeprecated(::std::string_view s) {
+    ::std::string lowerS = toLower(s);
     if (lowerS == "true" || lowerS == "1" || lowerS == "yes") {
         return true;
     }
     if (lowerS == "false" || lowerS == "0" || lowerS == "no") {
         return false;
     }
-    return std::nullopt;
+    return ::std::nullopt;
 }
 
-Result<int> toInt(std::string_view s, int base) {
+Result<int> toInt(::std::string_view s, int base) {
     long val;
-    std::string_view subS = s;
+    ::std::string_view subS = s;
     if (!s.empty() && s[0] == '+') {
         subS = s.substr(1);
     }
     
-    if (subS.empty()) return std::unexpected(make_error_code(UtilsError::invalidArgument));
+    if (subS.empty()) return ::std::unexpected(make_error_code(UtilsError::invalidArgument));
 
-    auto res = std::from_chars(subS.data(), subS.data() + subS.size(), val, base);
-    if (res.ec == std::errc() && res.ptr == subS.data() + subS.size()) {
-        if (val >= std::numeric_limits<int>::min() && val <= std::numeric_limits<int>::max()) {
+    auto res = ::std::from_chars(subS.data(), subS.data() + subS.size(), val, base);
+    if (res.ec == ::std::errc() && res.ptr == subS.data() + subS.size()) {
+        if (val >= ::std::numeric_limits<int>::min() && val <= ::std::numeric_limits<int>::max()) {
             return static_cast<int>(val);
         }
     }
-    return std::unexpected(make_error_code(UtilsError::invalidArgument));
+    return ::std::unexpected(make_error_code(UtilsError::invalidArgument));
 }
 
-std::optional<int> toIntDeprecated(std::string_view s) {
+::std::optional<int> toIntDeprecated(::std::string_view s) {
     long val;
-    std::string_view subS = s;
+    ::std::string_view subS = s;
     if (!s.empty() && s[0] == '+') {
         subS = s.substr(1);
     }
     
-    if (subS.empty()) return std::nullopt;
+    if (subS.empty()) return ::std::nullopt;
 
-    auto res = std::from_chars(subS.data(), subS.data() + subS.size(), val);
-    if (res.ec == std::errc() && res.ptr == subS.data() + subS.size()) {
-        if (val >= std::numeric_limits<int>::min() && val <= std::numeric_limits<int>::max()) {
+    auto res = ::std::from_chars(subS.data(), subS.data() + subS.size(), val);
+    if (res.ec == ::std::errc() && res.ptr == subS.data() + subS.size()) {
+        if (val >= ::std::numeric_limits<int>::min() && val <= ::std::numeric_limits<int>::max()) {
             return static_cast<int>(val);
         }
     }
-    return std::nullopt;
+    return ::std::nullopt;
 }
 
-Result<float> toFloat(std::string_view s) {
+Result<float> toFloat(::std::string_view s) {
     double val;
     auto res = toDouble(s);
     if (res) {
         val = *res;
-        if (val >= -std::numeric_limits<float>::max() && val <= std::numeric_limits<float>::max()) {
+        if (val >= -::std::numeric_limits<float>::max() && val <= ::std::numeric_limits<float>::max()) {
             return static_cast<float>(val);
         }
     }
-    return std::unexpected(make_error_code(UtilsError::invalidArgument));
+    return ::std::unexpected(make_error_code(UtilsError::invalidArgument));
 }
 
-std::optional<float> toFloatDeprecated(std::string_view s) {
+::std::optional<float> toFloatDeprecated(::std::string_view s) {
     double val;
     auto opt = toDouble(s);
     if (opt) {
         val = *opt;
-        if (val >= -std::numeric_limits<float>::max() && val <= std::numeric_limits<float>::max()) {
+        if (val >= -::std::numeric_limits<float>::max() && val <= ::std::numeric_limits<float>::max()) {
             return static_cast<float>(val);
         }
     }
-    return std::nullopt;
+    return ::std::nullopt;
 }
 
 } // namespace utils
