@@ -1,6 +1,6 @@
 # Utils Library Documentation
 
-The `utils` namespace, implemented in `src/utils.cpp` and declared in `include/utils.h`, provides a collection of general-purpose utility functions used throughout the `processAnalyzer` project. These utilities aim to simplify common tasks related to file system operations, string manipulation, numeric conversions, and system interactions.
+The `utils` namespace provides a collection of general-purpose utility functions used throughout the `processAnalyzer` project. These utilities are organized into modules with headers in `include/utils/` and implementations in `src/utils/`. They aim to simplify common tasks related to file system operations, string manipulation, numeric conversions, and system interactions.
 
 Many functions now return `Result<T>` which is a `std::expected<T, std::error_code>`, allowing for robust error handling. Older functions using `std::optional` or out-parameters for error codes are being deprecated.
 
@@ -35,7 +35,7 @@ The custom error codes are defined in the `UtilsError` enum:
 - `UtilsError::commandNotFound`: The command was not found.
 - `UtilsError::commandFailed`: The command failed to execute.
 - `UtilsError::processSpawnFailure`: Failed to spawn a new process.
-- `UtilsError::permissionDeniedCwd`: Permission denied when accessing the current working directory.
+- `UtilsError::permissionDeniedCwd`: Permission denied for changing CWD.
 - `UtilsError::invalidTimeFormat`: The time format is invalid.
 - `UtilsError::timeParseError`: An error occurred while parsing a time string.
 
@@ -158,4 +158,4 @@ These functions interact with the file system using `std::filesystem`.
 
 ## Unit Tests
 
-The utility functions are tested in `tests/Utils.cpp`, `tests/TestUtils.cpp`, `tests/UtilsNewApiTest.cpp` and `tests/TestUtilsNewApiTest.cpp`. These tests cover various scenarios, including edge cases and error conditions.
+The utility functions are tested in `tests/utils/`, with specific tests such as `Core.cpp`, `FileSystemTest.cpp`, and `TypesTest.cpp`. These tests cover various scenarios, including edge cases and error conditions.

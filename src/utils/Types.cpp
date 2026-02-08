@@ -59,10 +59,6 @@ std::error_code make_error_code(UtilsError e) {
 
 } // namespace utils
 
-// Definition for std::make_error_code overload if needed in global scope,
-// but usually it's found via ADL if in the same namespace as UtilsError.
-// However, UtilsError is in utils namespace, so make_error_code should be there too (which it is).
-// We also need to ensure the std specialization works.
 namespace std {
     // Already specialized in header.
 }

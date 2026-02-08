@@ -16,6 +16,7 @@
 * [API Reference](#api-reference)
 * [Project Structure](#project-structure)
 * [Utility Library (`utils` Namespace)](#utility-library-utils-namespace)
+* [Configuration](#configuration)
 * [Contributing](#contributing)
 * [Changelog](#changelog)
 * [License](#license)
@@ -124,6 +125,12 @@ For a detailed breakdown of the project directory structure, see [docs/project-s
 -   Time and hashing utilities
 
 For complete documentation of all functions, error codes, and usage examples, please refer to the **[Utils Library Documentation](docs/UTILS.md)**.
+
+## Configuration
+
+`processAnalyzer` supports loading configuration settings from a specified file. This allows for persistent customization of behavior and default parameters.
+
+For details on available configuration options and file formats, please refer to the [Configuration documentation](docs/configuration.md).
 
 ## Contributing
 
