@@ -5,3 +5,4 @@ cmake_minimum_required(VERSION 3.17)
 
 add_process_analyzer_test(UtilsTest Utils.cpp)
 add_process_analyzer_test(AnalyzerTest AnalyzerTest.cpp)
+add_process_analyzer_test(TestUtilsNewApiTest TestUtilsNewApiTest.cpp)

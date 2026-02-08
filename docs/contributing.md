@@ -26,6 +26,21 @@ We welcome and appreciate contributions to the `processAnalyzer` project! Whethe
 
 To get your development environment ready, follow the "Building from Source" instructions in the main [README.md](README.md) file.
 
+## Testing
+
+Unit tests are a crucial part of `processAnalyzer` and are located in the `tests/` directory. We use Google Test as our testing framework.
+
+When writing tests for components that interact with the `/proc` filesystem, you should use the `MockProc` utility class found in `tests/TestUtils.h`. This class provides a convenient way to create a mock `/proc` directory structure for your tests, ensuring they are hermetic and repeatable.
+
+The `MockProc` class offers several helpful methods for setting up your test environment, including:
+*   `addProcess(pid, name, ...)`: Quickly creates a directory and basic files for a mock process.
+*   `createStatus(pid, data)`: Creates a mock `/proc/<pid>/status` file.
+*   `createCmdline(pid, args)`: Creates a mock `/proc/<pid>/cmdline` file with null-separated arguments.
+*   `createEnviron(pid, env_vars)`: Creates a mock `/proc/<pid>/environ` file.
+*   `createFdDir(pid, fds)`: Creates a mock `/proc/<pid>/fd` directory with symlinked file descriptors.
+
+Using these utilities is highly encouraged to simplify test creation and maintain consistency across the test suite.
+
 ## Code of Conduct
 
 Please note that this project is released with a Contributor Code of Conduct. By participating in this project, you agree to abide by its terms.

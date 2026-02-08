@@ -1,8 +1,3 @@
-# processAnalyzer
-
-![License](https://img.shields.io/badge/License-GPLv3-blue.svg)
-![Platform](https://img.shields.io/badge/Platform-Linux-lightgrey.svg)
-
 ## Table of Contents
 * [Features](#features)
 * [Installation](#installation)
@@ -11,6 +6,7 @@
 * [Project Structure](#project-structure)
 * [Utility Library (`Utils` Namespace)](#utility-library-utils-namespace)
 * [Contributing](#contributing)
+* [Changelog](#changelog)
 * [License](#license)
 * [Copyright](#copyright)
 
@@ -74,6 +70,10 @@ For a comprehensive overview and usage examples of the utility library, please s
 ## Contributing
 
 We welcome contributions to `processAnalyzer`! Please see our [contribution guidelines](docs/contributing.md) for details on how to get started, report bugs, and suggest new features.
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for a history of changes to the project.
 
 ## License
 

@@ -17,12 +17,13 @@ This document provides a detailed overview of the directory and file structure o
 │   ├───CMakeFiles/             # CMake internal build files.
 │   └───tests/                  # Compiled test executables.
 ├───docs/                       # Supplementary documentation files.
-│   ├───UTILS.md                # Documentation for the internal 'Utils' library.
-│   ├───audit/                  # Audit-related documentation or logs.
-│   │   └───gemini-cli/         # Specific audit information, possibly related to Gemini CLI usage.
-│   ├───usage.md                # Detailed guide on how to use the processAnalyzer tool.
+│   ├───build.md                # Detailed instructions on how to build the project.
 │   ├───contributing.md         # Guidelines for contributing to the project.
-│   └───project-structure.md    # This document, detailing the project's directory structure.
+│   ├───project-structure.md    # This document, detailing the project's directory structure.
+│   ├───usage.md                # Detailed guide on how to use the processAnalyzer tool.
+│   ├───UTILS.md                # Documentation for the internal 'Utils' library.
+│   └───audit/                  # Audit-related documentation or logs.
+│       └───gemini-cli/         # Specific audit information, possibly related to Gemini CLI usage.
 ├───include/                    # Public header files.
 │   ├───Analyzer.h              # Declarations for the main Analyzer class and related functionalities.
 │   └───utils.h                 # Declarations for general utility functions (part of the Utils namespace).
@@ -33,6 +34,9 @@ This document provides a detailed overview of the directory and file structure o
 ├───Testing/                    # Directory used by CMake/CTest for testing purposes.
 │   └───Temporary/              # Temporary files generated during testing.
 └───tests/                      # Unit and integration tests for the project.
+    ├───AnalyzerTest.cpp        # Unit tests for the Analyzer class.
     ├───CMakeLists.txt          # CMake configuration for building the tests.
+    ├───TestUtils.h             # Utility functions and helpers for tests.
+    ├───TestUtilsNewApiTest.cpp # Tests for new APIs in TestUtils.
     └───Utils.cpp               # Unit tests specifically for the Utils library.
 ```

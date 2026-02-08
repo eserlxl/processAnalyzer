@@ -33,7 +33,8 @@ protected:
         // PID 1: init-like process
         mockProc->createProcFile(1, "status", "Name:\tinit\nState:\tS (sleeping)\nPPid:\t0\nUid:\t0\t0\t0\t0\nThreads:\t1\nVmRSS:\t1000 kB\nVmSize:\t4000 kB\n");
         mockProc->createProcFile(1, "stat", "1 (init) S 0 1 1 0 -1 4202752 239 0 0 0 10 20 0 0 20 0 1 0 12345 4096000 1000 18446744073709551615 1 1 0 0 0 0 0 4096 0 0 0 0 17 0 0 0 0 0 0 0 0 0 0 0 0 0 0");
-        mockProc->createProcFile(1, "cmdline", std::string("systemd\0", 8));
+    #define CMDLINE_SIZE_SYSTEMD 8
+    mockProc->createProcFile(1, "cmdline", std::string("systemd\0", CMDLINE_SIZE_SYSTEMD));
         mockProc->createProcFile(1, "io", "rchar: 100\nwchar: 200\n");
         mockProc->createSymlink(1, "exe", "/sbin/init");
         mockProc->createSymlink(1, "cwd", "/");
