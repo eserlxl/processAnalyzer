@@ -100,16 +100,16 @@ Here are some common commands:
 ./build/processAnalyzer list
 
 # Filter by name and output as JSON
-./build/processAnalyzer name chrome --format json
+./build/processAnalyzer list --name chrome --output json
 
 # Show details for a specific PID, including children and open files
-./build/processAnalyzer pid 1234 --children --open-files
+./build/processAnalyzer show --pid 1234 --children --open-files
 
 # Show details for a specific PID, including thread information
-./build/processAnalyzer pid 1234 --threads
+./build/processAnalyzer show --pid 1234 --threads
 
 # List processes sorted by memory usage (RSS) in descending order
-./build/processAnalyzer list --sort-by rss --desc
+./build/processAnalyzer list --sort-by rss --sort-order desc
 ```
 
 For comprehensive usage instructions, command-line arguments, and detailed examples, please refer to the [Usage Guide](docs/usage.md).
@@ -145,7 +145,7 @@ For instructions on how to build and run the tests, please refer to the [Build I
 
 ## Configuration
 
-`processAnalyzer` is primarily configured via command-line arguments. While a `--config` option exists, support for external configuration files is currently **experimental** and under development.
+`processAnalyzer` is primarily configured via command-line arguments. While a `--config-file` option exists, support for external configuration files is currently **experimental** and under development.
 
 For details on the planned configuration options and future file formats, please refer to the [Configuration documentation](docs/configuration.md).
 

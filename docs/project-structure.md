@@ -32,6 +32,9 @@ processAnalyzer/
 │   │   ├───NetworkModel.h
 │   │   ├───ProcessModel.h
 │   │   └───SystemModel.h
+│   ├───cli/                    # Headers for the command-line interface.
+│   │   ├───Args.h
+│   │   └───Output.h
 │   └───utils/                  # Headers for the utility library modules.
 │       ├───Core.h
 │       ├───File.h
@@ -46,9 +49,7 @@ processAnalyzer/
 │   │   └───Core.cpp
 │   ├───cli/                    # Command-line interface logic.
 │   │   ├───Args.cpp
-│   │   ├───Args.h
-│   │   ├───Output.cpp
-│   │   └───Output.h
+│   │   └───Output.cpp
 │   └───utils/                  # Implementation of the utility library modules.
 │       ├───File.cpp
 │       ├───Path.cpp
@@ -61,13 +62,18 @@ processAnalyzer/
     ├───CMakeLists.txt          # CMake configuration for building the tests.
     ├───analyzer/
     │   └───Core.cpp            # Tests for the analysis engine.
+    ├───cli/                    # Tests for the CLI components.
+    │   ├───ArgsTests.cpp
+    │   └───OutputTests.cpp
     └───utils/                  # Tests for the utility library.
         ├───Core.cpp
-        ├───FileSystem.cpp
+        ├───FileTests.cpp
+        ├───PathTests.cpp
         ├───String.cpp
         ├───System.cpp
         ├───Test.cpp
         ├───Test.h
-        ├───TestNewApi.cpp
+        ├───TestApi.cpp
+        ├───TimeTests.cpp
         └───Types.cpp
 

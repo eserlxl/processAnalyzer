@@ -2,161 +2,120 @@
 
 This document provides detailed instructions on how to use the `processAnalyzer` command-line tool, including available commands, arguments, and practical examples.
 
-## Basic Commands
+## Basic Structure
 
-The `processAnalyzer` executable can be found in the `build/` directory after compilation.
-
-### Listing All Processes
-
-To list all currently running processes on your system, use the `list` command.
+The command-line syntax is:
 
 ```bash
-./processAnalyzer list
+processAnalyzer [command] [options]
 ```
 
-If you provide options without a command (e.g., `./processAnalyzer --brief`), it defaults to the `list` command. However, running `./processAnalyzer` without any arguments will display the help message.
+Where `[command]` is one of:
+*   `list` (default): List and filter processes.
+*   `show`: Show detailed information for a specific process.
+*   `help`: Show help information.
 
-By default, this command will output a table including: Process ID (PID), User, Name, State, Resident Set Size (RSS), and Virtual Memory (VM).
+## Commands
 
-### Getting Details for a Specific Process
+### `list` Command
 
-To retrieve detailed information for a particular process, use the `pid` command followed by the Process ID:
+The `list` command allows you to enumerate running processes, filter them, and sort the output.
 
-```bash
-./processAnalyzer pid <PID>
-```
-
-Replace `<PID>` with the actual Process ID you wish to inspect. For example:
-
-```bash
-./processAnalyzer pid 1234
-```
-
-This command, when used without output formatting options (`--columns` or `--format`), provides a granular, vertical view of the specified process, including: PID, PPID, UID, User, Name, State, RSS Memory, Virtual Memory, Threads, and Command.
-
-### Filtering Processes by Name
-
-To filter processes by their name (or a substring of their name), use the `name` command:
+**Examples:**
 
 ```bash
-./processAnalyzer name <process_name_substring>
-```
-
-For example, to find all processes containing "chrome" in their name:
-
-```bash
-./processAnalyzer name chrome
-```
-
-### Filtering Processes by User
-
-To filter processes by the username that owns them, use the `user` command:
-
-```bash
-./processAnalyzer user <username>
-```
-
-For example, to see all processes owned by the user "root":
-
-```bash
-./processAnalyzer user root
-```
-
-## Options
-
-`processAnalyzer` provides several options to customize filtering, sorting, and output. These options can generally be combined with `list`, `name`, and `user` commands, and some are specific to the `pid` command.
-
-### General Options
-
-*   `-h`, `--help`: Display the help message and exit.
-
-### Filtering Options
-
-*   `--state <char>`: Filter processes by their current state. The state is a single character (e.g., `R` for Running, `S` for Sleeping, `Z` for Zombie, `T` for Stopped, `D` for Disk Sleep).
-    ```bash
-    ./processAnalyzer list --state R
-    ./processAnalyzer name bash --state S
-    ```
-
-### Sorting Options
-
-*   `--sort-by <field>`: Sort the output by a specific process field. Valid fields are `pid`, `ppid`, `uid`, `user`, `name`, `state`, `rss`, `vm`, `threads`.
-    ```bash
-    ./processAnalyzer list --sort-by rss
-    ./processAnalyzer user root --sort-by name
-    ```
-*   `--desc`: Sort the output in descending order. This option must be used in conjunction with `--sort-by`.
-    ```bash
-    ./processAnalyzer list --sort-by rss --desc
-    ```
-
-### Output Options
-
-*   `--brief`: Show a condensed table view when listing processes. This typically displays fewer columns.
-    ```bash
-    ./processAnalyzer list --brief
-    ```
-*   `--columns <c1,c2,...>`: Select specific columns to display in the table output. Available columns include: `pid`, `ppid`, `uid`, `user`, `name`, `state`, `rss`, `vm`, `threads`, `cmdline`. Column names are case-insensitive.
-    ```bash
-    ./processAnalyzer list --columns pid,name,rss,cmdline
-    ./processAnalyzer pid 1234 --columns pid,name,cmdline
-    ```
-*   `--no-truncate-cmdline`: Prevent the command line (`cmdline`) column from being truncated in table view. This option only affects table output.
-    ```bash
-    ./processAnalyzer list --columns pid,cmdline --no-truncate-cmdline
-    ```
-*   `--format <csv|json>`: Specify the output format. `csv` provides Comma Separated Values, and `json` provides JSON array output. When this option is used with the `pid` command, a table/CSV/JSON output is produced instead of the default vertical details, and `--columns` can be used to select fields.
-    ```bash
-    ./processAnalyzer list --format csv --columns pid,name,rss
-    ./processAnalyzer name systemd --format json
-    ./processAnalyzer pid 1234 --format json --columns pid,name,cmdline
-    ```
-
-### PID Specific Options
-
-These options are only valid when used with the `pid` command. When used, the output will first show the vertical details of the process (unless `--format` is also used), followed by the requested additional information.
-
-*   `--children`: Display a list of child processes for the specified PID. Child processes are shown in a standard table format.
-    ```bash
-    ./processAnalyzer pid 1 --children
-    ```
-*   `--open-files`: Display a list of files opened by the specified PID.
-    ```bash
-    ./processAnalyzer pid 1234 --open-files
-    ```
-*   `--threads`: Display thread information for the specified PID.
-    ```bash
-    ./processAnalyzer pid 1234 --threads
-    ```
-*   Combining PID specific options:
-    ```bash
-    ./processAnalyzer pid 1 --children --open-files --threads
-    ```
-
-## Configuration
-
-`processAnalyzer` does not currently support external configuration files or environment variables to alter its behavior. All configurations are done via command-line arguments.
-
-### Running the Analyzer Examples
-
-Here are some common ways to run `processAnalyzer`:
-
-```bash
-# List all running processes
+# List all processes
 ./processAnalyzer list
 
-# Get detailed information for a process with PID 1234
-./processAnalyzer pid 1234
+# Filter by name "chrome"
+./processAnalyzer list --name chrome
 
-# Filter processes by name and sort by RSS memory in descending order
-./processAnalyzer name chrome --sort-by rss --desc
+# Filter by user "root"
+./processAnalyzer list --user root
 
-# List processes with state 'R' (running) and output in JSON format
-./processAnalyzer list --state R --format json
+# List processes in state 'R' (Running)
+./processAnalyzer list --state R
+```
 
-# Show children processes and open files for PID 1
-./processAnalyzer pid 1 --children --open-files
+### `show` Command
 
-# Show thread information for a specific PID
-./processAnalyzer pid 1234 --threads
+The `show` command provides in-depth details about a single process. It requires the `--pid` option.
+
+**Examples:**
+
+```bash
+# Show details for PID 1234
+./processAnalyzer show --pid 1234
+
+# Show details including children and open files
+./processAnalyzer show --pid 1234 --children --open-files
+
+# Show details including threads and network connections
+./processAnalyzer show --pid 1234 --threads --network
+```
+
+## Options Reference
+
+### Filtering Options (for `list`)
+
+*   `--pid <pid>`: Filter by Process ID.
+*   `--ppid <pid>`: Filter by Parent Process ID.
+*   `--name <name>`: Filter by process name (substring match).
+*   `--user <username>`: Filter by username.
+*   `--state <char>`: Filter by state (e.g., 'R' for Running, 'S' for Sleeping, 'Z' for Zombie).
+
+### Sorting Options (for `list`)
+
+*   `--sort-by <field>`: Sort by field. Valid fields: `pid`, `ppid`, `uid`, `user`, `name`, `state`, `rss`, `vm`, `threads`, `cpu`, `start-time`, `mem`.
+*   `--sort-order <order>`: Sort order. Valid values: `asc`, `desc`.
+
+### Output Control (for `list`)
+
+*   `--brief`, `-b`: Use brief output mode.
+*   `--columns <c1,c2...>`: Select specific columns to display (comma-separated).
+*   `--no-truncate-cmdline`: Do not truncate the command line string.
+*   `--output <format>`: Output format. Valid values: `table` (default), `csv`, `json`, `vertical`.
+
+### Inspection Options (for `show`)
+
+These options are only valid with the `show` command.
+
+*   `--children`: Show child processes.
+*   `--threads`: Show thread information.
+*   `--open-files`: Show open files.
+*   `--network`: Show network connections.
+
+### Other Options
+
+*   `--help`, `-h`: Show help message.
+*   `--config-file <path>`: Specify a configuration file path.
+
+## Examples
+
+### JSON Output
+
+Generate a JSON report of all processes consuming significant memory:
+
+```bash
+./processAnalyzer list --sort-by rss --sort-order desc --output json
+```
+
+### Investigating a Process Tree
+
+Find a process by name, then inspect its parent or children:
+
+```bash
+# Find the PID
+./processAnalyzer list --name nginx
+
+# Inspect specific PID (e.g., 567)
+./processAnalyzer show --pid 567 --children
+```
+
+### Custom Column View
+
+View only specific columns for a cleaner output:
+
+```bash
+./processAnalyzer list --columns pid,user,state,rss,name
 ```

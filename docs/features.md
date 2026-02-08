@@ -11,7 +11,7 @@
 *   **System Metrics**: Monitor system-wide metrics such as total memory usage, load average, CPU statistics (user, system, idle), per-CPU usage, disk I/O per device, network interface statistics, and system activity (interrupts, context switches, forks).
 *   **Network Activity**: Inspect detailed network connections (TCP, UDP, IPv4, IPv6) for individual processes.
 *   **Thread Details**: Enumerate and inspect individual threads within a process.
-*   **Process Control**: Send POSIX signals to processes, modify process niceness, and set CPU affinity.
+*   **Process Control** (API Only): Send POSIX signals, modify process niceness, and set CPU affinity programmatically via the C++ API.
 *   **System Information**: Retrieve system uptime, kernel version, OS name, hostname, and mounted filesystem disk usage.
 *   **C++23 Streaming API**: Utilize a modern C++23 `std::generator`-based API for efficient, lazy-loaded streaming of process information.
 *   **Utility Library**: Leverages a robust, modern C++23 utility library for common tasks. It features a `std::expected`-based error handling model and provides a comprehensive suite of functions for file system operations (including atomic writes and advanced directory traversal), string manipulation (Unicode-aware, Base64, URL encoding), numeric parsing, system interaction (command execution, environment variables), time utilities, and file hashing (SHA256/512, MD5, CRC32).

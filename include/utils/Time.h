@@ -14,8 +14,8 @@ namespace utils {
 // Time Utilities
 Result<std::chrono::system_clock::time_point> getCurrentSystemTime();
 Result<std::chrono::steady_clock::time_point> getCurrentSteadyTime();
-Result<std::string> formatTimestamp(std::chrono::system_clock::time_point tp, std::string_view formatStr);
-Result<std::chrono::system_clock::time_point> parseTimestamp(std::string_view timestampStr, std::string_view formatStr);
+Result<std::string> formatTimestamp(std::chrono::system_clock::time_point tp, const std::string& formatStr);
+Result<std::chrono::system_clock::time_point> parseTimestamp(const std::string& timestampStr, const std::string& formatStr);
 std::string formatElapsedTime(long long seconds);
 std::string formatTimestamp(long long unixTimestamp);
 

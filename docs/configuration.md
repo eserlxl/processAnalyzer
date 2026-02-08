@@ -1,6 +1,6 @@
 # Configuration
 
-> **Note:** Configuration file support is currently on the **roadmap** and is **experimental**. While the `--config` argument is present in the command-line interface, the logic to fully load and apply these settings is under development.
+> **Note:** Configuration file support is currently on the **roadmap** and is **experimental**. While the `--config-file` argument is present in the command-line interface, the logic to fully load and apply these settings is under development.
 
 Future versions of `processAnalyzer` will allow for flexible configuration through a dedicated configuration file. This will enable users to define default behaviors, output formats, and other settings without repeatedly typing command-line arguments.
 
@@ -13,7 +13,7 @@ The following features are planned for the configuration system:
 You will be able to provide a configuration file at runtime:
 
 ```bash
-./processAnalyzer --config /path/to/your/config.yaml list
+./processAnalyzer list --config-file /path/to/your/config.yaml
 ```
 
 ### Proposed Configuration File Format (YAML)
@@ -21,9 +21,9 @@ You will be able to provide a configuration file at runtime:
 ```yaml
 # Example configuration for processAnalyzer
 defaults:
-  format: json
-  sort_by: cpu_usage
-  descending: true
+  output: json
+  sort_by: cpu
+  sort_order: desc
 filters:
   name_contains: ["chrome", "firefox"]
   min_memory_mb: 100
@@ -36,6 +36,6 @@ output:
 
 Currently, `processAnalyzer` relies entirely on **command-line arguments** for all configuration. Please refer to the [Usage Guide](usage.md) for a complete list of available options.
 
-*   **Sorting**: Use `--sort-by` and `--desc`.
-*   **Filtering**: Use `--state`, `--ppid`, or specific commands like `name` and `user`.
-*   **Output**: Use `--format`, `--columns`, `--brief`, etc.
+*   **Sorting**: Use `--sort-by` and `--sort-order`.
+*   **Filtering**: Use `--state`, `--ppid`, `--name`, or `--user`.
+*   **Output**: Use `--output`, `--columns`, `--brief`, etc.

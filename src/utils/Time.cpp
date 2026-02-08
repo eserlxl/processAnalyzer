@@ -44,20 +44,37 @@ namespace utils {
 
     auto tt = static_cast<::std::time_t>(unixTimestamp);
     ::std::tm tmBuf{};
-    
-#if defined(_POSIX_C_SOURCE) || defined(_BSD_SOURCE) || defined(_SVID_SOURCE) || defined(_XOPEN_SOURCE)
-    ::localtime_r(&tt, &tmBuf);
+    bool success = false;
+
+#ifdef _WIN32
+    // Use localtime_s for Windows for thread-safety
+    if (::localtime_s(&tmBuf, &tt) == 0) {
+        success = true;
+    }
+#elif defined(_POSIX_C_SOURCE) || defined(_BSD_SOURCE) || defined(_SVID_SOURCE) || defined(_XOPEN_SOURCE)
+    // Use localtime_r for POSIX systems for thread-safety
+    if (::localtime_r(&tt, &tmBuf) != nullptr) {
+        success = true;
+    }
 #else
+    // Fallback for other systems, though less thread-safe.
+    // We still check if std::localtime returns a valid pointer.
     if (::std::tm* tmp = ::std::localtime(&tt)) {
         tmBuf = *tmp;
+        success = true;
     }
 #endif
+
+    if (!success) {
+        return "N/A"; // Explicitly return N/A on failure
+    }
 
     constexpr size_t kBufferSize = 64;
     ::std::array<char, kBufferSize> buffer{};
     if (::std::strftime(buffer.data(), buffer.size(), "%Y-%m-%d %H:%M:%S", &tmBuf)) {
         return {buffer.data()};
     }
+    // If strftime fails for any reason after localtime succeeded
     return "N/A";
 }
 
@@ -69,7 +86,10 @@ Result<::std::chrono::steady_clock::time_point> getCurrentSteadyTime() {
     return ::std::chrono::steady_clock::now();
 }
 
-Result<::std::string> formatTimestamp(::std::chrono::system_clock::time_point tp, ::std::string_view formatStr) {
+Result<::std::string> formatTimestamp(::std::chrono::system_clock::time_point tp, const ::std::string& formatStr) {
+    if (formatStr.empty()) { // Explicitly check for empty format string
+        return ::std::unexpected(make_error_code(UtilsError::invalidArgument)); // Or unknownError
+    }
     auto tt = ::std::chrono::system_clock::to_time_t(tp);
     ::std::tm tmBuf{};
 
@@ -84,18 +104,22 @@ Result<::std::string> formatTimestamp(::std::chrono::system_clock::time_point tp
 #endif
 
     ::std::stringstream ss;
-    ss << ::std::put_time(&tmBuf, formatStr.data());
-    if (ss.fail()) {
+    ss << ::std::put_time(&tmBuf, formatStr.c_str());
+    if (ss.fail() || ss.str().empty()) {
          return ::std::unexpected(make_error_code(UtilsError::unknownError));
     }
     return ss.str();
 }
 
-Result<::std::chrono::system_clock::time_point> parseTimestamp(::std::string_view timestampStr, ::std::string_view formatStr) {
+Result<::std::chrono::system_clock::time_point> parseTimestamp(const ::std::string& timestampStr, const ::std::string& formatStr) {
+    if (timestampStr.empty() || formatStr.empty()) {
+        return ::std::unexpected(make_error_code(UtilsError::invalidArgument));
+    }
+
     ::std::tm tmBuf{};
     ::std::stringstream ss;
     ss << timestampStr;
-    ss >> ::std::get_time(&tmBuf, formatStr.data());
+    ss >> ::std::get_time(&tmBuf, formatStr.c_str());
     
     if (ss.fail()) {
         return ::std::unexpected(make_error_code(UtilsError::invalidArgument));
@@ -107,6 +131,14 @@ Result<::std::chrono::system_clock::time_point> parseTimestamp(::std::string_vie
     ::std::time_t tt = ::std::mktime(&tmBuf);
     if (tt == -1) {
          return ::std::unexpected(make_error_code(UtilsError::invalidArgument));
+    }
+
+    // After mktime, re-format tmBuf to check if it matches the original timestampStr.
+    // This detects cases where mktime normalizes invalid dates (e.g., Feb 30th).
+    ::std::stringstream checkSs;
+    checkSs << ::std::put_time(&tmBuf, formatStr.c_str());
+    if (checkSs.fail() || checkSs.str() != timestampStr) {
+        return ::std::unexpected(make_error_code(UtilsError::invalidArgument));
     }
     
     return ::std::chrono::system_clock::from_time_t(tt);
