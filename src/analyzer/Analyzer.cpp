@@ -3,7 +3,7 @@
 
 #include "analyzer/Analyzer.h"
 #include "utils/Core.h"
-#include <iostream>
+
 #include <filesystem>
 
 #include <sstream>
@@ -15,8 +15,8 @@
 #include <string_view> // For std::string_view::starts_with
 #include <chrono>
 #include <thread>
-#include <stdexcept>
-#include <cmath>
+
+
 
 #include <unistd.h>     // For sysconf, gethostname
 #include <csignal>     // For kill
@@ -28,6 +28,8 @@
 #include <regex>
 
 #include <set>
+#include <sys/resource.h> // For setpriority
+#include <sched.h>        // For sched_setaffinity
 
 namespace fs = std::filesystem;
 
@@ -57,8 +59,7 @@ namespace {
         return std::unexpected(stats.error());
     }
 
-    constexpr int kExamplePid1 = 100;
-    constexpr int kExamplePid2 = 200;
+
 
     // Helper function to get system boot time in Unix timestamp (seconds since epoch)
     long long getSystemBootTimeUnix(std::string_view procPath) {
@@ -432,19 +433,12 @@ std::expected<ProcessInfo, AnalyzerErrorDetail> ProcessAnalyzer::getProcessDetai
         info.currentWorkingDirectory = fs::read_symlink(pidPath + "/cwd").string();
     } catch (const fs::filesystem_error& e) { (void)e; }
 
-    std::string environPath = pidPath + "/environ";
-    if (auto environContentOpt = utils::readTextFile(environPath)) {
-        std::string_view content = *environContentOpt;
-        size_t start = 0;
-        while(start < content.size()) {
-            size_t end = content.find('\0', start);
-            if (end == std::string_view::npos) break;
-            info.environmentVariables.emplace_back(content.substr(start, end - start));
-            start = end + 1;
-        }
-    }
 
-    return info;
+
+    auto envResult = readEnvironmentVariablesInternal(pid);
+    if (envResult) {
+        info.environmentVariables = *envResult;
+    }
 }
 
 std::expected<std::vector<ProcessInfo>, AnalyzerErrorDetail> ProcessAnalyzer::snapshot() const {
@@ -751,7 +745,7 @@ std::expected<ProcessCpuUsage, AnalyzerErrorDetail> ProcessAnalyzer::getProcessC
     return usage;
 }
 
-std::expected<std::vector<std::string>, AnalyzerErrorDetail> ProcessAnalyzer::getProcessEnvironment(int pid) const {
+std::expected<std::vector<std::string>, AnalyzerErrorDetail> ProcessAnalyzer::readEnvironmentVariablesInternal(int pid) const {
     std::vector<std::string> env;
     std::string environPath = std::string(procPath) + "/" + std::to_string(pid) + "/environ";
 
@@ -781,6 +775,10 @@ std::expected<std::vector<std::string>, AnalyzerErrorDetail> ProcessAnalyzer::ge
         start = end + 1;
     }
     return env;
+}
+
+std::expected<std::vector<std::string>, AnalyzerErrorDetail> ProcessAnalyzer::getProcessEnvironment(int pid) const {
+    return readEnvironmentVariablesInternal(pid);
 }
 
 std::expected<ProcessInfo, AnalyzerErrorDetail> ProcessAnalyzer::getParentProcess(int pid) const {
