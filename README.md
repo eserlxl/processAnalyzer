@@ -6,15 +6,11 @@
 [![CMake](https://img.shields.io/badge/CMake-3.17%2B-blue.svg)](https://cmake.org/)
 [![Maintenance](https://img.shields.io/badge/Maintained-yes-green.svg)](https://github.com/L-L-M/processAnalyzer)
 
-
-`processAnalyzer` is a high-performance, lightweight C++ command-line utility designed for the real-time inspection and monitoring of system processes. 
-
-It provides a robust interface to deliver detailed resource usage metrics and execution statistics, facilitating efficient system diagnostics and performance optimization. Offering in-depth analysis of running processes, `processAnalyzer` helps you gain insights into system resource consumption and process behavior.
-
 ## Table of Contents
+* [Overview](#overview)
+* [Installation](#installation)
+* [Getting Started](#getting-started)
 * [Features](#features)
-* [Build](#build)
-* [Quick Start](#quick-start)
 * [Usage](#usage)
 * [Project Structure](#project-structure)
 * [Utility Library (`Utils` Namespace)](#utility-library-utils-namespace)
@@ -23,23 +19,13 @@ It provides a robust interface to deliver detailed resource usage metrics and ex
 * [Changelog](#changelog)
 * [License](#license)
 
-## Features
+## Overview
 
-*   **List Processes**: Enumerate all running processes with key information.
-*   **Process Details**: Obtain comprehensive details for a specific process ID (PID), including its child processes, parent process, descendants, environment variables, memory maps, resource limits, cgroup information, and open files/sockets/pipes.
-*   **Process Filtering**: Filter processes by various criteria such as name, user, state, parent process ID (PPID), memory usage, executable path, command line arguments, CPU usage, memory percentage, or network connection attributes.
-*   **Process Sorting**: Sort processes based on various fields like PID, user, name, memory usage, CPU time, start time, executable path, CPU usage percentage, memory usage percentage, etc.
-*   **Customizable Output**: Choose which columns to display and output results in different formats (table, CSV, JSON).
-*   **Real-time Monitoring**: Provides dynamic, real-time updates on process resource consumption and status, similar to 'top' or 'htop', including CPU and disk I/O usage per process and system-wide.
-*   **System Metrics**: Monitor system-wide metrics such as total memory usage, load average, CPU statistics (user, system, idle), per-CPU usage, disk I/O per device, network interface statistics, and system activity (interrupts, context switches, forks).
-*   **Network Activity**: Inspect detailed network connections (TCP, UDP, IPv4, IPv6) for individual processes.
-*   **Thread Details**: Enumerate and inspect individual threads within a process.
-*   **Process Control**: Send POSIX signals to processes, modify process niceness, and set CPU affinity.
-*   **System Information**: Retrieve system uptime, kernel version, OS name, hostname, and mounted filesystem disk usage.
-*   **C++23 Streaming API**: Utilize a modern C++23 `std::generator`-based API for efficient, lazy-loaded streaming of process information.
-*   **Utility Library**: Leverages a robust C++ utility library for common tasks like file system operations, string manipulation, and system interaction.
+`processAnalyzer` is a high-performance, lightweight C++ command-line utility designed for the real-time inspection and monitoring of system processes. 
 
-## Build
+It provides a robust interface to deliver detailed resource usage metrics and execution statistics, facilitating efficient system diagnostics and performance optimization. Offering in-depth analysis of running processes, `processAnalyzer` helps you gain insights into system resource consumption and process behavior.
+
+## Installation
 
 To get `processAnalyzer` up and running, you'll need to build it from source.
 
@@ -50,9 +36,9 @@ To get `processAnalyzer` up and running, you'll need to build it from source.
 
 For detailed build steps, please refer to the [Build Instructions](docs/build.md).
 
-## Quick Start
+## Getting Started
 
-Once `processAnalyzer` is built, you can quickly run it from the `build` directory.
+Once `processAnalyzer` is built (see [Installation](#installation)), you can quickly run it from the `build` directory.
 
 To list all running processes:
 
@@ -69,6 +55,22 @@ To see available commands and options:
 ```
 
 For more detailed usage examples and commands, please refer to the [Usage Guide](docs/usage.md).
+
+## Features
+
+*   **List Processes**: Enumerate all running processes with key information.
+*   **Process Details**: Obtain comprehensive details for a specific process ID (PID), including its child processes, parent process, descendants, environment variables, memory maps, resource limits, cgroup information, and open files/sockets/pipes.
+*   **Process Filtering**: Filter processes by various criteria such as name, user, state, parent process ID (PPID), memory usage, executable path, command line arguments, CPU usage, memory percentage, or network connection attributes.
+*   **Process Sorting**: Sort processes based on various fields like PID, user, name, memory usage, CPU time, start time, executable path, CPU usage percentage, memory usage percentage, etc.
+*   **Customizable Output**: Choose which columns to display and output results in different formats (table, CSV, JSON).
+*   **Real-time Monitoring**: Provides dynamic, real-time updates on process resource consumption and status, similar to 'top' or 'htop', including CPU and disk I/O usage per process and system-wide.
+*   **System Metrics**: Monitor system-wide metrics such as total memory usage, load average, CPU statistics (user, system, idle), per-CPU usage, disk I/O per device, network interface statistics, and system activity (interrupts, context switches, forks).
+*   **Network Activity**: Inspect detailed network connections (TCP, UDP, IPv4, IPv6) for individual processes.
+*   **Thread Details**: Enumerate and inspect individual threads within a process.
+*   **Process Control**: Send POSIX signals to processes, modify process niceness, and set CPU affinity.
+*   **System Information**: Retrieve system uptime, kernel version, OS name, hostname, and mounted filesystem disk usage.
+*   **C++23 Streaming API**: Utilize a modern C++23 `std::generator`-based API for efficient, lazy-loaded streaming of process information.
+*   **Utility Library**: Leverages a robust, modern C++23 utility library for common tasks. It features a `std::expected`-based error handling model and provides a comprehensive suite of functions for file system operations (including atomic writes and advanced directory traversal), string manipulation (Unicode-aware, Base64, URL encoding), numeric parsing, system interaction (command execution, environment variables), time utilities, and file hashing (SHA256/512, MD5, CRC32).
 
 ## Usage
 
@@ -87,16 +89,23 @@ The project is organized to promote modularity and maintainability.
 
 For a detailed breakdown of the project directory structure, see [docs/project-structure.md](docs/project-structure.md).
 
-## Utility Library (Utils)
+## Utility Library (`utils` Namespace)
 
-The project includes a robust `Utils` namespace in `src/utils.cpp` and `include/utils.h`. This library provides a collection of general-purpose utility functions for:
+`processAnalyzer` is built on a powerful, modern C++23 utility library contained within the `utils` namespace. This library, defined in `include/utils.h` and implemented in `src/utils.cpp`, provides a solid foundation for the entire application by offering a wide range of general-purpose functionalities.
 
-*   File system operations (reading/writing files, directory management)
-*   String manipulation (trimming, splitting, joining, replacing, etc.)
-*   Numeric parsing and validation
-*   System interaction (environment variables, process execution)
+The library is designed with a focus on robustness, safety, and ease of use, leveraging modern C++ features like `std::expected` for clear and explicit error handling (`Result<T>`).
 
-**Recent updates include enhancements and a new API for improved functionality.** For a comprehensive overview and usage examples of the utility library, including details on the new API, please see [docs/UTILS.md](docs/UTILS.md).
+Key features of the `utils` library include:
+
+*   **Advanced File I/O**: Functions for reading, writing, and appending to files (text and binary), including atomic write operations for data integrity. It also includes comprehensive tools for directory traversal, permission management, and temporary file/directory creation.
+*   **Robust Path Manipulation**: A suite of functions for safely and reliably handling file paths, including canonicalization, relative path calculation, and symlink management.
+*   **Rich String Manipulation**: A wide array of string utilities, from simple checks (`startsWith`, `contains`) and transformations (`toLower`, `trim`) to more complex operations like URL and Base64 encoding/decoding, UUID generation, and `std::format`-based string formatting.
+*   **Safe Numeric Parsing**: Type-safe and error-checked functions for converting strings to numeric types, preventing common runtime errors.
+*   **Seamless System Interaction**: Utilities for executing external commands, managing environment variables, and handling the current working directory.
+*   **Time Utilities**: A set of functions for getting the current time, formatting and parsing timestamps, and measuring elapsed time.
+*   **File Hashing**: Tools to compute file hashes using various algorithms like SHA256, SHA512, MD5, and CRC32.
+
+For a complete and detailed documentation of all functions, error codes, and usage examples, please refer to the **[Utils Library Documentation](docs/UTILS.md)**.
 
 ## Contributing
 

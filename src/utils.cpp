@@ -12,8 +12,18 @@
 #include <cstdarg> // for va_list, va_start, va_end
 #include <cstdio>  // for vsnprintf
 #include <memory>  // for std::unique_ptr
+#include <chrono>
+
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <unistd.h>
+#endif
+
 
 namespace utils {
+
+namespace fs = std::filesystem;
 
 class UtilsErrorCategory : public std::error_category {
 public:
@@ -31,6 +41,27 @@ public:
             case UtilsError::unsupportedOperation: return "Unsupported operation";
             case UtilsError::pathError: return "Path error";
             case UtilsError::commandExecutionError: return "Command execution error";
+            case UtilsError::fileAlreadyExists: return "File already exists";
+            case UtilsError::directoryNotEmpty: return "Directory not empty";
+            case UtilsError::notADirectory: return "Not a directory";
+            case UtilsError::notAFile: return "Not a file";
+            case UtilsError::isADirectory: return "Is a directory";
+            case UtilsError::diskFull: return "Disk full";
+            case UtilsError::noSpaceOnDevice: return "No space on device";
+            case UtilsError::pathNotRelative: return "Path is not relative";
+            case UtilsError::pathNotAbsolute: return "Path is not absolute";
+            case UtilsError::basePathNotAncestor: return "Base path is not an ancestor";
+            case UtilsError::invalidPathFormat: return "Invalid path format";
+            case UtilsError::invalidBase64Input: return "Invalid Base64 input";
+            case UtilsError::invalidUrlEncoding: return "Invalid URL encoding";
+            case UtilsError::invalidUuidFormat: return "Invalid UUID format";
+            case UtilsError::envVarNotFound: return "Environment variable not found";
+            case UtilsError::commandNotFound: return "Command not found";
+            case UtilsError::commandFailed: return "Command failed";
+            case UtilsError::processSpawnFailure: return "Process spawn failure";
+            case UtilsError::permissionDeniedCwd: return "Permission denied for changing CWD";
+            case UtilsError::invalidTimeFormat: return "Invalid time format";
+            case UtilsError::timeParseError: return "Time parsing error";
             default: return "Unknown error";
         }
     }
@@ -754,6 +785,210 @@ std::string formatTimestamp(long long unixTimestamp) {
         return {buffer.data()};
     }
     return "N/A";
+}
+
+// --- NEW DUMMY IMPLEMENTATIONS ---
+
+Result<std::filesystem::path> canonicalPath(const std::filesystem::path& path) {
+    std::error_code ec;
+    auto canonical = std::filesystem::canonical(path, ec);
+    if (ec) {
+        return std::unexpected(ec);
+    }
+    return canonical;
+}
+
+Result<std::filesystem::path> makeRelative(const std::filesystem::path& path, const std::filesystem::path& base) {
+    std::error_code ec;
+    auto relativePath = std::filesystem::relative(path, base, ec);
+    if (ec) {
+        return std::unexpected(ec);
+    }
+    return relativePath;
+}
+
+bool pathsEquivalent(const std::filesystem::path& p1, const std::filesystem::path& p2) {
+    std::error_code ec1;
+    bool equivalent = std::filesystem::equivalent(p1, p2, ec1);
+    // equivalent can set ec on non-existent files, but we just want to return false in that case.
+    // We are only interested in a true/false answer if they are equivalent, not why they are not.
+    if (ec1) { // ec2 is not used by equivalent, but checking just in case
+        return false;
+    }
+    return equivalent;
+}
+
+Result<void> createSymlink(const std::filesystem::path& target, const std::filesystem::path& link) {
+    std::error_code ec;
+    std::filesystem::create_symlink(target, link, ec);
+    if (ec) {
+        return std::unexpected(ec);
+    }
+    return {};
+}
+
+Result<std::filesystem::path> readSymlink(const std::filesystem::path& link) {
+    std::error_code ec;
+    auto result = std::filesystem::read_symlink(link, ec);
+    if (ec) {
+        return std::unexpected(ec);
+    }
+    return result;
+}
+
+bool isSymlink(const std::filesystem::path& path) {
+    return std::filesystem::is_symlink(path);
+}
+
+Result<std::string> calculateFileHash(const std::filesystem::path& path, HashAlgorithm algo) {
+    (void)path;
+    (void)algo;
+    return std::unexpected(make_error_code(UtilsError::unsupportedOperation));
+}
+
+Result<std::string> urlEncode(std::string_view s) {
+    (void)s;
+    return std::unexpected(make_error_code(UtilsError::unsupportedOperation));
+}
+
+Result<std::string> urlDecode(std::string_view s) {
+    (void)s;
+    return std::unexpected(make_error_code(UtilsError::unsupportedOperation));
+}
+
+Result<std::string> base64Encode(std::string_view s) {
+    (void)s;
+    return std::unexpected(make_error_code(UtilsError::unsupportedOperation));
+}
+
+Result<std::string> base64Decode(std::string_view s) {
+    (void)s;
+    return std::unexpected(make_error_code(UtilsError::unsupportedOperation));
+}
+
+Result<std::string> base64Encode(std::span<const std::byte> data) {
+    (void)data;
+    return std::unexpected(make_error_code(UtilsError::unsupportedOperation));
+}
+
+Result<std::vector<std::byte>> base64DecodeToBytes(std::string_view s) {
+    (void)s;
+    return std::unexpected(make_error_code(UtilsError::unsupportedOperation));
+}
+
+Result<std::string> generateUuid() {
+    return std::unexpected(make_error_code(UtilsError::unsupportedOperation));
+}
+
+bool equalsIgnoreCase(std::string_view s1, std::string_view s2) {
+    (void)s1;
+    (void)s2;
+    return false;
+}
+
+Result<void> setEnv(std::string_view name, std::string_view value) {
+    (void)name;
+    (void)value;
+    return std::unexpected(make_error_code(UtilsError::unsupportedOperation));
+}
+
+Result<void> unsetEnv(std::string_view name) {
+    (void)name;
+    return std::unexpected(make_error_code(UtilsError::unsupportedOperation));
+}
+
+Result<std::filesystem::path> getCurrentWorkingDirectory() {
+    return std::unexpected(make_error_code(UtilsError::unsupportedOperation));
+}
+
+Result<void> setCurrentWorkingDirectory(const std::filesystem::path& path) {
+    (void)path;
+    return std::unexpected(make_error_code(UtilsError::unsupportedOperation));
+}
+
+Result<std::chrono::system_clock::time_point> getCurrentSystemTime() {
+    return std::unexpected(make_error_code(UtilsError::unsupportedOperation));
+}
+
+Result<std::chrono::steady_clock::time_point> getCurrentSteadyTime() {
+    return std::unexpected(make_error_code(UtilsError::unsupportedOperation));
+}
+
+Result<std::string> formatTimestamp(std::chrono::system_clock::time_point tp, std::string_view formatStr) {
+    (void)tp;
+    (void)formatStr;
+    return std::unexpected(make_error_code(UtilsError::unsupportedOperation));
+}
+
+Result<std::chrono::system_clock::time_point> parseTimestamp(std::string_view timestampStr, std::string_view formatStr) {
+    (void)timestampStr;
+    (void)formatStr;
+    return std::unexpected(make_error_code(UtilsError::unsupportedOperation));
+}
+
+Result<std::filesystem::perms> getPermissions(const std::filesystem::path& path) {
+    std::error_code ec;
+    auto status = std::filesystem::status(path, ec);
+    if (ec) {
+        return std::unexpected(ec);
+    }
+    return status.permissions();
+}
+
+Result<void> setPermissions(const std::filesystem::path& path, std::filesystem::perms prms) {
+    std::error_code ec;
+    std::filesystem::permissions(path, prms, ec);
+    if (ec) {
+        return std::unexpected(ec);
+    }
+    return {};
+}
+
+Result<void> addPermissions(const std::filesystem::path& path, std::filesystem::perms prms) {
+    std::error_code ec;
+    std::filesystem::permissions(path, prms, std::filesystem::perm_options::add, ec);
+    if (ec) {
+        return std::unexpected(ec);
+    }
+    return {};
+}
+
+Result<void> removePermissions(const std::filesystem::path& path, std::filesystem::perms prms) {
+    std::error_code ec;
+    std::filesystem::permissions(path, prms, std::filesystem::perm_options::remove, ec);
+    if (ec) {
+        return std::unexpected(ec);
+    }
+    return {};
+}
+
+Result<void> chown(const std::filesystem::path& path, const std::string& owner, const std::string& group) {
+    (void)path;
+    (void)owner;
+    (void)group;
+    // Not implemented in standard C++. Requires OS-specific calls.
+    return std::unexpected(make_error_code(UtilsError::unsupportedOperation));
+}
+
+bool isReadable(const std::filesystem::path& path) {
+    auto permsResult = getPermissions(path);
+    if (!permsResult.has_value()) return false;
+    auto p = permsResult.value();
+    return (p & (fs::perms::owner_read | fs::perms::group_read | fs::perms::others_read)) != fs::perms::none;
+}
+
+bool isWritable(const std::filesystem::path& path) {
+    auto permsResult = getPermissions(path);
+    if (!permsResult.has_value()) return false;
+    auto p = permsResult.value();
+    return (p & (fs::perms::owner_write | fs::perms::group_write | fs::perms::others_write)) != fs::perms::none;
+}
+
+bool isExecutable(const std::filesystem::path& path) {
+    auto permsResult = getPermissions(path);
+    if (!permsResult.has_value()) return false;
+    auto p = permsResult.value();
+    return (p & (fs::perms::owner_exec | fs::perms::group_exec | fs::perms::others_exec)) != fs::perms::none;
 }
 
 } // namespace Utils
