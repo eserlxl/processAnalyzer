@@ -5,83 +5,133 @@
 #include "utils/System.h"
 #include "utils/String.h"
 #include "utils/Types.h"
+#include <cstdlib>
 
-// Test `getEnv` with an empty string
-TEST(SystemTest, GetEnvEmpty) {
-    auto result = utils::getEnv("");
-    EXPECT_FALSE(result.has_value());
-}
+// --- getEnv Tests ---
 
-// Test `executeCommand` with a command that prints to stderr but exits successfully
-TEST(SystemTest, ExecuteCommandStderrSuccess) {
-    auto result = utils::executeCommand("echo 'Error message' >&2");
+class SystemEnvTest : public ::testing::Test {
+protected:
+    void SetUp() override {
+        setenv("PROCESS_ANALYZER_TEST_VAR", "test_value", 1);
+        setenv("PROCESS_ANALYZER_TEST_EMPTY_VAR", "", 1);
+    }
+
+    void TearDown() override {
+        unsetenv("PROCESS_ANALYZER_TEST_VAR");
+        unsetenv("PROCESS_ANALYZER_TEST_EMPTY_VAR");
+    }
+};
+
+TEST_F(SystemEnvTest, getEnvDefined) {
+    auto result = utils::getEnv("PROCESS_ANALYZER_TEST_VAR");
     ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(result.value().exitCode, 0);
-    EXPECT_TRUE(utils::contains(result.value().stdoutStr, "Error message"));
-    EXPECT_TRUE(result.value().stderrStr.empty());
+    EXPECT_EQ(result.value(), "test_value");
 }
 
-// Test `executeCommand` with a command that prints to both stdout and stderr and fails
-TEST(SystemTest, ExecuteCommandStderrFail) {
-    auto result = utils::executeCommand("echo 'Output'; echo 'Error' >&2; exit 1");
+TEST_F(SystemEnvTest, getEnvUndefined) {
+    auto result = utils::getEnv("PROCESS_ANALYZER_NON_EXISTENT_VAR");
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), utils::make_error_code(utils::UtilsError::invalidArgument));
+}
+
+TEST_F(SystemEnvTest, getEnvEmpty) {
+    auto result = utils::getEnv("PROCESS_ANALYZER_TEST_EMPTY_VAR");
     ASSERT_TRUE(result.has_value());
-    EXPECT_NE(result.value().exitCode, 0);
-    EXPECT_TRUE(utils::contains(result.value().stdoutStr, "Output"));
-    EXPECT_TRUE(utils::contains(result.value().stdoutStr, "Error"));
-    EXPECT_TRUE(result.value().stderrStr.empty());
+    EXPECT_EQ(result.value(), "");
 }
 
-// Test `executeCommand` with a command that generates a large amount of output
-TEST(SystemTest, ExecuteCommandLargeOutput) {
-    constexpr size_t kLargeOutputSize = 2048;
-    std::string longStr(kLargeOutputSize, 'a');
+// --- executeCommand Tests ---
+
+TEST(SystemExecuteCommandTest, simpleStdout) {
+    auto result = utils::executeCommand("echo 'hello world'");
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->stdoutStr, "hello world\n");
+    EXPECT_EQ(result->stderrStr, "");
+    EXPECT_EQ(result->exitCode, 0);
+}
+
+TEST(SystemExecuteCommandTest, simpleStderr) {
+    auto result = utils::executeCommand("echo 'hello error' >&2");
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->stdoutStr, "");
+    EXPECT_EQ(result->stderrStr, "hello error\n");
+    EXPECT_EQ(result->exitCode, 0);
+}
+
+TEST(SystemExecuteCommandTest, bothStdoutAndStderr) {
+    auto result = utils::executeCommand("echo 'hello world'; echo 'hello error' >&2");
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->stdoutStr, "hello world\n");
+    EXPECT_EQ(result->stderrStr, "hello error\n");
+    EXPECT_EQ(result->exitCode, 0);
+}
+
+TEST(SystemExecuteCommandTest, nonZeroExitCode) {
+    auto result = utils::executeCommand("false");
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->exitCode, 1);
+}
+
+TEST(SystemExecuteCommandTest, commandNotFound) {
+    auto result = utils::executeCommand("a_very_non_existent_command_xyz");
+    ASSERT_TRUE(result.has_value());
+    EXPECT_NE(result->exitCode, 0);
+    EXPECT_FALSE(result->stderrStr.empty());
+    EXPECT_TRUE(utils::contains(result->stderrStr, "not found"));
+}
+
+TEST(SystemExecuteCommandTest, longOutput) {
+    // Creates a 10000 character string
+    std::string longStr(10000, 'a');
     auto result = utils::executeCommand("echo '" + longStr + "'");
     ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(result.value().exitCode, 0);
-    EXPECT_TRUE(utils::contains(result.value().stdoutStr, longStr));
+    EXPECT_EQ(result->stdoutStr, longStr + "\n");
+    EXPECT_EQ(result->exitCode, 0);
 }
 
-// Test `executeCommand` with a non-existent command
-TEST(SystemTest, ExecuteCommandNonExistent) {
-    auto result = utils::executeCommand("non_existent_command_xyz_123");
+TEST(SystemExecuteCommandTest, noOutput) {
+    auto result = utils::executeCommand("true");
     ASSERT_TRUE(result.has_value());
-    EXPECT_NE(result.value().exitCode, 0);
-    // The shell's error message should be captured in stdoutStr
-    EXPECT_FALSE(result.value().stdoutStr.empty());
+    EXPECT_EQ(result->stdoutStr, "");
+    EXPECT_EQ(result->stderrStr, "");
+    EXPECT_EQ(result->exitCode, 0);
 }
 
-// Test `executeCommand` with an empty command string
-TEST(SystemTest, ExecuteCommandEmpty) {
+TEST(SystemExecuteCommandTest, commandWithQuotesAndSpaces) {
+    auto result = utils::executeCommand("echo \"'hello world' with spaces\"");
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->stdoutStr, "'hello world' with spaces\n");
+    EXPECT_EQ(result->exitCode, 0);
+}
+
+TEST(SystemExecuteCommandTest, emptyCommand) {
     auto result = utils::executeCommand("");
-    ASSERT_TRUE(result.has_value());
-    // Executing an empty command now results in a shell syntax error due to the "{ ; }" wrapping,
-    // so we expect a non-zero exit code.
-    EXPECT_NE(result.value().exitCode, 0);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), utils::make_error_code(utils::UtilsError::invalidArgument));
 }
 
-// Test the `setEnv` stub function
-TEST(SystemTest, StubSetEnv) {
+
+// --- Stub Function Tests ---
+
+TEST(SystemStubTest, setEnv) {
     auto result = utils::setEnv("VAR", "VALUE");
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), utils::make_error_code(utils::UtilsError::unsupportedOperation));
 }
 
-// Test the `unsetEnv` stub function
-TEST(SystemTest, StubUnsetEnv) {
+TEST(SystemStubTest, unsetEnv) {
     auto result = utils::unsetEnv("VAR");
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), utils::make_error_code(utils::UtilsError::unsupportedOperation));
 }
 
-// Test the `getCurrentWorkingDirectory` stub function
-TEST(SystemTest, StubGetCurrentWorkingDirectory) {
+TEST(SystemStubTest, getCurrentWorkingDirectory) {
     auto result = utils::getCurrentWorkingDirectory();
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), utils::make_error_code(utils::UtilsError::unsupportedOperation));
 }
 
-// Test the `setCurrentWorkingDirectory` stub function
-TEST(SystemTest, StubSetCurrentWorkingDirectory) {
+TEST(SystemStubTest, setCurrentWorkingDirectory) {
     auto result = utils::setCurrentWorkingDirectory("/tmp");
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), utils::make_error_code(utils::UtilsError::unsupportedOperation));

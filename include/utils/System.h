@@ -17,11 +17,11 @@ struct CommandOutput {
     std::string stderrStr;
     int exitCode;
 };
-Result<CommandOutput> executeCommand(const std::string& command);
+Result<CommandOutput> executeCommand(std::string_view command);
 
 
 
-Result<std::string> getEnv(const std::string& name);
+Result<std::string> getEnv(std::string_view name);
 Result<void> setEnv(std::string_view name, std::string_view value);
 Result<void> unsetEnv(std::string_view name);
 Result<std::filesystem::path> getCurrentWorkingDirectory();

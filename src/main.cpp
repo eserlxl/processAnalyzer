@@ -43,7 +43,7 @@ int main(int argc, char* argv[]) {
                 std::cerr << "Error listing processes: " << processesResult.error().message() << "\n";
                 return 1;
             }
-        } else if (args.command == "pid") {
+        } else if (args.command == "pid" || args.command == "show") {
             if (!args.pid.has_value()) {
                 std::cerr << "Internal error: PID expected.\n";
                 return 1;

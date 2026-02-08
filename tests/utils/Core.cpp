@@ -311,12 +311,12 @@ TEST(UtilsTest, ExecuteCommand) {
     ASSERT_TRUE(resultSuccess.has_value());
     EXPECT_EQ(resultSuccess.value().exitCode, 0);
     EXPECT_EQ(utils::trim(resultSuccess.value().stdoutStr), "hello world");
-    EXPECT_TRUE(resultSuccess.value().stderrStr.empty()); // Per audit, stderrStr should be empty for executeCommand
+    EXPECT_TRUE(resultSuccess.value().stderrStr.empty());
 
     // Test command that fails
     auto resultFail = utils::executeCommand("ls non_existent_dir_12345");
     ASSERT_TRUE(resultFail.has_value());
     EXPECT_NE(resultFail.value().exitCode, 0);
-    EXPECT_TRUE(utils::contains(resultFail.value().stdoutStr, "No such file or directory"));
-    EXPECT_TRUE(resultFail.value().stderrStr.empty()); // Per audit, stderrStr should be empty for executeCommand
+    EXPECT_TRUE(resultFail.value().stdoutStr.empty());
+    EXPECT_TRUE(utils::contains(resultFail.value().stderrStr, "No such file or directory"));
 }
