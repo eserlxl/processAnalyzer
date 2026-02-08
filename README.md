@@ -5,11 +5,8 @@
 
 ## Table of Contents
 * [Features](#features)
-* [Getting Started](#getting-started)
+* [Installation](#installation)
 * [Quick Start](#quick-start)
-  * [Prerequisites](#prerequisites)
-  * [Building from Source](#building-from-source)
-  * [Running the Analyzer](#running-the-analyzer)
 * [Usage](#usage)
 * [Project Structure](#project-structure)
 * [Utility Library (`Utils` Namespace)](#utility-library-utils-namespace)
@@ -28,81 +25,23 @@
 *   **Customizable Output**: Choose which columns to display and output results in different formats (table, CSV, JSON).
 *   **Utility Library**: Leverages a robust C++ utility library for common tasks like file system operations, string manipulation, and system interaction.
 
-## Getting Started
+## Installation
 
-To get `processAnalyzer` up and running quickly, follow these brief steps:
+To get `processAnalyzer` up and running, you'll need to build it from source.
 
-1.  **Build**:
-    ```bash
-    mkdir build && cd build
-    cmake ..
-    make
-    ```
-2.  **Run**:
-    ```bash
-    ./processAnalyzer list
-    ```
+Please refer to the [Build Instructions](docs/build.md) for detailed prerequisites and steps on how to compile the project.
 
 ## Quick Start
 
-Follow these steps to quickly build and run `processAnalyzer` on your system.
+Once `processAnalyzer` is built, you can quickly run it from the `build` directory.
 
-### Prerequisites
-
-*   **Operating System**: Linux (relies on `/proc` filesystem)
-*   A C++ compiler (e.g., GCC, Clang) supporting C++23
-*   CMake (version 3.17 or higher)
-*   Make (or Ninja build system)
-
-### Building from Source
-
-To compile the project:
+To list all running processes:
 
 ```bash
-# Create a build directory
-mkdir build
-cd build
-
-# Configure the project with CMake
-cmake ..
-
-# Build the executable
-make
-```
-
-### Running the Analyzer
-
-Once built, you can run `processAnalyzer` from the `build` directory:
-
-```bash
-# List all running processes
 ./processAnalyzer list
-
-# Get detailed information for a process with PID 1234
-./processAnalyzer pid 1234
-
-# Filter processes by name and sort by RSS memory in descending order
-./processAnalyzer name chrome --sort-by rss --desc
-
-# List processes with state 'R' (running) and output in JSON format
-./processAnalyzer list --state R --format json
-
-# Show children processes and open files for PID 1
-./processAnalyzer pid 1 --children --open-files
 ```
 
-### Running Tests
-
-To verify the build, you can run the included unit tests:
-
-```bash
-# Run all tests using CTest
-ctest --output-on-failure
-
-# Or run individual test executables directly
-./tests/UtilsTest
-./tests/AnalyzerTest
-```
+For more detailed usage examples and commands, please refer to the [Usage Guide](docs/usage.md).
 
 ## Usage
 

@@ -132,3 +132,24 @@ These options are only valid when used with the `pid` command. When used, the ou
 ## Configuration
 
 `processAnalyzer` does not currently support external configuration files or environment variables to alter its behavior. All configurations are done via command-line arguments.
+
+### Running the Analyzer Examples
+
+Here are some common ways to run `processAnalyzer`:
+
+```bash
+# List all running processes
+./processAnalyzer list
+
+# Get detailed information for a process with PID 1234
+./processAnalyzer pid 1234
+
+# Filter processes by name and sort by RSS memory in descending order
+./processAnalyzer name chrome --sort-by rss --desc
+
+# List processes with state 'R' (running) and output in JSON format
+./processAnalyzer list --state R --format json
+
+# Show children processes and open files for PID 1
+./processAnalyzer pid 1 --children --open-files
+```
