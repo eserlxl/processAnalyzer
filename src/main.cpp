@@ -9,6 +9,7 @@
 #include <map>
 #include <algorithm>
 #include <sstream>
+#include <span> // Required for std::span
 #include "Analyzer.h"
 #include "utils.h"
 
@@ -53,10 +54,22 @@ std::optional<ProcessSortField> stringToProcessSortField(const std::string& s) {
     return std::nullopt;
 }
 
-// Parses command line arguments.
-#include <string_view> // Required for std::span
+// Helper to get string value of a ProcessInfo field based on column name
+std::string getProcessInfoValue(const ProcessInfo& info, const std::string& col) {
+    if (col == "pid") return std::to_string(info.pid);
+    if (col == "ppid") return std::to_string(info.ppid);
+    if (col == "uid") return std::to_string(info.uid);
+    if (col == "user") return info.username;
+    if (col == "name") return info.name;
+    if (col == "state") return info.state;
+    if (col == "rss") return std::to_string(info.residentMemory);
+    if (col == "vm") return std::to_string(info.virtualMemory);
+    if (col == "threads") return std::to_string(info.threadCount);
+    if (col == "cmdline") return info.cmdline;
+    return ""; // Should not happen with valid column names
+}
 
-// ... other includes ...
+// Parses command line arguments.
 
 std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const> argv) {
     ParsedArguments args;
@@ -201,13 +214,7 @@ int main(int argc, char* argv[]) {
                 std::cerr << "Internal error: PID expected.\n";
                 return 1;
             }
-            int targetPid = 0;
-            if (args.pid.has_value()) {
-                 targetPid = args.pid.value();
-            } else {
-                 // Should never happen due to check above
-                 return 1;
-            }
+            int targetPid = *args.pid;
 
             auto infoOpt = analyzer.getProcessDetails(targetPid);
             if (!infoOpt) {
@@ -360,17 +367,7 @@ void printProcessTable(const std::vector<ProcessInfo>& processes, const std::vec
     // Print rows
     for (const auto& info : processes) {
         for (const auto& col : columns) {
-            std::string value;
-            if (col == "pid") value = std::to_string(info.pid);
-            else if (col == "ppid") value = std::to_string(info.ppid);
-            else if (col == "uid") value = std::to_string(info.uid);
-            else if (col == "user") value = info.username;
-            else if (col == "name") value = info.name;
-            else if (col == "state") value = info.state;
-            else if (col == "rss") value = std::to_string(info.residentMemory);
-            else if (col == "vm") value = std::to_string(info.virtualMemory);
-            else if (col == "threads") value = std::to_string(info.threadCount);
-            else if (col == "cmdline") value = info.cmdline;
+            std::string value = getProcessInfoValue(info, col);
             
             int width = widths[col];
             if (col == "cmdline" && noTruncateCmdline) {
@@ -394,17 +391,7 @@ void printProcessCsv(const std::vector<ProcessInfo>& processes, const std::vecto
     for (const auto& info : processes) {
         std::vector<std::string> values;
         for (const auto& col : columns) {
-            std::string value;
-            if (col == "pid") value = std::to_string(info.pid);
-            else if (col == "ppid") value = std::to_string(info.ppid);
-            else if (col == "uid") value = std::to_string(info.uid);
-            else if (col == "user") value = info.username;
-            else if (col == "name") value = info.name;
-            else if (col == "state") value = info.state;
-            else if (col == "rss") value = std::to_string(info.residentMemory);
-            else if (col == "vm") value = std::to_string(info.virtualMemory);
-            else if (col == "threads") value = std::to_string(info.threadCount);
-            else if (col == "cmdline") value = info.cmdline;
+            std::string value = getProcessInfoValue(info, col);
 
             // Quote if necessary
             if (value.find(',') != std::string::npos || value.find('"') != std::string::npos) {
@@ -425,21 +412,13 @@ void printProcessJson(const std::vector<ProcessInfo>& processes, const std::vect
         std::vector<std::string> pairs;
         for (const auto& col : columns) {
             std::stringstream ss;
+            std::string value = getProcessInfoValue(info, col);
+
             ss << "    \"" << col << "\": ";
             if (col == "pid" || col == "ppid" || col == "uid" || col == "rss" || col == "vm" || col == "threads") {
-                if (col == "pid") ss << info.pid;
-                else if (col == "ppid") ss << info.ppid;
-                else if (col == "uid") ss << info.uid;
-                else if (col == "rss") ss << info.residentMemory;
-                else if (col == "vm") ss << info.virtualMemory;
-                else if (col == "threads") ss << info.threadCount;
+                ss << value; // Numerical values as is
             } else {
-                std::string value;
-                if (col == "user") value = info.username;
-                else if (col == "name") value = info.name;
-                else if (col == "state") value = info.state;
-                else if (col == "cmdline") value = info.cmdline;
-                // Escape quotes and backslashes
+                // Escape quotes and backslashes for string values
                 value = utils::replace(value, "\\", "\\\\");
                 value = utils::replace(value, "\"", "\\\"");
                 ss << "\"" << value << "\"";
