@@ -40,12 +40,15 @@ Result<::std::vector<::std::byte>> readBinaryFile(const ::std::filesystem::path&
 
     ::std::ifstream file(path, ::std::ios::binary | ::std::ios::ate);
     if (!file.is_open()) {
-        return ::std::unexpected(make_error_code(UtilsError::permissionDenied));
+        return ::std::unexpected(make_error_code(UtilsError::ioError));
     }
 
     auto fileSize = file.tellg();
-    if (fileSize == -1) {
+    if (fileSize < 0) {
         return ::std::unexpected(make_error_code(UtilsError::ioError));
+    }
+    if (static_cast<uintmax_t>(fileSize) > ::std::numeric_limits<size_t>::max()) {
+        return ::std::unexpected(make_error_code(UtilsError::fileTooLarge));
     }
 
     ::std::vector<::std::byte> buffer(static_cast<size_t>(fileSize));
@@ -61,7 +64,10 @@ Result<::std::vector<::std::byte>> readBinaryFile(const ::std::filesystem::path&
 Result<void> writeBinaryFile(const ::std::filesystem::path& path, ::std::span<const ::std::byte> content) {
     ::std::ofstream file(path, ::std::ios::out | ::std::ios::trunc | ::std::ios::binary);
     if (!file.is_open()) {
-        return ::std::unexpected(make_error_code(UtilsError::permissionDenied));
+        return ::std::unexpected(make_error_code(UtilsError::ioError));
+    }
+    if (content.size() > static_cast<size_t>(::std::numeric_limits<::std::streamsize>::max())) {
+        return ::std::unexpected(make_error_code(UtilsError::fileTooLarge));
     }
     if (file.write(reinterpret_cast<const char*>(content.data()), static_cast<::std::streamsize>(content.size()))) {
         return {};
@@ -76,7 +82,12 @@ Result<void> doAtomicWrite(const ::std::filesystem::path& path, Writer writer) {
 
     ::std::error_code ec;
     if (!::std::filesystem::exists(parent, ec)) {
+        if (ec) return ::std::unexpected(ec); // Propagate actual error if exists() failed
         return ::std::unexpected(make_error_code(UtilsError::fileNotFound));
+    }
+    if (!::std::filesystem::is_directory(parent, ec)) {
+        if (ec) return ::std::unexpected(ec); // Propagate actual error if is_directory() failed
+        return ::std::unexpected(make_error_code(UtilsError::notADirectory));
     }
 
     auto tempPath = parent / (path.filename().string() + "." + generateRandomString(kTempFileSuffixLen) + ".tmp");
@@ -109,7 +120,10 @@ Result<void> writeBinaryFileAtomic(const ::std::filesystem::path& path, ::std::s
 Result<void> appendToBinaryFile(const ::std::filesystem::path& path, ::std::span<const ::std::byte> content) {
     ::std::ofstream file(path, ::std::ios::out | ::std::ios::app | ::std::ios::binary);
     if (!file.is_open()) {
-        return ::std::unexpected(make_error_code(UtilsError::permissionDenied));
+        return ::std::unexpected(make_error_code(UtilsError::ioError));
+    }
+    if (content.size() > static_cast<size_t>(::std::numeric_limits<::std::streamsize>::max())) {
+        return ::std::unexpected(make_error_code(UtilsError::fileTooLarge));
     }
     if (file.write(reinterpret_cast<const char*>(content.data()), static_cast<::std::streamsize>(content.size()))) {
         return {};
@@ -118,38 +132,80 @@ Result<void> appendToBinaryFile(const ::std::filesystem::path& path, ::std::span
 }
 
 Result<::std::filesystem::path> createTemporaryFile(::std::string_view prefix, ::std::string_view suffix) {
-    auto tempDir = ::std::filesystem::temp_directory_path();
-    ::std::filesystem::path tempPath;
     ::std::error_code ec;
+    auto tempDir = ::std::filesystem::temp_directory_path(ec);
+    if (ec) {
+        return ::std::unexpected(ec); // Error getting temp path itself
+    }
+    if (!::std::filesystem::exists(tempDir, ec) || !::std::filesystem::is_directory(tempDir, ec)) {
+        if (ec) return ::std::unexpected(ec); // Error checking existence or type
+        return ::std::unexpected(make_error_code(UtilsError::tempDirectoryError));
+    }
+    ::std::filesystem::path tempPath;
     
     // Try a few times to generate a unique name
     for (size_t i = 0; i < kTempCreationRetries; ++i) {
-        ::std::string name = ::std::string(prefix) + generateRandomString(kRandomNameLen) + ::std::string(suffix);
+        ::std::string name;
+        name.reserve(prefix.size() + kRandomNameLen + suffix.size());
+        name.append(prefix);
+        name.append(generateRandomString(kRandomNameLen));
+        name.append(suffix);
         tempPath = tempDir / name;
-        if (!::std::filesystem::exists(tempPath, ec)) {
-            // Create empty file
-            ::std::ofstream file(tempPath);
-            if (file.is_open()) {
-                return tempPath;
+            // Check if `tempPath` already exists.
+            // If exists() fails and sets ec, we return that error.
+            bool pathExists = ::std::filesystem::exists(tempPath, ec);
+            if (ec) {
+                return ::std::unexpected(ec);
             }
-        }
+
+            if (!pathExists) {
+                // Path does not exist, attempt to create it.
+                ::std::ofstream file(tempPath);
+                if (file.is_open()) {
+                    return tempPath; // Successfully created and opened.
+                }                     // File could not be opened (e.g., permissions, disk full).
+                    // Return an I/O error and stop retrying for this more fundamental problem.
+                    return ::std::unexpected(make_error_code(UtilsError::ioError));
+               
+            }
+            // If path_exists is true and no error, loop continues to try another name.
     }
     return ::std::unexpected(make_error_code(UtilsError::ioError));
 }
 
 Result<::std::filesystem::path> createTemporaryDirectory(::std::string_view prefix) {
-    auto tempDir = ::std::filesystem::temp_directory_path();
-    ::std::filesystem::path path;
     ::std::error_code ec;
-
+    auto tempDir = ::std::filesystem::temp_directory_path(ec);
+    if (ec) {
+        return ::std::unexpected(ec); // Error getting temp path itself
+    }
+    if (!::std::filesystem::exists(tempDir, ec) || !::std::filesystem::is_directory(tempDir, ec)) {
+        if (ec) return ::std::unexpected(ec); // Error checking existence or type
+        return ::std::unexpected(make_error_code(UtilsError::tempDirectoryError));
+    }
+    ::std::filesystem::path path;
+    
     for (size_t i = 0; i < kTempCreationRetries; ++i) {
-        ::std::string name = ::std::string(prefix) + generateRandomString(kRandomNameLen);
+        ::std::string name;
+        name.reserve(prefix.size() + kRandomNameLen);
+        name.append(prefix);
+        name.append(generateRandomString(kRandomNameLen));
         path = tempDir / name;
         if (::std::filesystem::create_directory(path, ec)) {
             return path;
         }
+        // If creation failed and it's not due to file_exists (which implies a race on name)
+        // then it's a persistent error, so return it immediately.
+        if (ec && ec != ::std::make_error_code(::std::errc::file_exists)) {
+            return ::std::unexpected(ec);
+        }
+        // If ec is set to file_exists, we continue the loop to try another name.
+        // If ec is not set, it means create_directory returned false for some other reason
+        // but didn't set a specific error (unlikely for create_directory but possible
+        // for generic errors or custom filesystem implementations), in which case we
+        // continue trying.
     }
-    return ::std::unexpected(make_error_code(UtilsError::ioError));
+    return ::std::unexpected(make_error_code(UtilsError::ioError)); // All retries failed or unspecified error
 }
 
 Result<void> traverseDirectory(const ::std::filesystem::path& dirPath, TraversalCallback callback, const TraversalOptions& options) {
@@ -179,7 +235,7 @@ Result<void> traverseDirectory(const ::std::filesystem::path& dirPath, Traversal
             }
 
             if (control == TraversalControl::stop) {
-                 return ::std::unexpected(make_error_code(UtilsError::none)); // Using 'none' as a signal "Stop/Success"
+                 return ::std::unexpected(make_error_code(UtilsError::traversalStopped)); // Using 'traversalStopped' as a signal "Stop/Success"
             }
 
             if (isDir && options.recursive && control != TraversalControl::skipDir) {
@@ -201,10 +257,7 @@ Result<void> traverseDirectory(const ::std::filesystem::path& dirPath, Traversal
     
     auto res = traverseImpl(traverseImpl, dirPath, 0);
     if (!res) {
-        if (res.error() == make_error_code(UtilsError::none)) {
-            return {}; // Stopped, treat as success
-        }
-        return res; // Real error
+        return res; // Propagate all errors including traversalStopped
     }
 
     return {};
@@ -219,7 +272,7 @@ Result<::std::string> readTextFile(const ::std::filesystem::path& path) {
     
     ::std::ifstream file(path); 
     if (!file.is_open()) {
-        return ::std::unexpected(make_error_code(UtilsError::permissionDenied));
+        return ::std::unexpected(make_error_code(UtilsError::ioError));
     }
 
     ::std::string content((::std::istreambuf_iterator<char>(file)),
@@ -233,9 +286,14 @@ Result<::std::string> readTextFile(const ::std::filesystem::path& path) {
 }
 
 Result<void> writeTextFile(const ::std::filesystem::path& path, ::std::string_view content) {
+    // Open in binary mode to prevent platform-specific newline translation (e.g., \n -> \r\n on Windows).
+    // This ensures byte-exact writing of text content as provided.
     ::std::ofstream file(path, ::std::ios::out | ::std::ios::trunc | ::std::ios::binary);
     if (!file.is_open()) {
-        return ::std::unexpected(make_error_code(UtilsError::permissionDenied));
+        return ::std::unexpected(make_error_code(UtilsError::ioError));
+    }
+    if (content.size() > static_cast<size_t>(::std::numeric_limits<::std::streamsize>::max())) {
+        return ::std::unexpected(make_error_code(UtilsError::fileTooLarge));
     }
     if (file.write(content.data(), static_cast<::std::streamsize>(content.size()))) {
         return {};
@@ -244,9 +302,14 @@ Result<void> writeTextFile(const ::std::filesystem::path& path, ::std::string_vi
 }
 
 Result<void> appendToFile(const ::std::filesystem::path& path, ::std::string_view content) {
+    // Open in binary mode to prevent platform-specific newline translation (e.g., \n -> \r\n on Windows).
+    // This ensures byte-exact appending of text content as provided.
     ::std::ofstream file(path, ::std::ios::out | ::std::ios::app | ::std::ios::binary);
     if (!file.is_open()) {
-        return ::std::unexpected(make_error_code(UtilsError::permissionDenied));
+        return ::std::unexpected(make_error_code(UtilsError::ioError));
+    }
+    if (content.size() > static_cast<size_t>(::std::numeric_limits<::std::streamsize>::max())) {
+        return ::std::unexpected(make_error_code(UtilsError::fileTooLarge));
     }
     if (file.write(content.data(), static_cast<::std::streamsize>(content.size()))) {
         return {};
@@ -267,7 +330,7 @@ Result<::std::vector<::std::string>> readLines(const ::std::filesystem::path& pa
 
     ::std::ifstream file(path);
     if (!file.is_open()) {
-        return ::std::unexpected(make_error_code(UtilsError::permissionDenied));
+        return ::std::unexpected(make_error_code(UtilsError::ioError));
     }
 
     ::std::vector<::std::string> lines;
@@ -276,7 +339,7 @@ Result<::std::vector<::std::string>> readLines(const ::std::filesystem::path& pa
         lines.push_back(::std::move(line));
     }
 
-    if (file.bad()) {
+    if (file.bad() || (file.fail() && !file.eof())) {
         return ::std::unexpected(make_error_code(UtilsError::ioError));
     }
     return lines;
@@ -286,7 +349,26 @@ Result<void> createDirectories(const ::std::filesystem::path& path) {
     ::std::error_code ec;
     ::std::filesystem::create_directories(path, ec);
     if (ec) {
-        return ::std::unexpected(ec);
+        if (ec == ::std::make_error_code(::std::errc::permission_denied)) {
+            return ::std::unexpected(make_error_code(UtilsError::permissionDenied));
+        }
+        if (ec == ::std::make_error_code(::std::errc::file_exists)) {
+            // This can happen if an intermediate component is a non-directory file
+            // Or if the target path already exists as a file.
+            // Check if path exists and is a directory (it might have been created by another thread/process)
+            ::std::error_code statusEc;
+            if (::std::filesystem::exists(path, statusEc) && ::std::filesystem::is_directory(path, statusEc)) {
+                return {}; // Directory already exists, consider it a success
+            }
+            if (!statusEc && ::std::filesystem::exists(path, statusEc) && !::std::filesystem::is_directory(path, statusEc)) {
+                return ::std::unexpected(make_error_code(UtilsError::fileAlreadyExists)); // Path exists but is a file
+            }
+            return ::std::unexpected(make_error_code(UtilsError::invalidArgument)); // More generic for file_exists on intermediate paths
+        }
+        if (ec == ::std::make_error_code(::std::errc::not_a_directory)) {
+            return ::std::unexpected(make_error_code(UtilsError::invalidArgument));
+        }
+        return ::std::unexpected(ec); // Fallback to generic filesystem error
     }
     return {};
 }
@@ -338,6 +420,13 @@ Result<::std::vector<::std::filesystem::path>> listDirectory(const ::std::filesy
 }
 
 Result<void> copyFile(const ::std::filesystem::path& source, const ::std::filesystem::path& destination) {
+    auto parentPath = destination.parent_path();
+    if (!parentPath.empty()) {
+        auto createDirResult = createDirectories(parentPath);
+        if (!createDirResult) {
+            return createDirResult; // Propagate error from createDirectories
+        }
+    }
     ::std::error_code ec;
     ::std::filesystem::copy(source, destination, ::std::filesystem::copy_options::overwrite_existing, ec);
     if (ec) {
@@ -355,10 +444,7 @@ Result<void> moveFile(const ::std::filesystem::path& source, const ::std::filesy
     return {};
 }
 
-bool moveFileDeprecated(const ::std::filesystem::path& source, const ::std::filesystem::path& destination, ::std::error_code& ec) {
-    ::std::filesystem::rename(source, destination, ec);
-    return !ec;
-}
+
 
 Result<uintmax_t> getFileSize(const ::std::filesystem::path& filePath) {
     ::std::error_code ec;
@@ -369,49 +455,41 @@ Result<uintmax_t> getFileSize(const ::std::filesystem::path& filePath) {
     return size;
 }
 
-::std::optional<uintmax_t> getFileSizeDeprecated(const ::std::filesystem::path& filePath, ::std::error_code& ec) {
-    if (::std::filesystem::exists(filePath, ec) && !ec && ::std::filesystem::is_regular_file(filePath, ec) && !ec) {
-        return ::std::filesystem::file_size(filePath, ec);
+
+
+
+
+Result<bool> exists(const ::std::filesystem::path& path) {
+    ::std::error_code ec;
+    bool result = ::std::filesystem::exists(path, ec);
+    if (ec) {
+        return ::std::unexpected(ec);
     }
-    if (!ec) {
-        ec = make_error_code(UtilsError::fileNotFound);
-    }
-    return ::std::nullopt;
+    return result;
 }
 
-bool traverseDirectoryDeprecated(const ::std::filesystem::path& dirPath, const ::std::function<void(const ::std::filesystem::path&)>& callback, bool recursive) {
+Result<bool> isFile(const ::std::filesystem::path& path) {
     ::std::error_code ec;
-    if (!::std::filesystem::is_directory(dirPath, ec)) {
-        return false;
-    }
-
-    if (recursive) {
-        for (const auto& entry : ::std::filesystem::recursive_directory_iterator(dirPath, ec)) {
-            if (ec) return false;
-            callback(entry.path());
+    bool result = ::std::filesystem::is_regular_file(path, ec);
+    if (ec) {
+        if (ec == ::std::errc::no_such_file_or_directory) {
+            return false;
         }
-    } else {
-        for (const auto& entry : ::std::filesystem::directory_iterator(dirPath, ec)) {
-            if (ec) return false;
-            callback(entry.path());
-        }
+        return ::std::unexpected(ec);
     }
-    return !ec;
+    return result;
 }
 
-bool exists(const ::std::filesystem::path& path) {
+Result<bool> isDirectory(const ::std::filesystem::path& path) {
     ::std::error_code ec;
-    return ::std::filesystem::exists(path, ec);
-}
-
-bool isFile(const ::std::filesystem::path& path) {
-    ::std::error_code ec;
-    return ::std::filesystem::is_regular_file(path, ec);
-}
-
-bool isDirectory(const ::std::filesystem::path& path) {
-    ::std::error_code ec;
-    return ::std::filesystem::is_directory(path, ec);
+    bool result = ::std::filesystem::is_directory(path, ec);
+    if (ec) {
+        if (ec == ::std::errc::no_such_file_or_directory) {
+            return false;
+        }
+        return ::std::unexpected(ec);
+    }
+    return result;
 }
 
 Result<::std::filesystem::perms> getPermissions(const ::std::filesystem::path& path) {
@@ -454,6 +532,9 @@ Result<void> chown(const ::std::filesystem::path& path, const ::std::string& own
     (void)path;
     (void)owner;
     (void)group;
+    // Changing file ownership (chown) is a platform-specific and complex operation,
+    // often requiring elevated privileges. It is not currently supported by this utility
+    // to maintain cross-platform compatibility and simplicity.
     return ::std::unexpected(make_error_code(UtilsError::unsupportedOperation));
 }
 

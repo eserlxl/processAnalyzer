@@ -15,33 +15,38 @@
 namespace utils {
 
 // File I/O
-Result<std::string> readTextFile(const std::filesystem::path& path);
-Result<std::vector<std::byte>> readBinaryFile(const std::filesystem::path& path);
-Result<void> writeTextFile(const std::filesystem::path& path, std::string_view content);
-Result<void> writeBinaryFile(const std::filesystem::path& path, std::span<const std::byte> content);
-Result<void> writeTextFileAtomic(const std::filesystem::path& path, std::string_view content);
-Result<void> writeBinaryFileAtomic(const std::filesystem::path& path, std::span<const std::byte> content);
+Result<::std::string> readTextFile(const ::std::filesystem::path& path);
+Result<::std::vector<::std::byte>> readBinaryFile(const ::std::filesystem::path& path);
+Result<void> writeTextFile(const ::std::filesystem::path& path, ::std::string_view content);
+Result<void> writeBinaryFile(const ::std::filesystem::path& path, ::std::span<const ::std::byte> content);
+Result<void> writeTextFileAtomic(const ::std::filesystem::path& path, ::std::string_view content);
+Result<void> writeBinaryFileAtomic(const ::std::filesystem::path& path, ::std::span<const ::std::byte> content);
 
-Result<std::filesystem::perms> getPermissions(const std::filesystem::path& path);
-Result<void> setPermissions(const std::filesystem::path& path, std::filesystem::perms prms);
-Result<void> addPermissions(const std::filesystem::path& path, std::filesystem::perms prms);
-Result<void> removePermissions(const std::filesystem::path& path, std::filesystem::perms prms);
-Result<void> appendToBinaryFile(const std::filesystem::path& path, std::span<const std::byte> content);
-bool exists(const std::filesystem::path& path);
-bool isFile(const std::filesystem::path& path);
-bool isDirectory(const std::filesystem::path& path);
-Result<void> appendToFile(const std::filesystem::path& path, std::string_view content);
-Result<std::vector<std::string>> readLines(const std::filesystem::path& path);
-Result<void> createDirectories(const std::filesystem::path& path);
-Result<void> remove(const std::filesystem::path& path, bool recursive = false);
-Result<std::filesystem::path> createTemporaryFile(std::string_view prefix = "", std::string_view suffix = "");
-Result<std::filesystem::path> createTemporaryDirectory(std::string_view prefix = "");
-Result<std::vector<std::filesystem::path>> listDirectory(const std::filesystem::path& path);
-Result<void> copyFile(const std::filesystem::path& source, const std::filesystem::path& destination);
-Result<void> chown(const std::filesystem::path& path, const std::string& owner, const std::string& group);
-bool isReadable(const std::filesystem::path& path);
-bool isWritable(const std::filesystem::path& path);
-bool isExecutable(const std::filesystem::path& path);
+Result<::std::filesystem::perms> getPermissions(const ::std::filesystem::path& path);
+Result<void> setPermissions(const ::std::filesystem::path& path, ::std::filesystem::perms prms);
+Result<void> addPermissions(const ::std::filesystem::path& path, ::std::filesystem::perms prms);
+Result<void> removePermissions(const ::std::filesystem::path& path, ::std::filesystem::perms prms);
+Result<void> appendToBinaryFile(const ::std::filesystem::path& path, ::std::span<const ::std::byte> content);
+
+// Changed return type from bool to Result<bool>
+Result<bool> exists(const ::std::filesystem::path& path);
+Result<bool> isFile(const ::std::filesystem::path& path);
+Result<bool> isDirectory(const ::std::filesystem::path& path);
+
+Result<void> appendToFile(const ::std::filesystem::path& path, ::std::string_view content);
+Result<::std::vector<::std::string>> readLines(const ::std::filesystem::path& path);
+Result<void> createDirectories(const ::std::filesystem::path& path);
+Result<void> remove(const ::std::filesystem::path& path, bool recursive = false);
+Result<::std::filesystem::path> createTemporaryFile(::std::string_view prefix = "", ::std::string_view suffix = "");
+Result<::std::filesystem::path> createTemporaryDirectory(::std::string_view prefix = "");
+Result<::std::vector<::std::filesystem::path>> listDirectory(const ::std::filesystem::path& path);
+Result<void> copyFile(const ::std::filesystem::path& source, const ::std::filesystem::path& destination);
+Result<void> chown(const ::std::filesystem::path& path, const ::std::string& owner, const ::std::string& group);
+
+// These functions now internally use Result<bool> versions
+bool isReadable(const ::std::filesystem::path& path);
+bool isWritable(const ::std::filesystem::path& path);
+bool isExecutable(const ::std::filesystem::path& path);
 
 // Enum to control directory traversal flow
 enum class TraversalControl {
@@ -51,7 +56,7 @@ enum class TraversalControl {
 };
 
 // Callback type for directory traversal
-using TraversalCallback = std::function<TraversalControl(const std::filesystem::directory_entry& entry)>;
+using TraversalCallback = ::std::function<TraversalControl(const ::std::filesystem::directory_entry& entry)>;
 
 // Options for directory traversal
 struct TraversalOptions {
@@ -63,20 +68,11 @@ struct TraversalOptions {
 };
 
 // New directory traversal API
-Result<void> traverseDirectory(const std::filesystem::path& dirPath, TraversalCallback callback, const TraversalOptions& options = {});
+Result<void> traverseDirectory(const ::std::filesystem::path& dirPath, TraversalCallback callback, const TraversalOptions& options = {});
 
-Result<void> moveFile(const std::filesystem::path& source, const std::filesystem::path& destination);
+Result<void> moveFile(const ::std::filesystem::path& source, const ::std::filesystem::path& destination);
 
-[[deprecated("Use Result-based moveFile instead.")]]
-bool moveFileDeprecated(const std::filesystem::path& source, const std::filesystem::path& destination, std::error_code& ec);
-
-Result<uintmax_t> getFileSize(const std::filesystem::path& filePath);
-
-[[deprecated("Use Result-based getFileSize instead.")]]
-std::optional<uintmax_t> getFileSizeDeprecated(const std::filesystem::path& filePath, std::error_code& ec);
-
-[[deprecated("The old traverseDirectory is deprecated. Use the one that returns a Result and takes a TraversalControl callback.")]]
-bool traverseDirectoryDeprecated(const std::filesystem::path& dirPath, const std::function<void(const std::filesystem::path&)>& callback, bool recursive = true);
+Result<uintmax_t> getFileSize(const ::std::filesystem::path& filePath);
 
 } // namespace utils
 

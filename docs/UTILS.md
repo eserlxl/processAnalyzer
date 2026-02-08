@@ -48,6 +48,7 @@ The custom error codes are defined in the `UtilsError` enum:
 - `UtilsError::unsupportedOperation`: The attempted operation is not supported.
 - `UtilsError::pathError`: A path manipulation failure occurred.
 - `UtilsError::commandExecutionError`: An error occurred during external command execution.
+- `UtilsError::fileTooLarge`: The file is too large to be processed.
 - `UtilsError::fileAlreadyExists`: The file already exists.
 - `UtilsError::directoryNotEmpty`: The directory is not empty.
 - `UtilsError::notADirectory`: The path is not a directory.
@@ -55,6 +56,8 @@ The custom error codes are defined in the `UtilsError` enum:
 - `UtilsError::isADirectory`: The path is a directory, but a file was expected.
 - `UtilsError::diskFull`: The disk is full.
 - `UtilsError::noSpaceOnDevice`: No space left on the device.
+- `UtilsError::tempDirectoryError`: Failed to find or create a temporary directory.
+- `UtilsError::traversalStopped`: The directory traversal was stopped by the callback.
 - `UtilsError::pathNotRelative`: The path is not relative.
 - `UtilsError::pathNotAbsolute`: The path is not absolute.
 - `UtilsError::basePathNotAncestor`: The base path is not an ancestor of the given path.
@@ -71,45 +74,96 @@ The custom error codes are defined in the `UtilsError` enum:
 - `UtilsError::timeParseError`: An error occurred while parsing a time string.
 
 
-## File System Operations
+## File System and Directory Operations
 
-These functions interact with the file system using `std::filesystem`.
+These functions provide a comprehensive interface for interacting with the file system using `std::filesystem`.
+
+### File I/O
 
 - `Result<std::string> readTextFile(const std::filesystem::path& path)`: Reads the entire content of a text file into a `std::string`.
 - `Result<std::vector<std::byte>> readBinaryFile(const std::filesystem::path& path)`: Reads the entire content of a binary file into a `std::vector<std::byte>`.
-- `Result<void> writeTextFile(const std::filesystem::path& path, std::string_view content)`: Writes the given `content` to a text file, overwriting it if it exists.
-- `Result<void> writeBinaryFile(const std::filesystem::path& path, std::span<const std::byte> content)`: Writes the given `content` to a binary file, overwriting it if it exists.
-- `Result<void> writeTextFileAtomic(const std::filesystem::path& path, std::string_view content)`: Atomically writes content to a text file.
+- `Result<void> writeTextFile(const std::filesystem::path& path, std::string_view content)`: Writes `content` to a text file, overwriting it if it exists.
+- `Result<void> writeBinaryFile(const std::filesystem::path& path, std::span<const std::byte> content)`: Writes `content` to a binary file, overwriting it if it exists.
+- `Result<void> writeTextFileAtomic(const std::filesystem::path& path, std::string_view content)`: Atomically writes content to a text file by writing to a temporary file and then renaming.
 - `Result<void> writeBinaryFileAtomic(const std::filesystem::path& path, std::span<const std::byte> content)`: Atomically writes content to a binary file.
-- `Result<void> appendToFile(const std::filesystem::path& path, std::string_view content)`: Appends the given `content` to the end of a text file.
-- `Result<void> appendToBinaryFile(const std::filesystem::path& path, std::span<const std::byte> content)`: Appends the given `content` to the end of a binary file.
+- `Result<void> appendToFile(const std::filesystem::path& path, std::string_view content)`: Appends `content` to the end of a text file.
+- `Result<void> appendToBinaryFile(const std::filesystem::path& path, std::span<const std::byte> content)`: Appends `content` to the end of a binary file.
+- `Result<std::vector<std::string>> readLines(const std::filesystem::path& path)`: Reads all lines from a text file into a vector of strings.
+
+### Filesystem Manipulation
+
+- `Result<void> createDirectories(const std::filesystem::path& path)`: Creates all directories in the specified path.
+- `Result<void> remove(const std::filesystem::path& path, bool recursive = false)`: Removes a file or directory. If `recursive` is `true`, it removes a directory and all its contents.
+- `Result<std::filesystem::path> createTemporaryFile(std::string_view prefix = "", std::string_view suffix = "")`: Creates a unique temporary file.
+- `Result<std::filesystem::path> createTemporaryDirectory(std::string_view prefix = "")`: Creates a unique temporary directory.
+- `Result<std::vector<std::filesystem::path>> listDirectory(const std::filesystem::path& path)`: Lists all entries (files and directories) within a directory.
+- `Result<void> copyFile(const std::filesystem::path& source, const std::filesystem::path& destination)`: Copies a file from `source` to `destination`.
+- `Result<void> moveFile(const std::filesystem::path& source, const std::filesystem::path& destination)`: Moves/renames a file from `source` to `destination`.
+- `Result<uintmax_t> getFileSize(const std::filesystem::path& filePath)`: Gets the size of a file in bytes.
+
+### Path Information and Status
+
+- `Result<bool> exists(const std::filesystem::path& path)`: Checks if a file or directory exists. Returns an error if status cannot be determined.
+- `Result<bool> isFile(const std::filesystem::path& path)`: Checks if a path points to a regular file. Returns `false` if the path does not exist, or an error for other failures.
+- `Result<bool> isDirectory(const std::filesystem::path& path)`: Checks if a path points to a directory. Returns `false` if the path does not exist, or an error for other failures.
+- `bool isReadable(const std::filesystem::path& path)`: Checks if a file or directory is readable based on its permissions. Returns `false` on error.
+- `bool isWritable(const std::filesystem::path& path)`: Checks if a file or directory is writable based on its permissions. Returns `false` on error.
+- `bool isExecutable(const std::filesystem::path& path)`: Checks if a file is executable based on its permissions. Returns `false` on error.
+
+> **Note**: The `isReadable`, `isWritable`, and `isExecutable` functions are simple wrappers that return `false` if an underlying error occurs (e.g., file not found). For robust error handling, use `getPermissions` and check the result explicitly.
+
+### Permissions
+
 - `Result<std::filesystem::perms> getPermissions(const std::filesystem::path& path)`: Gets the permissions of a file or directory.
 - `Result<void> setPermissions(const std::filesystem::path& path, std::filesystem::perms prms)`: Sets the permissions of a file or directory.
 - `Result<void> addPermissions(const std::filesystem::path& path, std::filesystem::perms prms)`: Adds specified permissions to a file or directory.
 - `Result<void> removePermissions(const std::filesystem::path& path, std::filesystem::perms prms)`: Removes specified permissions from a file or directory.
-- `Result<void> chown(const std::filesystem::path& path, const std::string& owner, const std::string& group)`: Changes the owner and group of a file or directory.
-- `bool exists(const std::filesystem::path& path)`: Checks if a file or directory exists.
-- `bool isFile(const std::filesystem::path& path)`: Checks if a path points to a regular file.
-- `bool isDirectory(const std::filesystem::path& path)`: Checks if a path points to a directory.
-- `bool isReadable(const std::filesystem::path& path)`: Checks if a file or directory is readable.
-- `bool isWritable(const std::filesystem::path& path)`: Checks if a file or directory is writable.
-- `bool isExecutable(const std::filesystem::path& path)`: Checks if a file is executable.
-- `Result<std::vector<std::string>> readLines(const std::filesystem::path& path)`: Reads all lines from a text file into a vector of strings.
-- `Result<void> createDirectories(const std::filesystem::path& path)`: Creates all directories in the specified path.
-- `Result<void> remove(const std::filesystem::path& path, bool recursive = false)`: Removes a file or a directory. If `recursive` is `true`, it removes a directory and all its contents.
-- `Result<std::filesystem::path> createTemporaryFile(std::string_view prefix = "", std::string_view suffix = "")`: Creates a temporary file.
-- `Result<std::filesystem::path> createTemporaryDirectory(std::string_view prefix = "")`: Creates a temporary directory.
-- `Result<std::vector<std::filesystem::path>> listDirectory(const std::filesystem::path& path)`: Lists all entries within a directory.
-- `Result<void> copyFile(const std::filesystem::path& source, const std::filesystem::path& destination)`: Copies a file from source to destination.
-- `Result<void> moveFile(const std::filesystem::path& source, const std::filesystem::path& destination)`: Moves a file from source to destination.
-- `Result<uintmax_t> getFileSize(const std::filesystem::path& filePath)`: Gets the size of a file in bytes.
+- `Result<void> chown(const std::filesystem::path& path, const std::string& owner, const std::string& group)`: **Unsupported.** This function is a placeholder and will always return an `unsupportedOperation` error.
 
 ### Directory Traversal
 
-- `enum class TraversalControl { Continue, SkipDir, Stop }`: Controls the flow of directory traversal.
-- `using TraversalCallback = std::function<TraversalControl(const std::filesystem::directory_entry& entry)>`: Callback function type for directory traversal.
-- `struct TraversalOptions`: Options for directory traversal (`recursive`, `followSymlinks`, `includeDirectories`, `includeFiles`, `maxDepth`).
-- `Result<void> traverseDirectory(const std::filesystem::path& dirPath, TraversalCallback callback, const TraversalOptions& options = {})`: Traverses a directory and its subdirectories, invoking a callback for each entry.
+This powerful API allows you to recursively scan directories and act on files and subdirectories.
+
+- `enum class TraversalControl { Continue, skipDir, stop }`: Controls the flow of directory traversal from within the callback.
+  - `Continue`: Continue traversal normally.
+  - `skipDir`: If the current entry is a directory, do not traverse into it. Continue with its siblings.
+  - `stop`: Stop the entire traversal immediately.
+- `using TraversalCallback = std::function<TraversalControl(const std::filesystem::directory_entry& entry)>`: The callback function signature. It receives a `directory_entry` and returns a `TraversalControl` value.
+- `struct TraversalOptions`: A struct to configure traversal behavior:
+  - `bool recursive = true`: Traverse subdirectories.
+  - `bool followSymlinks = false`: Follow symbolic links to directories.
+  - `bool includeDirectories = true`: Invoke the callback for directory entries.
+  - `bool includeFiles = true`: Invoke the callback for file entries.
+  - `int maxDepth = -1`: Maximum recursion depth (`-1` for unlimited).
+- `Result<void> traverseDirectory(const std::filesystem::path& dirPath, TraversalCallback callback, const TraversalOptions& options = {})`: Traverses a directory, invoking the callback for each entry that matches the options.
+
+**Example: Find all `.cpp` files in a directory**
+```cpp
+#include "utils/File.h"
+#include <iostream>
+
+int main() {
+    utils::TraversalOptions options;
+    options.recursive = true;
+    options.includeFiles = true;
+    options.includeDirectories = false;
+
+    auto callback = [](const std::filesystem::directory_entry& entry) {
+        if (entry.path().extension() == ".cpp") {
+            std::cout << "Found C++ file: " << entry.path() << std::endl;
+        }
+        return utils::TraversalControl::Continue;
+    };
+
+    auto result = utils::traverseDirectory("/path/to/source", callback, options);
+
+    if (!result && result.error() != utils::make_error_code(utils::UtilsError::traversalStopped)) {
+        std::cerr << "Error during traversal: " << result.error().message() << std::endl;
+    }
+
+    return 0;
+}
+```
 
 ## Path Manipulation
 

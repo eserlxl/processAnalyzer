@@ -253,7 +253,7 @@ int main(int argc, char* argv[]) {
             if (processesResult) {
                 processesToDisplay = *processesResult;
             } else {
-                std::cerr << "Error listing processes: " << processesResult.error().message << "\n";
+                std::cerr << "Error listing processes: " << processesResult.error().message() << "\n";
                 return 1;
             }
         } else if (args.command == "pid") {
@@ -265,7 +265,7 @@ int main(int argc, char* argv[]) {
 
             auto infoResult = analyzer.getProcessDetails(targetPid);
             if (!infoResult) {
-                std::cerr << "Error: " << infoResult.error().message << "\n";
+                std::cerr << "Error: " << infoResult.error().message() << "\n";
                 return 1;
             }
             
@@ -283,7 +283,7 @@ int main(int argc, char* argv[]) {
                             std::cout << "\nNo children found.\n";
                         }
                     } else {
-                        std::cerr << "\nError getting children: " << childrenResult.error().message << "\n";
+                        std::cerr << "\nError getting children: " << childrenResult.error().message() << "\n";
                     }
                 }
                 if (args.showOpenFiles) {
@@ -300,7 +300,7 @@ int main(int argc, char* argv[]) {
                                 std::cout << "\nNo open files found.\n";
                             }
                         } else {
-                            std::cerr << "\nError reading open files: " << fdsResult.error().message << "\n";
+                            std::cerr << "\nError reading open files: " << fdsResult.error().message() << "\n";
                         }
                     } catch (const std::exception& e) {
                         std::cerr << "Error reading open files: " << e.what() << "\n";
@@ -330,7 +330,7 @@ int main(int argc, char* argv[]) {
                                 std::cout << "\nNo network connections found.\n";
                             }
                         } else {
-                            std::cerr << "\nError reading network connections: " << connsResult.error().message << "\n";
+                            std::cerr << "\nError reading network connections: " << connsResult.error().message() << "\n";
                         }
                     } catch (const std::exception& e) {
                         std::cerr << "Error reading network connections: " << e.what() << "\n";

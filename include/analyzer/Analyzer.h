@@ -12,31 +12,18 @@
 #include <cstdint>      // For uint32_t
 #include <chrono>       // For std::chrono
 #include <map>          // For std::map
-#include <expected>     // For std::expected (C++23)
+
 #include <system_error> // For std::error_code (optional, could use int errno directly)
 #include <generator>    // For std::generator (C++23)
 #include <sys/resource.h> // For setpriority, PRIO_PROCESS
 #include <sched.h>        // For sched_setaffinity, cpu_set_t
 #include <regex>        // For std::regex (C++11)
 
-// New: Define specific error codes for Analyzer
-enum class AnalyzerError {
-    processNotFound,
-    permissionDenied,
-    fileNotFound,
-    parsingError,
-    invalidArgument,
-    systemError, // Generic system error with errno
-    operationNotSupported, // For features not available on current OS/kernel
-    // ... potentially more specific errors
-};
+#include "utils/Types.h" // For utils::Result<T> and UtilsError
 
-// New: Custom error type to carry more info
-struct AnalyzerErrorDetail {
-    AnalyzerError code;
-    std::string message;
-    std::optional<int> systemErrno; // Store actual errno if applicable
-};
+
+
+
 
 // Enum for common POSIX signals
 enum class ProcessSignal {
@@ -376,9 +363,9 @@ public:
     explicit ProcessAnalyzer(std::string_view procPath = "/proc");
     
     // Core API
-    std::expected<std::vector<int>, AnalyzerErrorDetail> getPids() const;
-    std::expected<ProcessInfo, AnalyzerErrorDetail> getProcessDetails(int pid) const;
-    std::expected<std::vector<ProcessInfo>, AnalyzerErrorDetail> snapshot() const;
+    utils::Result<std::vector<int>> getPids() const;
+    utils::Result<ProcessInfo> getProcessDetails(int pid) const;
+    utils::Result<std::vector<ProcessInfo>> snapshot() const;
 
     // --- C++23 Lazy Loading API ---
     std::generator<int> streamPids() const;
@@ -390,17 +377,17 @@ public:
     ) const;
 
     // --- New System-wide Statistics API for Iteration 7 ---
-    std::expected<SystemMemoryInfo, AnalyzerErrorDetail> getSystemMemoryInfo() const;
-    std::expected<SystemLoadAverage, AnalyzerErrorDetail> getSystemLoadAverage() const;
-    std::expected<SystemCpuStats, AnalyzerErrorDetail> getSystemCpuStats() const;
+    utils::Result<SystemMemoryInfo> getSystemMemoryInfo() const;
+    utils::Result<SystemLoadAverage> getSystemLoadAverage() const;
+    utils::Result<SystemCpuStats> getSystemCpuStats() const;
 
     // Filtering API
-    std::expected<std::vector<ProcessInfo>, AnalyzerErrorDetail> findProcesses(const ProcessPredicate& predicate) const;
+    utils::Result<std::vector<ProcessInfo>> findProcesses(const ProcessPredicate& predicate) const;
 
     // New method for general process query with filtering and sorting
     // Contract: Returns processes matching filter, sorted as specified.
     // Uses std::expected for error reporting.
-    std::expected<std::vector<ProcessInfo>, AnalyzerErrorDetail> queryProcesses(
+    utils::Result<std::vector<ProcessInfo>> queryProcesses(
         const ProcessFilter& filter = {},
         ProcessSortField sortBy = ProcessSortField::pid,
         SortOrder sortOrder = SortOrder::asc
@@ -410,13 +397,13 @@ public:
     // Contract: Returns a vector of ProcessInfo for direct children of the given PID.
     //           Returns empty vector if no children or PID not found.
     // Uses std::expected for error reporting.
-    std::expected<std::vector<ProcessInfo>, AnalyzerErrorDetail> getChildProcesses(int pid) const;
+    utils::Result<std::vector<ProcessInfo>> getChildProcesses(int pid) const;
 
     // New: Get the system's clock tick frequency (HZ)
     // Contract: Returns the system clock ticks per second.
     //           Typically 100 for older systems, 1000 for newer ones, but can vary.
     // Uses std::expected for error reporting.
-    static std::expected<long, AnalyzerErrorDetail> getSystemClockTicksPerSecond();
+    static utils::Result<long> getSystemClockTicksPerSecond();
 
     // New: Calculate CPU usage for a specific process over a given duration.
     // Contract: Returns the CPU usage percentage for the specified PID.
@@ -427,7 +414,7 @@ public:
     //   durationMs: The duration in milliseconds to observe CPU usage.
     // Returns: A ProcessCpuUsage object. `cpuPercentage` will be 0 if process not found or no change.
     // Uses std::expected for error reporting.
-    std::expected<ProcessCpuUsage, AnalyzerErrorDetail> getProcessCpuUsage(int pid, std::chrono::milliseconds durationMs) const;
+    utils::Result<ProcessCpuUsage> getProcessCpuUsage(int pid, std::chrono::milliseconds durationMs) const;
 
     // New: Calculate CPU usage for all processes over a given duration.
     // Contract: Returns a vector of ProcessCpuUsage objects for all active processes.
@@ -436,24 +423,24 @@ public:
     // Returns: A vector of ProcessCpuUsage objects. Processes that exit during the observation
     //          or have no CPU activity will have 0% usage.
     // Uses std::expected for error reporting.
-    std::expected<std::vector<ProcessCpuUsage>, AnalyzerErrorDetail> getAllProcessesCpuUsage(std::chrono::milliseconds durationMs) const;
+    utils::Result<std::vector<ProcessCpuUsage>> getAllProcessesCpuUsage(std::chrono::milliseconds durationMs) const;
     
     // New: Get the parent process of a given PID.
     // Contract: Returns the ProcessInfo of the parent process.
     // Uses std::expected for error reporting.
-    std::expected<ProcessInfo, AnalyzerErrorDetail> getParentProcess(int pid) const;
+    utils::Result<ProcessInfo> getParentProcess(int pid) const;
 
     // New: Get all descendant processes (children, grandchildren, etc.) of a given PID.
     // Contract: Returns a vector of ProcessInfo for all direct and indirect descendants.
     //           Returns empty vector if no descendants or PID not found.
     // Uses std::expected for error reporting.
-    std::expected<std::vector<ProcessInfo>, AnalyzerErrorDetail> getAllDescendantProcesses(int pid) const;
+    utils::Result<std::vector<ProcessInfo>> getAllDescendantProcesses(int pid) const;
 
     // New: Retrieve environment variables for a specific process.
     // Contract: Returns a vector of strings, where each string is an "KEY=VALUE" pair.
     //           Returns empty vector if no environment variables are found or inaccessible.
     // Uses std::expected for error reporting.
-    std::expected<std::vector<std::string>, AnalyzerErrorDetail> getProcessEnvironment(int pid) const;
+    utils::Result<std::vector<std::string>> getProcessEnvironment(int pid) const;
 
     // New for Iteration 9: Process Control/Manipulation (Signal Handling)
     // Contract: Sends the specified signal to the process identified by pid.
@@ -461,23 +448,23 @@ public:
     //   pid: The process ID to which the signal will be sent.
     //   signal: The signal to send.
     // Uses std::expected for error reporting.
-    static std::expected<void, AnalyzerErrorDetail> sendSignal(int pid, ProcessSignal signal);
+    static utils::Result<void> sendSignal(int pid, ProcessSignal signal);
 
     // New for Iteration 14: Process Context Information
-    std::expected<std::vector<MemoryMapInfo>, AnalyzerErrorDetail> getProcessMemoryMaps(int pid) const;
-    std::expected<ResourceLimitInfo, AnalyzerErrorDetail> getProcessResourceLimits(int pid) const;
-    std::expected<CgroupInfo, AnalyzerErrorDetail> getProcessCgroupInfo(int pid) const;
-    std::expected<std::vector<OpenFileDescriptorInfo>, AnalyzerErrorDetail> getProcessOpenFileDetails(pid_t pid) const;
+    utils::Result<std::vector<MemoryMapInfo>> getProcessMemoryMaps(int pid) const;
+    utils::Result<ResourceLimitInfo> getProcessResourceLimits(int pid) const;
+    utils::Result<CgroupInfo> getProcessCgroupInfo(int pid) const;
+    utils::Result<std::vector<OpenFileDescriptorInfo>> getProcessOpenFileDetails(pid_t pid) const;
 
     // New for Iteration 14: Process Control Capabilities
-    static std::expected<void, AnalyzerErrorDetail> setProcessNiceness(int pid, int niceness);
-    static std::expected<void, AnalyzerErrorDetail> setProcessCpuAffinity(int pid, const CpuSet& affinity);
+    static utils::Result<void> setProcessNiceness(int pid, int niceness);
+    static utils::Result<void> setProcessCpuAffinity(int pid, const CpuSet& affinity);
 
     // New for Iteration 14: System-wide Metrics
-    std::expected<PerCpuUsage, AnalyzerErrorDetail> getPerCpuUsage(std::chrono::milliseconds durationMs) const;
-    std::expected<std::vector<DiskIoDeviceStats>, AnalyzerErrorDetail> getSystemDiskIoStats() const;
-    std::expected<std::vector<NetworkInterfaceStats>, AnalyzerErrorDetail> getNetworkInterfaceStats() const;
-    std::expected<SystemActivityStats, AnalyzerErrorDetail> getSystemActivityStats() const;
+    utils::Result<PerCpuUsage> getPerCpuUsage(std::chrono::milliseconds durationMs) const;
+    utils::Result<std::vector<DiskIoDeviceStats>> getSystemDiskIoStats() const;
+    utils::Result<std::vector<NetworkInterfaceStats>> getNetworkInterfaceStats() const;
+    utils::Result<SystemActivityStats> getSystemActivityStats() const;
 
     // New for Iteration 13: Network Activity Monitoring
     // Contract: Returns a vector of NetworkConnection objects for the specified PID.
@@ -486,7 +473,7 @@ public:
     //   pid: The process ID.
     // Returns: A vector of NetworkConnection. Empty if no connections or process not found/inaccessible.
     // Uses std::expected for error reporting.
-    std::expected<std::vector<NetworkConnection>, AnalyzerErrorDetail> getNetworkConnections(int pid) const;
+    utils::Result<std::vector<NetworkConnection>> getNetworkConnections(int pid) const;
 
     // New for Iteration 9: Disk I/O Rate per Process
     // Contract: Returns the disk I/O rate for the specified PID.
@@ -497,7 +484,7 @@ public:
     //   durationMs: The duration in milliseconds to observe I/O.
     // Returns: A ProcessDiskIoUsage object. Rates will be 0 if process not found or no change.
     // Uses std::expected for error reporting.
-    std::expected<ProcessDiskIoUsage, AnalyzerErrorDetail> getProcessDiskIoUsage(int pid, std::chrono::milliseconds durationMs) const;
+    utils::Result<ProcessDiskIoUsage> getProcessDiskIoUsage(int pid, std::chrono::milliseconds durationMs) const;
 
     // New for Iteration 9: Calculate disk I/O rates for all processes over a given duration.
     // Contract: Returns a vector of ProcessDiskIoUsage objects for all active processes.
@@ -506,7 +493,7 @@ public:
     // Returns: A vector of ProcessDiskIoUsage objects. Processes that exit during observation
     //          or have no I/O will have 0 rates.
     // Uses std::expected for error reporting.
-    std::expected<std::vector<ProcessDiskIoUsage>, AnalyzerErrorDetail> getAllProcessesDiskIoUsage(std::chrono::milliseconds durationMs) const;
+    utils::Result<std::vector<ProcessDiskIoUsage>> getAllProcessesDiskIoUsage(std::chrono::milliseconds durationMs) const;
 
     // New for Iteration 9: Process Threads Details
     // Contract: Returns a vector of ThreadInfo objects for all threads of the given PID.
@@ -515,19 +502,19 @@ public:
     //   pid: The process ID.
     // Returns: A vector of ThreadInfo. Empty if process not found, no threads (e.g., defunct), or inaccessible.
     // Uses std::expected for error reporting.
-    std::expected<std::vector<ThreadInfo>, AnalyzerErrorDetail> getProcessThreads(int pid) const;
+    utils::Result<std::vector<ThreadInfo>> getProcessThreads(int pid) const;
 
     // New for Iteration 9: System-wide Disk Usage Information
     // Contract: Returns a vector of MountPointInfo for each mounted filesystem.
     //           Uses statfs system call or parses /proc/mounts.
     // Returns: A vector of MountPointInfo. Empty if no mount points are accessible.
     // Uses std::expected for error reporting.
-    std::expected<std::vector<MountPointInfo>, AnalyzerErrorDetail> getSystemDiskUsage() const;
+    utils::Result<std::vector<MountPointInfo>> getSystemDiskUsage() const;
 
     // New for Iteration 9: System Uptime and Kernel Information
     // Contract: Returns a SystemInfo object.
     // Uses std::expected for error reporting.
-    std::expected<SystemInfo, AnalyzerErrorDetail> getSystemInfo() const;
+    utils::Result<SystemInfo> getSystemInfo() const;
 
     // New for Iteration 9: Calculate total system CPU usage percentage over a given duration.
     // Contract: Returns the total system CPU usage percentage.
@@ -537,7 +524,7 @@ public:
     //   durationMs: The duration in milliseconds to observe CPU usage.
     // Returns: A SystemCpuUsage object. `cpuPercentage` will be 0 if unable to calculate or no activity.
     // Uses std::expected for error reporting.
-    std::expected<SystemCpuUsage, AnalyzerErrorDetail> getSystemCpuUsage(std::chrono::milliseconds durationMs) const;
+    utils::Result<SystemCpuUsage> getSystemCpuUsage(std::chrono::milliseconds durationMs) const;
 
 private:
     std::string procPath;

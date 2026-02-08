@@ -49,26 +49,32 @@ To get `processAnalyzer` up and running, you'll need to build it from source.
 *   C++23 compatible compiler (e.g., GCC, Clang)
 *   CMake 3.17 or higher
 
-**Quick Build:**
+**Build Steps:**
 
 ```bash
+# 1. Clone the repository
 git clone https://github.com/L-L-M/processAnalyzer.git
 cd processAnalyzer
+
+# 2. Configure and build the project
 mkdir build && cd build
 cmake ..
 make
+
+# 3. (Optional) Install the binary
+sudo make install
 ```
 
 For detailed build steps, including running tests and coverage, please refer to the [Build Instructions](docs/build.md).
 
 ## Quick Start
 
-Once built, the binary is located in `build/processAnalyzer`.
+Once built, the binary is located in `build/processAnalyzer`. If you ran `make install`, it will be in your system's path.
 
 To verify it works, list the running processes:
 
 ```bash
-./processAnalyzer list
+processAnalyzer list
 ```
 
 > **Note:** Some process information may be restricted. Run with `sudo` if you need full system visibility.
@@ -76,37 +82,39 @@ To verify it works, list the running processes:
 To see all available commands and options:
 
 ```bash
-./processAnalyzer --help
+processAnalyzer --help
 ```
 
 ## Usage
 
-Here are some common commands to get you started:
+The command-line interface follows a `processAnalyzer [command] [options]` structure.
+
+Here are some common commands:
 
 ```bash
 # List all running processes
-./processAnalyzer list
+processAnalyzer list
 
 # Filter by name and output as JSON
-./processAnalyzer name chrome --format json
+processAnalyzer name chrome --format json
 
 # Show details for a specific PID, including children and open files
-./processAnalyzer pid 1234 --children --open-files
+processAnalyzer pid 1234 --children --open-files
 
 # Show details for a specific PID, including thread information
-./processAnalyzer pid 1234 --threads
+processAnalyzer pid 1234 --threads
 
 # List processes sorted by memory usage (RSS) in descending order
-./processAnalyzer list --sort-by rss --desc
+processAnalyzer list --sort-by rss --desc
 ```
 
 For comprehensive usage instructions, command-line arguments, and detailed examples, please refer to the [Usage Guide](docs/usage.md).
 
 ## API Reference
 
-The core `processAnalyzer` API, including key classes and functions such as those defined in `include/Analyzer.h`, is detailed in the API Reference documentation.
+`processAnalyzer` exposes a C++ API for programmatic access to its process and system inspection capabilities. The primary interface is the `Analyzer` class, which provides methods for process enumeration, detailed inspection, and system metric retrieval.
 
-For comprehensive information on `processAnalyzer`'s C++ API, including classes, functions, and data structures, please refer to the [API Reference documentation](docs/api-reference.md).
+For a detailed breakdown of the classes, functions, and data structures, please see the [API Reference documentation](docs/api-reference.md).
 
 ## Project Structure
 
@@ -121,12 +129,7 @@ For a detailed breakdown of the project directory structure, see [docs/project-s
 
 ## Utility Library (`utils` Namespace)
 
-`processAnalyzer` includes a powerful, modern C++23 utility library that provides a robust foundation for the application. By simply including `include/utils.h`, you gain access to a comprehensive set of general-purpose utilities. It features a `std::expected`-based error handling model and offers a rich set of functions for:
-
--   File system and path manipulation
--   String processing and encoding (Base64, URL)
--   System interaction and command execution
--   Time and hashing utilities
+The project includes a modern C++23 utility library in the `utils` namespace, offering robust, general-purpose functions for file systems, string manipulation, system interaction, and more. All utilities are accessible via the `<utils.h>` header.
 
 For complete documentation of all functions, error codes, and usage examples, please refer to the **[Utils Library Documentation](docs/UTILS.md)**.
 

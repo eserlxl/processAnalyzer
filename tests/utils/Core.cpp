@@ -191,69 +191,53 @@ TEST(UtilsTest, MoveFile) {
     std::filesystem::remove(destPath);
 }
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-TEST(UtilsTest, TraverseDirectory) {
-    auto dirPath = createTempDir();
-    auto subDir = dirPath / "subdir";
-    ASSERT_TRUE(utils::createDirectories(subDir));
-    auto file1 = dirPath / "file1.txt";
-    auto file2 = subDir / "file2.txt";
-    std::ofstream(file1) << "1";
-    std::ofstream(file2) << "2";
 
-    std::vector<std::filesystem::path> paths;
-    bool result = utils::traverseDirectoryDeprecated(dirPath, [&paths](const auto& path){
-        paths.push_back(path);
-    }, true);
-
-    ASSERT_TRUE(result);
-    EXPECT_EQ(paths.size(), 3); // dir, subdir, file1, file2 (recursive_directory_iterator includes the directories themselves)
-
-    // Non-recursive
-    paths.clear();
-    result = utils::traverseDirectoryDeprecated(dirPath, [&paths](const auto& path){
-        paths.push_back(path);
-    }, false);
-    
-    ASSERT_TRUE(result);
-    EXPECT_EQ(paths.size(), 2); // subdir, file1.txt
-
-    std::filesystem::remove_all(dirPath);
-}
-#pragma GCC diagnostic pop
 
 TEST(UtilsTest, Exists) {
     auto filePath = createTempFile("temp");
-    EXPECT_TRUE(utils::exists(filePath));
+    EXPECT_TRUE(utils::exists(filePath).value());
     std::filesystem::remove(filePath);
-    EXPECT_FALSE(utils::exists(filePath));
+    EXPECT_FALSE(utils::exists(filePath).value());
 
     auto dirPath = createTempDir();
-    EXPECT_TRUE(utils::exists(dirPath));
+    EXPECT_TRUE(utils::exists(dirPath).value());
     std::filesystem::remove(dirPath); // Remove directory
-    EXPECT_FALSE(utils::exists(dirPath));
+    EXPECT_FALSE(utils::exists(dirPath).value());
 }
 
 TEST(UtilsTest, IsFile) {
     auto filePath = createTempFile("temp");
-    EXPECT_TRUE(utils::isFile(filePath));
+    auto res1 = utils::isFile(filePath);
+    ASSERT_TRUE(res1.has_value()) << "IsFile failed: " << res1.error().message();
+    EXPECT_TRUE(res1.value());
+    
     std::filesystem::remove(filePath);
-    EXPECT_FALSE(utils::isFile(filePath));
+    auto res2 = utils::isFile(filePath);
+    ASSERT_TRUE(res2.has_value()) << "IsFile failed: " << res2.error().message();
+    EXPECT_FALSE(res2.value());
 
     auto dirPath = createTempDir();
-    EXPECT_FALSE(utils::isFile(dirPath));
+    auto res3 = utils::isFile(dirPath);
+    ASSERT_TRUE(res3.has_value()) << "IsFile failed: " << res3.error().message();
+    EXPECT_FALSE(res3.value());
     std::filesystem::remove(dirPath);
 }
 
 TEST(UtilsTest, IsDirectory) {
     auto dirPath = createTempDir();
-    EXPECT_TRUE(utils::isDirectory(dirPath));
+    auto res1 = utils::isDirectory(dirPath);
+    ASSERT_TRUE(res1.has_value()) << "IsDirectory failed: " << res1.error().message();
+    EXPECT_TRUE(res1.value());
+    
     std::filesystem::remove(dirPath);
-    EXPECT_FALSE(utils::isDirectory(dirPath));
+    auto res2 = utils::isDirectory(dirPath);
+    ASSERT_TRUE(res2.has_value()) << "IsDirectory failed: " << res2.error().message();
+    EXPECT_FALSE(res2.value());
 
     auto filePath = createTempFile("temp");
-    EXPECT_FALSE(utils::isDirectory(filePath));
+    auto res3 = utils::isDirectory(filePath);
+    ASSERT_TRUE(res3.has_value()) << "IsDirectory failed: " << res3.error().message();
+    EXPECT_FALSE(res3.value());
     std::filesystem::remove(filePath);
 }
 

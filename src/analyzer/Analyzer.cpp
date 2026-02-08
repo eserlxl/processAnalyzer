@@ -55,7 +55,7 @@ namespace {
     constexpr long kDefaultSystemClockTicks = 100;
 
 
-    std::expected<long long, AnalyzerErrorDetail> getTotalSystemCpuTimeTicks(std::string_view procPath) {
+    utils::Result<long long> getTotalSystemCpuTimeTicks(std::string_view procPath) {
         auto stats = ProcessAnalyzer(procPath).getSystemCpuStats();
         if(stats) {
             unsigned long long totalTicks = stats->user + stats->nice + stats->system + stats->idle + 
@@ -189,7 +189,7 @@ namespace {
                           << ::std::stoul(localAddrStr.substr(kIPv6AddrPartOffset2, kIPv6AddrPartHexLength), nullptr, kIPv6HexBase) << "(" << localAddrPart3 << "), "
                           << ::std::stoul(localAddrStr.substr(kIPv6AddrPartOffset3, kIPv6AddrPartHexLength), nullptr, kIPv6HexBase) << "(" << localAddrPart4 << ")" << ::std::endl;
 
-                for(int i=0; i<kIpv6LineDummyCount; ++i) { lineSs >> dummy; ::std::cerr << "Debug: IPv6 - Dummy field " << i+1 << ": " << dummy << ::std::endl;} // Use dummy here
+                for(int i=0; i<kIpv6LineDummyCount; ++i) { ::std::string dummyStr; lineSs >> dummyStr; ::std::cerr << "Debug: IPv6 - Dummy field " << i+1 << ": " << dummyStr << ::std::endl;} 
                 lineSs >> ::std::dec >> internalConn.inode;
                 ::std::cerr << "Debug: IPv6 - Parsed Inode: " << internalConn.inode << ::std::endl;
 
@@ -223,7 +223,7 @@ namespace {
                 lineSs >> ::std::hex >> localAddr >> colon >> localP
                        >> remoteAddr >> colon >> remoteP
                        >> state; // State was read as hex
-                for(int i=0; i<kIpv6LineDummyCount; ++i) lineSs >> dummy; // Use dummy here too
+                for(int i=0; i<kIpv6LineDummyCount; ++i) { ::std::string dummyStr; lineSs >> dummyStr; } // Use string dummy
                 lineSs >> ::std::dec >> internalConn.inode; // Added std::dec for IPv4
                 ::std::cerr << "Debug: IPv4 - Parsed Inode: " << internalConn.inode << ::std::endl;
                 
@@ -311,7 +311,7 @@ namespace {
 
 
     // Helper function to read environment variables for a process
-    std::expected<::std::vector<::std::string>, AnalyzerErrorDetail> readProcessEnvironmentVars(::std::string_view procPath, pid_t pid) {
+    utils::Result<::std::vector<::std::string>> readProcessEnvironmentVars(::std::string_view procPath, pid_t pid) {
         ::std::vector<::std::string> env;
         ::std::string environPath = ::std::string(procPath) + "/" + ::std::to_string(pid) + "/environ";
 
@@ -319,18 +319,9 @@ namespace {
         if (!environContentOpt) {
             ::std::string pidPath = ::std::string(procPath) + "/" + ::std::to_string(pid);
             if (!fs::exists(pidPath)) {
-                return ::std::unexpected(AnalyzerErrorDetail{
-                    .code = AnalyzerError::processNotFound,
-                    .message = "Process with PID " + ::std::to_string(pid) + " not found.",
-                    .systemErrno = ::std::nullopt
-                });
+                return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerProcessNotFound));
             }
-            int savedErrno = errno;
-            return ::std::unexpected(AnalyzerErrorDetail{
-                .code = AnalyzerError::permissionDenied,
-                .message = "Could not read environment for PID " + ::std::to_string(pid),
-                .systemErrno = savedErrno
-            });
+            return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerPermissionDenied));
         }
 
         ::std::string_view content = *environContentOpt;
@@ -344,7 +335,7 @@ namespace {
         return env;
     }
 
-    std::expected<::std::vector<ProcessInfo>, AnalyzerErrorDetail> getBasicSnapshot(const ProcessAnalyzer& analyzer) {
+    utils::Result<::std::vector<ProcessInfo>> getBasicSnapshot(const ProcessAnalyzer& analyzer) {
         ::std::vector<ProcessInfo> processes;
         auto pidsResult = analyzer.getPids();
         if (!pidsResult) {
@@ -355,7 +346,7 @@ namespace {
             auto details = analyzer.getProcessDetails(pid);
             if (details) {
                 processes.push_back(*details);
-            } else if (details.error().code != AnalyzerError::processNotFound) {
+            } else if (details.error() != utils::make_error_code(utils::UtilsError::analyzerProcessNotFound)) {
                 return ::std::unexpected(details.error());
             }
         }
@@ -368,14 +359,10 @@ constexpr size_t pwBufSize = 1024; // Define buffer size for getpwuid_r
 
 ProcessAnalyzer::ProcessAnalyzer(std::string_view procPath) : procPath(procPath) {}
 
-std::expected<::std::vector<int>, AnalyzerErrorDetail> ProcessAnalyzer::getPids() const {
+utils::Result<::std::vector<int>> ProcessAnalyzer::getPids() const {
     ::std::vector<int> pids;
     if (!fs::exists(procPath)) {
-        return ::std::unexpected(AnalyzerErrorDetail{
-            .code = AnalyzerError::fileNotFound,
-            .message = "Process directory not found at " + ::std::string(procPath),
-            .systemErrno = ::std::nullopt
-        });
+        return ::std::unexpected(utils::make_error_code(utils::UtilsError::fileNotFound));
     }
 
     try {
@@ -388,26 +375,18 @@ std::expected<::std::vector<int>, AnalyzerErrorDetail> ProcessAnalyzer::getPids(
             }
         }
     } catch (const fs::filesystem_error& e) {
-        return ::std::unexpected(AnalyzerErrorDetail{
-            .code = AnalyzerError::permissionDenied,
-            .message = "Failed to iterate process directory: " + ::std::string(e.what()),
-            .systemErrno = e.code().value()
-        });
+        return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerPermissionDenied));
     }
     return pids;
 }
 
-std::expected<ProcessInfo, AnalyzerErrorDetail> ProcessAnalyzer::getProcessDetails(pid_t pid) const {
+utils::Result<ProcessInfo> ProcessAnalyzer::getProcessDetails(pid_t pid) const {
     ProcessInfo info;
     info.pid = pid;
 
     ::std::string pidPath = ::std::string(procPath) + "/" + ::std::to_string(pid);
     if (!fs::exists(pidPath)) {
-        return ::std::unexpected(AnalyzerErrorDetail{
-            .code = AnalyzerError::processNotFound,
-            .message = "Process with PID " + ::std::to_string(pid) + " not found.",
-            .systemErrno = ::std::nullopt
-        });
+        return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerProcessNotFound));
     }
 
     ::std::string statusPath = pidPath + "/status";
@@ -434,12 +413,7 @@ std::expected<ProcessInfo, AnalyzerErrorDetail> ProcessAnalyzer::getProcessDetai
             }
         }
     } else {
-        int savedErrno = errno;
-        return ::std::unexpected(AnalyzerErrorDetail{
-            .code = AnalyzerError::fileNotFound,
-            .message = "Could not read status file for PID " + ::std::to_string(pid),
-            .systemErrno = savedErrno
-        });
+        return ::std::unexpected(utils::make_error_code(utils::UtilsError::fileNotFound));
     }
 
     ::std::string statPath = pidPath + "/stat";
@@ -545,7 +519,7 @@ std::expected<ProcessInfo, AnalyzerErrorDetail> ProcessAnalyzer::getProcessDetai
     return info;
 }
 
-std::expected<::std::vector<ProcessInfo>, AnalyzerErrorDetail> ProcessAnalyzer::snapshot() const {
+utils::Result<::std::vector<ProcessInfo>> ProcessAnalyzer::snapshot() const {
     ::std::map<int, ProcessInfo> processMap;
 
     auto basicProcessesResult = getBasicSnapshot(*this);
@@ -577,7 +551,7 @@ std::expected<::std::vector<ProcessInfo>, AnalyzerErrorDetail> ProcessAnalyzer::
     return results;
 }
 
-std::expected<::std::vector<ProcessCpuUsage>, AnalyzerErrorDetail> ProcessAnalyzer::getAllProcessesCpuUsage(::std::chrono::milliseconds durationMs) const {
+utils::Result<::std::vector<ProcessCpuUsage>> ProcessAnalyzer::getAllProcessesCpuUsage(::std::chrono::milliseconds durationMs) const {
     auto startTime = ::std::chrono::high_resolution_clock::now();
 
     auto initialSnapshotResult = getBasicSnapshot(*this);
@@ -637,16 +611,11 @@ std::expected<::std::vector<ProcessCpuUsage>, AnalyzerErrorDetail> ProcessAnalyz
     return results;
 }
 
-std::expected<SystemMemoryInfo, AnalyzerErrorDetail> ProcessAnalyzer::getSystemMemoryInfo() const {
+utils::Result<SystemMemoryInfo> ProcessAnalyzer::getSystemMemoryInfo() const {
     ::std::string meminfoPath = ::std::string(procPath) + "/meminfo";
     auto contentOpt = utils::readTextFile(meminfoPath);
     if (!contentOpt) {
-        int savedErrno = errno;
-        return ::std::unexpected(AnalyzerErrorDetail{
-            .code = AnalyzerError::fileNotFound,
-            .message = "Could not read /proc/meminfo",
-            .systemErrno = savedErrno
-        });
+        return ::std::unexpected(utils::make_error_code(utils::UtilsError::fileNotFound));
     }
 
     SystemMemoryInfo memInfo;
@@ -671,16 +640,11 @@ std::expected<SystemMemoryInfo, AnalyzerErrorDetail> ProcessAnalyzer::getSystemM
     return memInfo;
 }
 
-std::expected<SystemLoadAverage, AnalyzerErrorDetail> ProcessAnalyzer::getSystemLoadAverage() const {
+utils::Result<SystemLoadAverage> ProcessAnalyzer::getSystemLoadAverage() const {
     ::std::string loadavgPath = ::std::string(procPath) + "/loadavg";
     auto contentOpt = utils::readTextFile(loadavgPath);
     if (!contentOpt) {
-        int savedErrno = errno;
-        return ::std::unexpected(AnalyzerErrorDetail{
-            .code = AnalyzerError::fileNotFound,
-            .message = "Could not read /proc/loadavg",
-            .systemErrno = savedErrno
-        });
+        return ::std::unexpected(utils::make_error_code(utils::UtilsError::fileNotFound));
     }
 
     SystemLoadAverage loadAvg;
@@ -689,16 +653,11 @@ std::expected<SystemLoadAverage, AnalyzerErrorDetail> ProcessAnalyzer::getSystem
     return loadAvg;
 }
 
-std::expected<SystemCpuStats, AnalyzerErrorDetail> ProcessAnalyzer::getSystemCpuStats() const {
+utils::Result<SystemCpuStats> ProcessAnalyzer::getSystemCpuStats() const {
     ::std::string statPath = ::std::string(procPath) + "/stat";
     auto contentOpt = utils::readTextFile(statPath);
     if (!contentOpt) {
-        int savedErrno = errno;
-        return ::std::unexpected(AnalyzerErrorDetail{
-            .code = AnalyzerError::fileNotFound,
-            .message = "Could not read /proc/stat",
-            .systemErrno = savedErrno
-        });
+        return ::std::unexpected(utils::make_error_code(utils::UtilsError::fileNotFound));
     }
 
     ::std::stringstream ss(*contentOpt);
@@ -714,15 +673,11 @@ std::expected<SystemCpuStats, AnalyzerErrorDetail> ProcessAnalyzer::getSystemCpu
         return stats;
     }
 
-    return ::std::unexpected(AnalyzerErrorDetail{
-        .code = AnalyzerError::parsingError,
-        .message = "Could not find 'cpu' line in /proc/stat",
-        .systemErrno = ::std::nullopt
-    });
+    return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerParsingError));
 }
 
 
-std::expected<::std::vector<ProcessInfo>, AnalyzerErrorDetail> ProcessAnalyzer::findProcesses(const ProcessPredicate& predicate) const {
+utils::Result<::std::vector<ProcessInfo>> ProcessAnalyzer::findProcesses(const ProcessPredicate& predicate) const {
     auto allProcessesResult = snapshot();
     if (!allProcessesResult) {
         return ::std::unexpected(allProcessesResult.error());
@@ -737,7 +692,7 @@ std::expected<::std::vector<ProcessInfo>, AnalyzerErrorDetail> ProcessAnalyzer::
     return filtered;
 }
 
-std::expected<::std::vector<ProcessInfo>, AnalyzerErrorDetail> ProcessAnalyzer::queryProcesses(
+utils::Result<::std::vector<ProcessInfo>> ProcessAnalyzer::queryProcesses(
     const ProcessFilter& filter,
     ProcessSortField sortBy,
     SortOrder sortOrder
@@ -790,7 +745,7 @@ std::expected<::std::vector<ProcessInfo>, AnalyzerErrorDetail> ProcessAnalyzer::
     return filteredProcesses;
 }
 
-std::expected<::std::vector<ProcessInfo>, AnalyzerErrorDetail> ProcessAnalyzer::getChildProcesses(int pid) const {
+utils::Result<::std::vector<ProcessInfo>> ProcessAnalyzer::getChildProcesses(int pid) const {
     auto allProcessesResult = snapshot();
     if (!allProcessesResult) {
         return ::std::unexpected(allProcessesResult.error());
@@ -804,7 +759,7 @@ std::expected<::std::vector<ProcessInfo>, AnalyzerErrorDetail> ProcessAnalyzer::
     return children;
 }
 
-std::expected<ProcessCpuUsage, AnalyzerErrorDetail> ProcessAnalyzer::getProcessCpuUsage(pid_t pid, ::std::chrono::milliseconds durationMs) const {
+utils::Result<ProcessCpuUsage> ProcessAnalyzer::getProcessCpuUsage(pid_t pid, ::std::chrono::milliseconds durationMs) const {
     auto startTime = ::std::chrono::high_resolution_clock::now();
 
     auto initialDetailsResult = getProcessDetails(pid);
@@ -853,26 +808,22 @@ std::expected<ProcessCpuUsage, AnalyzerErrorDetail> ProcessAnalyzer::getProcessC
 
 
 
-std::expected<::std::vector<::std::string>, AnalyzerErrorDetail> ProcessAnalyzer::getProcessEnvironment(pid_t pid) const {
+utils::Result<::std::vector<::std::string>> ProcessAnalyzer::getProcessEnvironment(pid_t pid) const {
     return readProcessEnvironmentVars(procPath, pid);
 }
 
-std::expected<ProcessInfo, AnalyzerErrorDetail> ProcessAnalyzer::getParentProcess(pid_t pid) const {
+utils::Result<ProcessInfo> ProcessAnalyzer::getParentProcess(pid_t pid) const {
     auto detailsResult = getProcessDetails(pid);
     if (!detailsResult) {
         return ::std::unexpected(detailsResult.error());
     }
     if (detailsResult->ppid == 0) {
-        return ::std::unexpected(AnalyzerErrorDetail{
-            .code = AnalyzerError::processNotFound,
-            .message = "Process " + ::std::to_string(pid) + " has no parent (it might be the init process).",
-            .systemErrno = ::std::nullopt
-        });
+        return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerProcessNotFound));
     }
     return getProcessDetails(detailsResult->ppid);
 }
 
-std::expected<::std::vector<ProcessInfo>, AnalyzerErrorDetail> ProcessAnalyzer::getAllDescendantProcesses(pid_t pid) const {
+utils::Result<::std::vector<ProcessInfo>> ProcessAnalyzer::getAllDescendantProcesses(pid_t pid) const {
     auto allProcessesResult = snapshot();
     if (!allProcessesResult) {
         return ::std::unexpected(allProcessesResult.error());
@@ -900,65 +851,45 @@ std::expected<::std::vector<ProcessInfo>, AnalyzerErrorDetail> ProcessAnalyzer::
     return descendants;
 }
 
-std::expected<long, AnalyzerErrorDetail> ProcessAnalyzer::getSystemClockTicksPerSecond() {
+utils::Result<long> ProcessAnalyzer::getSystemClockTicksPerSecond() {
     long ticks = sysconf(_SC_CLK_TCK);
     if (ticks < 0) {
-        return ::std::unexpected(AnalyzerErrorDetail{
-            .code = AnalyzerError::systemError,
-            .message = "Failed to get system clock ticks per second.",
-            .systemErrno = errno
-        });
+        return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerSystemError));
     }
     return ticks;
 }
 
 
-std::expected<void, AnalyzerErrorDetail> ProcessAnalyzer::sendSignal(int pid, ProcessSignal signal) {
+utils::Result<void> ProcessAnalyzer::sendSignal(int pid, ProcessSignal signal) {
     if (::kill(pid, static_cast<int>(signal)) == 0) {
         return {};
     }
 
-    AnalyzerError errCode;
-    ::std::string errMsg;
+    utils::UtilsError errCode;
     switch (errno) {
         case ESRCH:
-            errCode = AnalyzerError::processNotFound;
-            errMsg = "Process with PID " + ::std::to_string(pid) + " not found.";
+            errCode = utils::UtilsError::analyzerProcessNotFound;
             break;
         case EPERM:
-            errCode = AnalyzerError::permissionDenied;
-            errMsg = "Permission denied to send signal to PID " + ::std::to_string(pid) + ".";
+            errCode = utils::UtilsError::analyzerPermissionDenied;
             break;
         default:
-            errCode = AnalyzerError::systemError;
-            errMsg = "Failed to send signal to PID " + ::std::to_string(pid) + ".";
+            errCode = utils::UtilsError::analyzerSystemError;
             break;
     }
-    return ::std::unexpected(AnalyzerErrorDetail{
-        .code = errCode,
-        .message = errMsg,
-        .systemErrno = errno
-    });
+    return ::std::unexpected(utils::make_error_code(errCode));
 }
 
-std::expected<::std::vector<ThreadInfo>, AnalyzerErrorDetail> ProcessAnalyzer::getProcessThreads(pid_t pid) const {
+utils::Result<::std::vector<ThreadInfo>> ProcessAnalyzer::getProcessThreads(pid_t pid) const {
     ::std::vector<ThreadInfo> threads;
     ::std::string taskPath = ::std::string(procPath) + "/" + ::std::to_string(pid) + "/task";
 
     if (!fs::exists(taskPath) || !fs::is_directory(taskPath)) {
         ::std::string pidPath = ::std::string(procPath) + "/" + ::std::to_string(pid);
         if (!fs::exists(pidPath)) {
-            return ::std::unexpected(AnalyzerErrorDetail{
-                .code = AnalyzerError::processNotFound,
-                .message = "Process with PID " + ::std::to_string(pid) + " not found.",
-                .systemErrno = ::std::nullopt
-            });
+            return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerProcessNotFound));
         }
-        return ::std::unexpected(AnalyzerErrorDetail{
-            .code = AnalyzerError::permissionDenied,
-            .message = "Cannot access task directory for PID " + ::std::to_string(pid),
-            .systemErrno = ::std::nullopt
-        });
+        return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerPermissionDenied));
     }
 
     try {
@@ -1000,26 +931,17 @@ std::expected<::std::vector<ThreadInfo>, AnalyzerErrorDetail> ProcessAnalyzer::g
             }
         }
     } catch (const fs::filesystem_error& e) {
-        return ::std::unexpected(AnalyzerErrorDetail{
-            .code = AnalyzerError::permissionDenied,
-            .message = "Failed to iterate task directory for PID " + ::std::to_string(pid) + ": " + e.what(),
-            .systemErrno = e.code().value()
-        });
+        return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerPermissionDenied));
     }
     return threads;
 }
 
-std::expected<::std::vector<MountPointInfo>, AnalyzerErrorDetail> ProcessAnalyzer::getSystemDiskUsage() const {
+utils::Result<::std::vector<MountPointInfo>> ProcessAnalyzer::getSystemDiskUsage() const {
     ::std::vector<MountPointInfo> mounts;
     ::std::string mountsPath = ::std::string(procPath) + "/mounts";
     auto contentOpt = utils::readTextFile(mountsPath);
     if (!contentOpt) {
-        int savedErrno = errno;
-        return ::std::unexpected(AnalyzerErrorDetail{
-            .code = AnalyzerError::fileNotFound,
-            .message = "Could not read " + mountsPath,
-            .systemErrno = savedErrno
-        });
+        return ::std::unexpected(utils::make_error_code(utils::UtilsError::fileNotFound));
     }
 
     ::std::stringstream ss(*contentOpt);
@@ -1046,7 +968,7 @@ std::expected<::std::vector<MountPointInfo>, AnalyzerErrorDetail> ProcessAnalyze
     return mounts;
 }
 
-std::expected<SystemInfo, AnalyzerErrorDetail> ProcessAnalyzer::getSystemInfo() const {
+utils::Result<SystemInfo> ProcessAnalyzer::getSystemInfo() const {
     SystemInfo sysInfo;
     const ::std::string procPathStr(procPath);
 
@@ -1057,24 +979,14 @@ std::expected<SystemInfo, AnalyzerErrorDetail> ProcessAnalyzer::getSystemInfo() 
         ss >> uptimeSecs;
         sysInfo.uptime = ::std::chrono::seconds(static_cast<long long>(uptimeSecs));
     } else {
-        int savedErrno = errno;
-        return ::std::unexpected(AnalyzerErrorDetail{
-            .code = AnalyzerError::fileNotFound,
-            .message = "Could not read " + uptimePath,
-            .systemErrno = savedErrno
-        });
+        return ::std::unexpected(utils::make_error_code(utils::UtilsError::fileNotFound));
     }
 
     ::std::string versionPath = procPathStr + "/version";
     if (auto content = utils::readTextFile(versionPath)) {
         sysInfo.kernelVersion = utils::trim(*content);
     } else {
-        int savedErrno = errno;
-        return ::std::unexpected(AnalyzerErrorDetail{
-            .code = AnalyzerError::fileNotFound,
-            .message = "Could not read " + versionPath,
-            .systemErrno = savedErrno
-        });
+        return ::std::unexpected(utils::make_error_code(utils::UtilsError::fileNotFound));
     }
 
     if (auto content = utils::readTextFile("/etc/os-release")) {
@@ -1096,18 +1008,13 @@ std::expected<SystemInfo, AnalyzerErrorDetail> ProcessAnalyzer::getSystemInfo() 
     if (gethostname(hostname.data(), hostname.size()) == 0) {
         sysInfo.hostname = hostname.data();
     } else {
-        int savedErrno = errno;
-        return ::std::unexpected(AnalyzerErrorDetail{
-            .code = AnalyzerError::systemError,
-            .message = "Could not get hostname.",
-            .systemErrno = savedErrno
-        });
+        return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerSystemError));
     }
     
     return sysInfo;
 }
 
-std::expected<SystemCpuUsage, AnalyzerErrorDetail> ProcessAnalyzer::getSystemCpuUsage(::std::chrono::milliseconds durationMs) const {
+utils::Result<SystemCpuUsage> ProcessAnalyzer::getSystemCpuUsage(::std::chrono::milliseconds durationMs) const {
     auto startTime = ::std::chrono::high_resolution_clock::now();
 
     auto initialStatsResult = getSystemCpuStats();
@@ -1137,7 +1044,7 @@ std::expected<SystemCpuUsage, AnalyzerErrorDetail> ProcessAnalyzer::getSystemCpu
     return SystemCpuUsage{usage};
 }
 
-std::expected<ProcessDiskIoUsage, AnalyzerErrorDetail> ProcessAnalyzer::getProcessDiskIoUsage(pid_t pid, ::std::chrono::milliseconds durationMs) const {
+utils::Result<ProcessDiskIoUsage> ProcessAnalyzer::getProcessDiskIoUsage(pid_t pid, ::std::chrono::milliseconds durationMs) const {
     auto startTime = ::std::chrono::high_resolution_clock::now();
 
     auto initialDetailsResult = getProcessDetails(pid);
@@ -1172,7 +1079,7 @@ std::expected<ProcessDiskIoUsage, AnalyzerErrorDetail> ProcessAnalyzer::getProce
     };
 }
 
-std::expected<::std::vector<ProcessDiskIoUsage>, AnalyzerErrorDetail> ProcessAnalyzer::getAllProcessesDiskIoUsage(::std::chrono::milliseconds durationMs) const {
+utils::Result<::std::vector<ProcessDiskIoUsage>> ProcessAnalyzer::getAllProcessesDiskIoUsage(::std::chrono::milliseconds durationMs) const {
     auto startTime = ::std::chrono::high_resolution_clock::now();
 
     auto initialSnapshotResult = snapshot();
@@ -1214,7 +1121,7 @@ std::expected<::std::vector<ProcessDiskIoUsage>, AnalyzerErrorDetail> ProcessAna
     return results;
 }
 
-std::expected<::std::vector<OpenFileDescriptorInfo>, AnalyzerErrorDetail> ProcessAnalyzer::getProcessOpenFileDetails(pid_t pid) const {
+utils::Result<::std::vector<OpenFileDescriptorInfo>> ProcessAnalyzer::getProcessOpenFileDetails(pid_t pid) const {
     ::std::vector<OpenFileDescriptorInfo> openFds;
     ::std::string fdPath = ::std::string(procPath) + "/" + ::std::to_string(pid) + "/fd";
 
@@ -1222,18 +1129,9 @@ std::expected<::std::vector<OpenFileDescriptorInfo>, AnalyzerErrorDetail> Proces
     if (!dir) {
         ::std::string pidPath = ::std::string(procPath) + "/" + ::std::to_string(pid);
         if (!fs::exists(pidPath)) {
-            return ::std::unexpected(AnalyzerErrorDetail{
-                .code = AnalyzerError::processNotFound,
-                .message = "Process with PID " + ::std::to_string(pid) + " not found.",
-                .systemErrno = ::std::nullopt
-            });
+            return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerProcessNotFound));
         }
-        int savedErrno = errno;
-        return ::std::unexpected(AnalyzerErrorDetail{
-            .code = AnalyzerError::permissionDenied,
-            .message = "Cannot access file descriptor directory for PID " + ::std::to_string(pid),
-            .systemErrno = savedErrno
-        });
+        return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerPermissionDenied));
     }
     int dirFd = dirfd(dir);
 
@@ -1279,18 +1177,14 @@ std::expected<::std::vector<OpenFileDescriptorInfo>, AnalyzerErrorDetail> Proces
         }
     } catch (const fs::filesystem_error& e) {
         closedir(dir);
-        return ::std::unexpected(AnalyzerErrorDetail{
-            .code = AnalyzerError::permissionDenied,
-            .message = "Failed to iterate open files directory for PID " + ::std::to_string(pid) + ": " + e.what(),
-            .systemErrno = e.code().value()
-        });
+        return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerPermissionDenied));
     }
 
     closedir(dir);
     return openFds;
 }
 
-std::expected<::std::vector<NetworkConnection>, AnalyzerErrorDetail> ProcessAnalyzer::getNetworkConnections(int pid) const {
+utils::Result<::std::vector<NetworkConnection>> ProcessAnalyzer::getNetworkConnections(int pid) const {
     auto fdsResult = getProcessOpenFileDetails(pid);
     if (!fdsResult) {
         return ::std::unexpected(fdsResult.error());
@@ -1330,6 +1224,11 @@ std::expected<::std::vector<NetworkConnection>, AnalyzerErrorDetail> ProcessAnal
     ::std::cerr << ::std::endl;
     
     ::std::vector<NetworkConnection> connections;
+    for (const auto& conn : allInternalConnections) {
+        if (socketInodes.count(conn.inode)) {
+            connections.push_back(conn.baseConn);
+        }
+    }
 
     return connections;
 }
@@ -1414,7 +1313,7 @@ std::generator<ProcessInfo> ProcessAnalyzer::streamQueryProcesses(
     }
 }
 
-std::expected<::std::vector<MemoryMapInfo>, AnalyzerErrorDetail> ProcessAnalyzer::getProcessMemoryMaps(pid_t pid) const {
+utils::Result<::std::vector<MemoryMapInfo>> ProcessAnalyzer::getProcessMemoryMaps(pid_t pid) const {
     ::std::vector<MemoryMapInfo> maps;
     ::std::string mapsPath = ::std::string(procPath) + "/" + ::std::to_string(pid) + "/maps";
 
@@ -1422,10 +1321,9 @@ std::expected<::std::vector<MemoryMapInfo>, AnalyzerErrorDetail> ProcessAnalyzer
     if (!contentOpt) {
         ::std::string pidPath = ::std::string(procPath) + "/" + ::std::to_string(pid);
         if (!fs::exists(pidPath)) {
-            return ::std::unexpected(AnalyzerErrorDetail{.code = AnalyzerError::processNotFound, .message = "Process with PID " + ::std::to_string(pid) + " not found.", .systemErrno = ::std::nullopt});
+            return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerProcessNotFound));
         }
-        int savedErrno = errno;
-        return ::std::unexpected(AnalyzerErrorDetail{.code = AnalyzerError::permissionDenied, .message = "Could not read memory maps for PID " + ::std::to_string(pid), .systemErrno = savedErrno});
+        return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerPermissionDenied));
     }
 
     ::std::stringstream ss(*contentOpt);
@@ -1454,7 +1352,7 @@ std::expected<::std::vector<MemoryMapInfo>, AnalyzerErrorDetail> ProcessAnalyzer
     return maps;
 }
 
-std::expected<ResourceLimitInfo, AnalyzerErrorDetail> ProcessAnalyzer::getProcessResourceLimits(pid_t pid) const {
+utils::Result<ResourceLimitInfo> ProcessAnalyzer::getProcessResourceLimits(pid_t pid) const {
     ResourceLimitInfo limitInfo;
     ::std::string limitsPath = ::std::string(procPath) + "/" + ::std::to_string(pid) + "/limits";
 
@@ -1462,10 +1360,9 @@ std::expected<ResourceLimitInfo, AnalyzerErrorDetail> ProcessAnalyzer::getProces
     if (!contentOpt) {
         ::std::string pidPath = ::std::string(procPath) + "/" + ::std::to_string(pid);
         if (!fs::exists(pidPath)) {
-            return ::std::unexpected(AnalyzerErrorDetail{.code = AnalyzerError::processNotFound, .message = "Process with PID " + ::std::to_string(pid) + " not found.", .systemErrno = ::std::nullopt});
+            return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerProcessNotFound));
         }
-        int savedErrno = errno;
-        return ::std::unexpected(AnalyzerErrorDetail{.code = AnalyzerError::fileNotFound, .message = "Could not read limits for PID " + ::std::to_string(pid), .systemErrno = savedErrno });
+        return ::std::unexpected(utils::make_error_code(utils::UtilsError::fileNotFound));
     }
 
     ::std::stringstream ss(*contentOpt);
@@ -1478,7 +1375,7 @@ std::expected<ResourceLimitInfo, AnalyzerErrorDetail> ProcessAnalyzer::getProces
     size_t unitsPos = header.find("Units");
 
     if (softLimitPos == ::std::string::npos || hardLimitPos == ::std::string::npos || unitsPos == ::std::string::npos) {
-        return ::std::unexpected(AnalyzerErrorDetail{.code = AnalyzerError::parsingError, .message = "Could not parse limits file header for PID " + ::std::to_string(pid), .systemErrno = ::std::nullopt});
+        return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerParsingError));
     }
 
     while (::std::getline(ss, line)) {
@@ -1498,7 +1395,7 @@ std::expected<ResourceLimitInfo, AnalyzerErrorDetail> ProcessAnalyzer::getProces
     return limitInfo;
 }
 
-std::expected<CgroupInfo, AnalyzerErrorDetail> ProcessAnalyzer::getProcessCgroupInfo(pid_t pid) const {
+utils::Result<CgroupInfo> ProcessAnalyzer::getProcessCgroupInfo(pid_t pid) const {
     CgroupInfo cgroupInfo;
     ::std::string cgroupPath = ::std::string(procPath) + "/" + ::std::to_string(pid) + "/cgroup";
 
@@ -1506,10 +1403,9 @@ std::expected<CgroupInfo, AnalyzerErrorDetail> ProcessAnalyzer::getProcessCgroup
      if (!contentOpt) {
         ::std::string pidPath = ::std::string(procPath) + "/" + ::std::to_string(pid);
         if (!fs::exists(pidPath)) {
-            return ::std::unexpected(AnalyzerErrorDetail{.code = AnalyzerError::processNotFound, .message = "Process with PID " + ::std::to_string(pid) + " not found.", .systemErrno = ::std::nullopt});
+            return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerProcessNotFound));
         }
-        int savedErrno = errno;
-        return ::std::unexpected(AnalyzerErrorDetail{ .code = AnalyzerError::fileNotFound, .message = "Could not read cgroup for PID " + ::std::to_string(pid), .systemErrno = savedErrno });
+        return ::std::unexpected(utils::make_error_code(utils::UtilsError::fileNotFound));
     }
     
     ::std::stringstream ss(*contentOpt);
@@ -1528,18 +1424,14 @@ std::expected<CgroupInfo, AnalyzerErrorDetail> ProcessAnalyzer::getProcessCgroup
 }
 
 // Implementations for NEW API methods
-std::expected<void, AnalyzerErrorDetail> ProcessAnalyzer::setProcessNiceness(pid_t pid, int niceness) {
+utils::Result<void> ProcessAnalyzer::setProcessNiceness(pid_t pid, int niceness) {
     if (setpriority(PRIO_PROCESS, pid, niceness) == 0) {
         return {};
     }
-    return ::std::unexpected(AnalyzerErrorDetail{
-        .code = (errno == EACCES || errno == EPERM) ? AnalyzerError::permissionDenied : AnalyzerError::systemError,
-        .message = "Failed to set process niceness.",
-        .systemErrno = errno
-    });
+    return ::std::unexpected(utils::make_error_code((errno == EACCES || errno == EPERM) ? utils::UtilsError::analyzerPermissionDenied : utils::UtilsError::analyzerSystemError));
 }
 
-std::expected<void, AnalyzerErrorDetail> ProcessAnalyzer::setProcessCpuAffinity(pid_t pid, const CpuSet& affinity) {
+utils::Result<void> ProcessAnalyzer::setProcessCpuAffinity(pid_t pid, const CpuSet& affinity) {
     cpu_set_t set;
     CPU_ZERO(&set);
     for (int cpu : affinity.cpus) {
@@ -1548,14 +1440,10 @@ std::expected<void, AnalyzerErrorDetail> ProcessAnalyzer::setProcessCpuAffinity(
     if (sched_setaffinity(pid, sizeof(cpu_set_t), &set) == 0) {
         return {};
     }
-    return ::std::unexpected(AnalyzerErrorDetail{
-        .code = (errno == EACCES || errno == EPERM) ? AnalyzerError::permissionDenied : AnalyzerError::systemError,
-        .message = "Failed to set process CPU affinity.",
-        .systemErrno = errno
-    });
+    return ::std::unexpected(utils::make_error_code((errno == EACCES || errno == EPERM) ? utils::UtilsError::analyzerPermissionDenied : utils::UtilsError::analyzerSystemError));
 }
 
-std::expected<PerCpuUsage, AnalyzerErrorDetail> ProcessAnalyzer::getPerCpuUsage(::std::chrono::milliseconds durationMs) const {
+utils::Result<PerCpuUsage> ProcessAnalyzer::getPerCpuUsage(::std::chrono::milliseconds durationMs) const {
     struct CpuSnapshot {
         unsigned long long total;
         unsigned long long idle;
@@ -1597,7 +1485,7 @@ std::expected<PerCpuUsage, AnalyzerErrorDetail> ProcessAnalyzer::getPerCpuUsage(
 
     ::std::string statPath = ::std::string(procPath) + "/stat";
     auto initialSnapshots = getSnapshots(statPath);
-    if (initialSnapshots.empty()) return ::std::unexpected(AnalyzerErrorDetail{.code=AnalyzerError::parsingError, .message="Failed to parse /proc/stat", .systemErrno = ::std::nullopt});
+    if (initialSnapshots.empty()) return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerParsingError));
 
     ::std::this_thread::sleep_for(durationMs);
 
@@ -1605,7 +1493,7 @@ std::expected<PerCpuUsage, AnalyzerErrorDetail> ProcessAnalyzer::getPerCpuUsage(
     [[maybe_unused]] auto actualDuration = ::std::chrono::duration_cast<::std::chrono::milliseconds>(endTime - startTime);
 
     auto finalSnapshots = getSnapshots(statPath);
-    if (finalSnapshots.empty()) return ::std::unexpected(AnalyzerErrorDetail{.code=AnalyzerError::parsingError, .message="Failed to parse /proc/stat", .systemErrno = ::std::nullopt});
+    if (finalSnapshots.empty()) return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerParsingError));
 
     PerCpuUsage usage;
     for (size_t i = 0; i < initialSnapshots.size() && i < finalSnapshots.size(); ++i) {
@@ -1621,13 +1509,12 @@ std::expected<PerCpuUsage, AnalyzerErrorDetail> ProcessAnalyzer::getPerCpuUsage(
     return usage;
 }
 
-std::expected<::std::vector<DiskIoDeviceStats>, AnalyzerErrorDetail> ProcessAnalyzer::getSystemDiskIoStats() const {
+utils::Result<::std::vector<DiskIoDeviceStats>> ProcessAnalyzer::getSystemDiskIoStats() const {
     ::std::vector<DiskIoDeviceStats> stats;
     ::std::string diskStatsPath = ::std::string(procPath) + "/diskstats";
     auto contentOpt = utils::readTextFile(diskStatsPath);
     if (!contentOpt) {
-        int savedErrno = errno;
-        return ::std::unexpected(AnalyzerErrorDetail{.code=AnalyzerError::fileNotFound, .message="Could not read /proc/diskstats", .systemErrno = savedErrno});
+        return ::std::unexpected(utils::make_error_code(utils::UtilsError::fileNotFound));
     }
     
     ::std::stringstream ss(*contentOpt);
@@ -1649,13 +1536,12 @@ std::expected<::std::vector<DiskIoDeviceStats>, AnalyzerErrorDetail> ProcessAnal
     return stats;
 }
 
-std::expected<::std::vector<NetworkInterfaceStats>, AnalyzerErrorDetail> ProcessAnalyzer::getNetworkInterfaceStats() const {
+utils::Result<::std::vector<NetworkInterfaceStats>> ProcessAnalyzer::getNetworkInterfaceStats() const {
     ::std::vector<NetworkInterfaceStats> stats;
     ::std::string netDevPath = ::std::string(procPath) + "/net/dev";
     auto contentOpt = utils::readTextFile(netDevPath);
     if (!contentOpt) {
-        int savedErrno = errno;
-        return ::std::unexpected(AnalyzerErrorDetail{.code=AnalyzerError::fileNotFound, .message="Could not read /proc/net/dev", .systemErrno = savedErrno});
+        return ::std::unexpected(utils::make_error_code(utils::UtilsError::fileNotFound));
     }
 
     ::std::stringstream ss(*contentOpt);
@@ -1681,7 +1567,7 @@ std::expected<::std::vector<NetworkInterfaceStats>, AnalyzerErrorDetail> Process
     return stats;
 }
 
-std::expected<SystemActivityStats, AnalyzerErrorDetail> ProcessAnalyzer::getSystemActivityStats() const {
+utils::Result<SystemActivityStats> ProcessAnalyzer::getSystemActivityStats() const {
     SystemActivityStats stats;
     stats.interruptsTotal = 0;
     stats.contextSwitches = 0;
@@ -1690,8 +1576,7 @@ std::expected<SystemActivityStats, AnalyzerErrorDetail> ProcessAnalyzer::getSyst
     ::std::string statPath = ::std::string(procPath) + "/stat";
     auto contentOpt = utils::readTextFile(statPath);
     if (!contentOpt) {
-         int savedErrno = errno;
-         return ::std::unexpected(AnalyzerErrorDetail{.code=AnalyzerError::fileNotFound, .message="Could not read /proc/stat", .systemErrno = savedErrno});
+         return ::std::unexpected(utils::make_error_code(utils::UtilsError::fileNotFound));
     }
 
     ::std::stringstream ss(*contentOpt);

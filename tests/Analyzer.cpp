@@ -136,7 +136,7 @@ TEST_F(ProcessAnalyzerTest, GetProcessDetailsForNonExistentPid) {
     ProcessAnalyzer analyzer(mockProc->getPath());
     auto infoOpt = analyzer.getProcessDetails(kNonExistentPid);
     ASSERT_FALSE(infoOpt.has_value());
-    EXPECT_EQ(infoOpt.error().code, AnalyzerError::processNotFound);
+    EXPECT_EQ(infoOpt.error(), utils::make_error_code(utils::UtilsError::analyzerProcessNotFound));
 }
 
 TEST_F(ProcessAnalyzerTest, GetProcessDetailsForZombieProcess) {
@@ -183,6 +183,7 @@ TEST_F(ProcessAnalyzerTest, GetSystemMemoryInfo) {
     ProcessAnalyzer analyzerNoFile("nonexistent_path");
     auto memInfoFailOpt = analyzerNoFile.getSystemMemoryInfo();
     ASSERT_FALSE(memInfoFailOpt.has_value());
+    EXPECT_EQ(memInfoFailOpt.error(), utils::make_error_code(utils::UtilsError::fileNotFound));
 }
 
 TEST_F(ProcessAnalyzerTest, GetSystemLoadAverage) {
@@ -198,6 +199,7 @@ TEST_F(ProcessAnalyzerTest, GetSystemLoadAverage) {
     ProcessAnalyzer analyzerNoFile("nonexistent_path");
     auto loadAvgFailOpt = analyzerNoFile.getSystemLoadAverage();
     ASSERT_FALSE(loadAvgFailOpt.has_value());
+    EXPECT_EQ(loadAvgFailOpt.error(), utils::make_error_code(utils::UtilsError::fileNotFound));
 }
 
 TEST_F(ProcessAnalyzerTest, GetSystemCpuStats) {
@@ -218,6 +220,7 @@ TEST_F(ProcessAnalyzerTest, GetSystemCpuStats) {
     ProcessAnalyzer analyzerNoFile("nonexistent_path");
     auto cpuStatsFailOpt = analyzerNoFile.getSystemCpuStats();
     ASSERT_FALSE(cpuStatsFailOpt.has_value());
+    EXPECT_EQ(cpuStatsFailOpt.error(), utils::make_error_code(utils::UtilsError::fileNotFound));
 }
 
 TEST_F(ProcessAnalyzerTest, QueryProcessesFiltering) {
