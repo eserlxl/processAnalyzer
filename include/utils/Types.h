@@ -170,7 +170,7 @@ inline const UtilsErrorCategory& utilsErrorCategory() {
 }
 
 // Define make_error_code inline in the header.
-inline ::std::error_code makeErrorCode(UtilsError e) {
+inline ::std::error_code make_error_code(UtilsError e) {
     return {static_cast<int>(e), utilsErrorCategory()};
 }
 
