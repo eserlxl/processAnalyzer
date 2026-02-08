@@ -143,7 +143,9 @@ protected:
             // The goal is to verify the *logic* of the check, not necessarily an actual overflow.
         
             const fs::path testFilePath = testDir / "large_file_test.bin";
-            std::vector<std::byte> dummyContent(100, std::byte{0xAA}); // Small content
+            constexpr size_t dummyContentSize = 100;
+            constexpr std::byte dummyByteValue{0xAA};
+            std::vector<std::byte> dummyContent(dummyContentSize, dummyByteValue); // Small content
         
             // Create a large size value that would exceed std::streamsize::max() if it were 32-bit
             // Even if streamsize is 64-bit, this test ensures the conditional check path is present.
@@ -572,7 +574,7 @@ protected:
         
             // We'll simulate a rename failure by attempting to rename over a read-only directory
             // (which is not allowed), which will cause rename to fail and trigger cleanup.
-            fs::path blockingDir = testTarget; // Target is now a directory
+            const fs::path& blockingDir = testTarget; // Target is now a directory
             fs::remove(testTarget); // Remove initial file FIRST
             fs::create_directory(blockingDir); // Create a directory at target name
         

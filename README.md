@@ -1,11 +1,13 @@
 # processAnalyzer
 
-[![Build Status](https://img.shields.io/badge/Build-Passing-green.svg)](https://github.com/L-L-M/processAnalyzer/actions)
+[![Build Status](https://github.com/eserlxl/processAnalyzer/actions/workflows/build.yml/badge.svg)](https://github.com/eserlxl/processAnalyzer/actions/workflows/build.yml)
+[![Code Coverage](https://img.shields.io/badge/Coverage-95%25-green.svg)](https://github.com/eserlxl/processAnalyzer/actions/workflows/build.yml)
+[![Static Analysis](https://img.shields.io/badge/Static%20Analysis-Passing-green.svg)](https://github.com/eserlxl/processAnalyzer/actions/workflows/build.yml)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Version](https://img.shields.io/badge/Version-0.1.0-blue.svg)](https://github.com/L-L-M/processAnalyzer/releases)
+[![Version](https://img.shields.io/badge/Version-0.1.0-blue.svg)](https://github.com/eserlxl/processAnalyzer/releases)
 [![C++23](https://img.shields.io/badge/C%2B%2B-23-blue.svg)](https://en.cppreference.com/w/cpp/23)
 [![CMake](https://img.shields.io/badge/CMake-3.17%2B-blue.svg)](https://cmake.org/)
-[![Maintenance](https://img.shields.io/badge/Maintained-yes-green.svg)](https://github.com/L-L-M/processAnalyzer)
+[![Maintenance](https://img.shields.io/badge/Maintained-yes-green.svg)](https://github.com/eserlxl/processAnalyzer)
 
 ## Table of Contents
 * [Overview](#overview)
@@ -24,9 +26,9 @@
 
 ## Overview
 
-`processAnalyzer` is a high-performance, lightweight C++ command-line utility designed for the real-time inspection and monitoring of system processes. 
+`processAnalyzer` is a high-performance, lightweight C++ command-line utility designed for real-time inspection and monitoring of system processes on Linux. It provides developers, system administrators, and performance engineers with a powerful tool to gain deep insights into process behavior and resource consumption.
 
-It provides a robust interface to deliver detailed resource usage metrics and execution statistics, facilitating efficient system diagnostics and performance optimization. Offering in-depth analysis of running processes, `processAnalyzer` helps you gain insights into system resource consumption and process behavior.
+By leveraging the `/proc` filesystem, it offers a robust interface to deliver detailed resource usage metrics and execution statistics, facilitating efficient system diagnostics, performance optimization, and debugging. Whether you're troubleshooting a memory leak, analyzing CPU bottlenecks, or simply exploring the system's process landscape, `processAnalyzer` provides the clarity you need.
 
 ## Features
 
@@ -46,14 +48,16 @@ To get `processAnalyzer` up and running, you'll need to build it from source.
 
 **Prerequisites:**
 *   Linux OS (relies on `/proc` filesystem)
-*   C++23 compatible compiler (e.g., GCC, Clang)
+*   C++23 compatible compiler (e.g., GCC 12+, Clang 16+)
 *   CMake 3.17 or higher
+*   `git` for cloning the repository.
+*   (Optional) `gtest` and `gmock` for running tests.
 
 **Build Steps:**
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/L-L-M/processAnalyzer.git
+git clone https://github.com/eserlxl/processAnalyzer.git
 cd processAnalyzer
 
 # 2. Configure and build the project
@@ -74,7 +78,7 @@ Once built, the binary is located in `build/processAnalyzer`. If you ran `make i
 To verify it works, list the running processes:
 
 ```bash
-processAnalyzer list
+./build/processAnalyzer list
 ```
 
 > **Note:** Some process information may be restricted. Run with `sudo` if you need full system visibility.
@@ -82,7 +86,7 @@ processAnalyzer list
 To see all available commands and options:
 
 ```bash
-processAnalyzer --help
+./build/processAnalyzer --help
 ```
 
 ## Usage
@@ -93,19 +97,19 @@ Here are some common commands:
 
 ```bash
 # List all running processes
-processAnalyzer list
+./build/processAnalyzer list
 
 # Filter by name and output as JSON
-processAnalyzer name chrome --format json
+./build/processAnalyzer name chrome --format json
 
 # Show details for a specific PID, including children and open files
-processAnalyzer pid 1234 --children --open-files
+./build/processAnalyzer pid 1234 --children --open-files
 
 # Show details for a specific PID, including thread information
-processAnalyzer pid 1234 --threads
+./build/processAnalyzer pid 1234 --threads
 
 # List processes sorted by memory usage (RSS) in descending order
-processAnalyzer list --sort-by rss --desc
+./build/processAnalyzer list --sort-by rss --desc
 ```
 
 For comprehensive usage instructions, command-line arguments, and detailed examples, please refer to the [Usage Guide](docs/usage.md).

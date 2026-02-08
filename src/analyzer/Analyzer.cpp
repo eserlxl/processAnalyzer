@@ -1225,7 +1225,7 @@ utils::Result<::std::vector<NetworkConnection>> ProcessAnalyzer::getNetworkConne
     
     ::std::vector<NetworkConnection> connections;
     for (const auto& conn : allInternalConnections) {
-        if (socketInodes.count(conn.inode)) {
+        if (socketInodes.contains(conn.inode)) {
             connections.push_back(conn.baseConn);
         }
     }

@@ -72,6 +72,14 @@ The custom error codes are defined in the `UtilsError` enum:
 - `UtilsError::permissionDeniedCwd`: Permission denied for changing CWD.
 - `UtilsError::invalidTimeFormat`: The time format is invalid.
 - `UtilsError::timeParseError`: An error occurred while parsing a time string.
+- `UtilsError::outOfRange`: A value was out of range.
+
+### Analyzer-Specific Errors
+These errors are used within the `analyzer` component.
+- `UtilsError::analyzerPermissionDenied`: Analyzer: Permission denied during process analysis.
+- `UtilsError::analyzerParsingError`: Analyzer: A parsing error occurred.
+- `UtilsError::analyzerProcessNotFound`: Analyzer: The specified process was not found.
+- `UtilsError::analyzerSystemError`: Analyzer: A system-level error occurred.
 
 
 ## File System and Directory Operations

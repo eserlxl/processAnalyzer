@@ -284,7 +284,7 @@ bool isFloatingPoint(std::string_view s) {
 }
 
 template <typename T>
-Result<T> parseNumeric(std::string_view s, int base = 10) {
+Result<T> parseNumeric(std::string_view s, int base = default_radix) {
     if (s.empty()) {
         return std::unexpected(make_error_code(UtilsError::invalidArgument));
     }

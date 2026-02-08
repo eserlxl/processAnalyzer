@@ -13,6 +13,8 @@
 
 namespace utils {
 
+inline constexpr int default_radix = 10;
+
 /**
  * @brief Provides utility functions for string manipulation and parsing.
  *
@@ -192,7 +194,7 @@ bool isFloatingPoint(std::string_view s);
  * @param base The numeric base to use (e.g., 10 for decimal, 16 for hexadecimal).
  * @return A `Result<long>` containing the converted value or an error.
  */
-Result<long> toLong(std::string_view s, int base = 10);
+Result<long> toLong(std::string_view s, int base = default_radix);
 
 /**
  * @brief Converts a string view to a double-precision floating-point number.
@@ -223,7 +225,7 @@ Result<bool> parseBool(std::string_view s);
  * @param base The numeric base to use (e.g., 10 for decimal, 16 for hexadecimal).
  * @return A `Result<int>` containing the converted value or an error.
  */
-Result<int> toInt(std::string_view s, int base = 10);
+Result<int> toInt(std::string_view s, int base = default_radix);
 
 /**
  * @brief Converts a string view to a single-precision floating-point number.

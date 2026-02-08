@@ -8,6 +8,7 @@
 #include <ranges>
 
 namespace {
+    constexpr int kSocketFd = 10;
     // PIDs
     constexpr int kInitPid = 1;
     constexpr int kKthreaddPid = 2;
@@ -548,7 +549,7 @@ TEST_F(ProcessAnalyzerTest, GetNetworkConnectionsIPv6) {
     );
 
     // Setup file descriptors for a mock process to link to the socket inode.
-    mockProc->createProcFdLink(kMyAppPid, 10, "socket:[54321]");
+    mockProc->createProcFdLink(kMyAppPid, kSocketFd, "socket:[54321]");
 
     auto connectionsResult = analyzer.getNetworkConnections(kMyAppPid);
     ASSERT_TRUE(connectionsResult.has_value());

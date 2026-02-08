@@ -7,11 +7,6 @@
 #include <system_error>
 #include <expected>
 #include <string>
-#include <vector>
-#include <span>
-#include <chrono>
-#include <filesystem>
-#include <limits> // For std::numeric_limits
 
 namespace utils {
 
@@ -21,44 +16,42 @@ using Result = ::std::expected<T, ::std::error_code>;
 
 enum class UtilsError {
     none = 0,
-    fileNotFound,
-    permissionDenied,
-    ioError,
-    invalidArgument,
-    unsupportedOperation,
-    pathError,
-    commandExecutionError,
-    fileAlreadyExists,
-    directoryNotEmpty,
-    notADirectory,
-    notAFile,
-    isADirectory,
-    diskFull,
-    noSpaceOnDevice,
-    fileTooLarge,
-    pathNotRelative,
-    pathNotAbsolute,
+    analyzerPermissionDenied,
+    analyzerParsingError,
+    analyzerProcessNotFound,
+    analyzerSystemError,
     basePathNotAncestor,
-    invalidPathFormat,
+    commandExecutionError,
+    commandFailed,
+    commandNotFound,
+    directoryNotEmpty,
+    diskFull,
+    envVarNotFound,
+    fileAlreadyExists,
+    fileNotFound,
+    fileTooLarge,
+    invalidArgument,
     invalidBase64Input,
+    invalidPathFormat,
+    invalidTimeFormat,
     invalidUrlEncoding,
     invalidUuidFormat,
-    envVarNotFound,
-    commandNotFound,
-    commandFailed,
-    processSpawnFailure,
+    ioError,
+    isADirectory,
+    noSpaceOnDevice,
+    notAFile,
+    notADirectory,
+    outOfRange,
+    pathError,
+    pathNotAbsolute,
+    pathNotRelative,
+    permissionDenied,
     permissionDeniedCwd,
-    invalidTimeFormat,
+    processSpawnFailure,
+    tempDirectoryError,
     timeParseError,
     traversalStopped,
-    tempDirectoryError,
-    outOfRange, // Added: For numeric parsing errors
-
-    // Analyzer specific errors
-    analyzerProcessNotFound,
-    analyzerParsingError,
-    analyzerSystemError,
-    analyzerPermissionDenied, // Add this
+    unsupportedOperation,
 };
 
 // Define the custom error category class and its methods directly in the header.
@@ -103,21 +96,26 @@ public:
             case UtilsError::timeParseError: return "Time parsing error";
             case UtilsError::traversalStopped: return "Directory traversal stopped by callback";
             case UtilsError::tempDirectoryError: return "Temporary directory error";
-            case UtilsError::outOfRange: return "Value out of range"; // Added message
+            case UtilsError::outOfRange: return "Value out of range";
+
+            // Analyzer specific errors
             case UtilsError::analyzerProcessNotFound: return "Analyzer: Process not found";
             case UtilsError::analyzerParsingError: return "Analyzer: Parsing error";
             case UtilsError::analyzerSystemError: return "Analyzer: System error";
+            case UtilsError::analyzerPermissionDenied: return "Analyzer: Permission denied";
             default: return "Unknown UtilsError";
         }
     }
 
     [[nodiscard]] bool equivalent(int code, const ::std::error_condition& condition) const noexcept override {
         switch (static_cast<UtilsError>(code)) {
+            case UtilsError::none:
+                return condition.value() == 0 && condition.category() == std::system_category();
             case UtilsError::fileNotFound:
                 return condition == ::std::errc::no_such_file_or_directory;
             case UtilsError::permissionDenied:
             case UtilsError::permissionDeniedCwd:
-            case UtilsError::analyzerPermissionDenied: // Map Analyzer permission denied
+            case UtilsError::analyzerPermissionDenied:
                 return condition == ::std::errc::permission_denied;
             case UtilsError::ioError:
                 return condition == ::std::errc::io_error;
@@ -133,9 +131,9 @@ public:
             case UtilsError::pathNotAbsolute:
             case UtilsError::basePathNotAncestor:
             case UtilsError::fileTooLarge:
-            case UtilsError::analyzerParsingError: // Map Analyzer parsing error to invalid argument
+            case UtilsError::analyzerParsingError:
                 return condition == ::std::errc::invalid_argument;
-            case UtilsError::outOfRange: // Map outOfRange
+            case UtilsError::outOfRange:
                 return condition == ::std::errc::result_out_of_range;
             case UtilsError::fileAlreadyExists:
                 return condition == ::std::errc::file_exists;
@@ -148,12 +146,12 @@ public:
             case UtilsError::noSpaceOnDevice:
                 return condition == ::std::errc::no_space_on_device;
             case UtilsError::commandNotFound:
-            case UtilsError::analyzerProcessNotFound: // Map Analyzer process not found
+            case UtilsError::analyzerProcessNotFound:
                 return condition == ::std::errc::no_such_process;
             case UtilsError::commandExecutionError:
             case UtilsError::commandFailed:
             case UtilsError::processSpawnFailure:
-            case UtilsError::analyzerSystemError: // Map Analyzer system error to generic operation not permitted
+            case UtilsError::analyzerSystemError:
                 return condition == ::std::errc::operation_not_permitted;
             case UtilsError::unsupportedOperation:
             case UtilsError::traversalStopped:
@@ -172,7 +170,7 @@ inline const UtilsErrorCategory& utilsErrorCategory() {
 }
 
 // Define make_error_code inline in the header.
-inline ::std::error_code make_error_code(UtilsError e) {
+inline ::std::error_code makeErrorCode(UtilsError e) {
     return {static_cast<int>(e), utilsErrorCategory()};
 }
 
@@ -182,9 +180,6 @@ inline ::std::error_code make_error_code(UtilsError e) {
 namespace std {
 template <>
 struct is_error_code_enum<utils::UtilsError> : ::std::true_type {};
-
-template <>
-struct is_error_condition_enum<utils::UtilsError> : ::std::true_type {};
 } // namespace std
 
 #endif // UTILS_TYPES_H
