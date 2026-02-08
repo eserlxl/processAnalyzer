@@ -794,7 +794,4 @@ TEST_F(MockProcTest, CreateNetDev) {
     EXPECT_TRUE(content.find("2000") != std::string::npos);
 }
 
-int main(int argc, char **argv) {
-    ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
-}
+// Main removed to allow linking with gtest_main

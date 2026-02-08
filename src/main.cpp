@@ -10,7 +10,7 @@
 #include <algorithm>
 #include <sstream>
 #include <span> // Required for std::span
-#include "Analyzer.h"
+#include "analyzer/Analyzer.h"
 #include "utils.h"
 
 // Struct to hold parsed command-line arguments.

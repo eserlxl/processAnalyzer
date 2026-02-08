@@ -36,8 +36,13 @@ endif()
 
 # Create a library for the core logic to be shared with tests
 add_library(processAnalyzerLib STATIC
-    src/Analyzer.cpp
-    src/utils.cpp
+    src/analyzer/Analyzer.cpp
+    src/utils/File.cpp
+    src/utils/Path.cpp
+    src/utils/String.cpp
+    src/utils/System.cpp
+    src/utils/Time.cpp
+    src/utils/Types.cpp
 )
 # Add include directory correctly to the library target
 target_include_directories(processAnalyzerLib PUBLIC include)

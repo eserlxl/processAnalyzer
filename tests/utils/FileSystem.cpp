@@ -6,21 +6,46 @@
 #include <filesystem>
 #include <fstream>
 #include <string>
-#include <vector>
 
 namespace fs = std::filesystem;
 
-class UtilsNewApiTest : public ::testing::Test {
+// Base fixture for tests requiring a temporary directory
+class TempDirTest : public ::testing::Test {
 protected:
     fs::path testDir;
 
     void SetUp() override {
-        testDir = fs::temp_directory_path() / "utils_new_api_test";
+        // Use a robust naming convention for temp directories
+        const ::testing::TestInfo* const testInfo =
+            ::testing::UnitTest::GetInstance()->current_test_info();
+        testDir = fs::temp_directory_path() / (std::string(testInfo->test_suite_name()) + "_" + testInfo->name());
+        
+        // Clean up any previous run debris
+        std::error_code ec;
+        fs::remove_all(testDir, ec); 
+        
         fs::create_directories(testDir);
     }
 
     void TearDown() override {
-        fs::remove_all(testDir);
+        std::error_code ec;
+        fs::remove_all(testDir, ec);
+    }
+};
+
+// Test fixture for new API tests
+class UtilsNewApiTest : public TempDirTest {
+};
+
+// Test fixture for permission tests
+class UtilsPermissionsTest : public TempDirTest {
+protected:
+    fs::path testFile;
+
+    void SetUp() override {
+        TempDirTest::SetUp();
+        testFile = testDir / "testfile.txt";
+        std::ofstream(testFile) << "content";
     }
 };
 
@@ -56,7 +81,6 @@ TEST_F(UtilsNewApiTest, MakeRelative) {
     auto base = testDir / "a" / "b";
     auto path = testDir / "a" / "b" / "c" / "file.txt";
     fs::create_directories(base);
-    // Note: std::filesystem::relative does not require the paths to exist on the filesystem.
 
     // 1. Simple case
     auto result1 = utils::makeRelative(path, base);
@@ -142,24 +166,6 @@ TEST_F(UtilsNewApiTest, SymlinkManagement) {
     EXPECT_FALSE(readNonLinkResult.has_value());
 }
 
-// New test fixture for permission tests
-class UtilsPermissionsTest : public ::testing::Test {
-protected:
-    fs::path testDir;
-    fs::path testFile;
-
-    void SetUp() override {
-        testDir = fs::temp_directory_path() / "utils_permissions_test";
-        fs::create_directories(testDir);
-        testFile = testDir / "testfile.txt";
-        std::ofstream(testFile) << "content";
-    }
-
-    void TearDown() override {
-        fs::remove_all(testDir);
-    }
-};
-
 TEST_F(UtilsPermissionsTest, GetAndSetPermissions) {
     // 1. Get initial permissions
     auto initialPermsResult = utils::getPermissions(testFile);
@@ -212,7 +218,7 @@ TEST_F(UtilsPermissionsTest, ReadWriteExecutableChecks) {
     EXPECT_TRUE(utils::isReadable(testFile));
     EXPECT_TRUE(utils::isWritable(testFile));
     // Executable is not usually set by default
-    #ifndef _WIN32 // Windows filesystem doesn't really have the same executable flag concept
+    #ifndef _WIN32
     EXPECT_FALSE(utils::isExecutable(testFile));
     #endif
 
@@ -232,9 +238,6 @@ TEST_F(UtilsPermissionsTest, ReadWriteExecutableChecks) {
 }
 
 TEST_F(UtilsPermissionsTest, Chown) {
-    // Test chown - this is highly platform-specific and may not be fully testable
-    // in a cross-platform way without running as root.
-    // For now, test the dummy implementation.
     auto chownResult = utils::chown(testFile, "user", "group");
     ASSERT_FALSE(chownResult.has_value());
     EXPECT_EQ(chownResult.error(), utils::make_error_code(utils::UtilsError::unsupportedOperation));
