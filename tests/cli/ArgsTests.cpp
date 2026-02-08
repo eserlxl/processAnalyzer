@@ -7,15 +7,34 @@
 #include <string>
 #include <optional>
 
-// Helper to convert std::vector<std::string> to std::vector<char*> for argv
-std::vector<char*> makeArgv(const std::vector<std::string>& args) {
-    std::vector<char*> argv;
-    argv.reserve(args.size());
-    for (const std::string& arg : args) {
-        argv.push_back(const_cast<char*>(arg.c_str()));
+namespace { // Anonymous namespace for file-scope statics
+    // Global buffer storage for argument strings.
+    // NOTE: This implementation is NOT thread-safe due to the use of a global buffer.
+    // In a multi-threaded test environment, a thread-local or fixture-based approach
+    // would be necessary. For this context, we assume sequential test execution or
+    // that tests are sufficiently isolated.
+    std::vector<std::vector<char>> gArgBuffers;
+
+    // Helper to convert std::vector<std::string> to std::vector<char*> for argv.
+    // Creates mutable copies of the strings to avoid potential undefined behavior
+    // if parseCommandLine were to modify the contents of argv.
+    std::vector<char*> makeArgv(const std::vector<std::string>& args) {
+        gArgBuffers.clear(); // Clear previous arguments to reuse the buffer
+        gArgBuffers.reserve(args.size());
+
+        for (const std::string& arg : args) {
+            gArgBuffers.emplace_back(arg.begin(), arg.end());
+            gArgBuffers.back().push_back('\0'); // Null-terminate the string
+        }
+
+        std::vector<char*> argv;
+        argv.reserve(gArgBuffers.size());
+        for (auto& buffer : gArgBuffers) {
+            argv.push_back(buffer.data()); // Get pointer to the managed buffer
+        }
+        return argv; // Return pointers to the managed data
     }
-    return argv;
-}
+} // namespace
 
 TEST(ArgsTests, ParseCommandLineBasic) {
     std::vector<std::string> args = {"processAnalyzer", "list"};
