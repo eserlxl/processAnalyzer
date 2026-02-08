@@ -8,7 +8,7 @@
 #include <string>  // For std::to_string
 #include <iostream> // For std::cerr
 
-#include "analyzer/Analyzer.h"
+#include "analyzer/Core.h"
 #include "utils/Core.h"
 
 #include <filesystem>

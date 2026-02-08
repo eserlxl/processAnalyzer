@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright (c) 2026 Eser KUBALI
 
-#include "TestUtils.h"
+#include "utils/Test.h"
 
 #include <sstream>
 #include <iomanip>

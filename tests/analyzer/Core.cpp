@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright (c) 2026 Eser KUBALI
 
-#include "analyzer/Analyzer.h"
-#include "TestUtils.h"
+#include "analyzer/Core.h"
+#include "utils/Test.h"
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <ranges>

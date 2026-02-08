@@ -116,7 +116,7 @@ For comprehensive usage instructions, command-line arguments, and detailed examp
 
 ## API Reference
 
-`processAnalyzer` exposes a C++ API for programmatic access to its process and system inspection capabilities. The primary interface is the `Analyzer` class, which provides methods for process enumeration, detailed inspection, and system metric retrieval.
+`processAnalyzer` exposes a C++ API for programmatic access to its process and system inspection capabilities. The primary interface is the `ProcessAnalyzer` class, which provides methods for process enumeration, detailed inspection, and system metric retrieval.
 
 For a detailed breakdown of the classes, functions, and data structures, please see the [API Reference documentation](docs/api-reference.md).
 

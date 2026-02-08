@@ -36,7 +36,7 @@ endif()
 
 # Create a library for the core logic to be shared with tests
 add_library(processAnalyzerLib STATIC
-    src/analyzer/Analyzer.cpp
+    src/analyzer/Core.cpp
     src/utils/File.cpp
     src/utils/Path.cpp
     src/utils/String.cpp
@@ -54,7 +54,8 @@ if(ENABLE_COVERAGE AND (CMAKE_COMPILER_ID MATCHES "GNU|Clang"))
 endif()
 
 # Main executable
-add_executable(processAnalyzer src/main.cpp)
+add_executable(processAnalyzer src/main.cpp src/cli/Args.cpp src/cli/Output.cpp)
+target_include_directories(processAnalyzer PRIVATE src)
 target_link_libraries(processAnalyzer PRIVATE processAnalyzerLib)
 
 # Enable testing
@@ -74,6 +75,7 @@ function(add_process_analyzer_test test_name)
     add_executable(${test_name} ${sources})
 
     target_link_libraries(${test_name} PRIVATE processAnalyzerLib GTest::gtest_main GTest::gtest)
+    target_include_directories(${test_name} PRIVATE ${CMAKE_SOURCE_DIR}/tests)
 
     set_target_properties(${test_name} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${TEST_OUTPUT_DIRECTORY}")
 

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright (c) 2026 Eser KUBALI
 
-#ifndef TEST_UTILS_H
-#define TEST_UTILS_H
+#ifndef UTILS_TEST_H
+#define UTILS_TEST_H
 
 #include <string>
 #include <filesystem>

@@ -2,7 +2,7 @@
 
 The `processAnalyzer` project exposes a C++ API primarily through the headers in the `include/` directory:
 
-*   [`include/Analyzer.h`](../include/Analyzer.h): Defines the core `Analyzer` class and related structures for process inspection and analysis.
+*   [`include/analyzer/Core.h`](../include/analyzer/Core.h): Defines the core `ProcessAnalyzer` class and related structures for process inspection and analysis.
 *   [`include/utils.h`](../include/utils.h): Provides a collection of general-purpose utility functions used throughout the project, often within the `Utils` namespace.
 
 While formal Doxygen-generated documentation is not currently provided, you can examine these header files directly for detailed information on available classes, methods, and functions.
@@ -11,7 +11,7 @@ While formal Doxygen-generated documentation is not currently provided, you can 
 
 ### `ProcessAnalyzer` Class
 
-The `ProcessAnalyzer` class (defined in `include/Analyzer.h`) is the primary interface for interacting with system processes. It provides methods for:
+The `ProcessAnalyzer` class (defined in `include/analyzer/Core.h`) is the primary interface for interacting with system processes. It provides methods for:
 
 *   **Process Enumeration**: `getPids()`, `streamPids()`, `streamProcesses()`, `queryProcesses()`.
 *   **Process Inspection**: `getProcessDetails()`, `getChildProcesses()`, `getParentProcess()`, `getAllDescendantProcesses()`.
