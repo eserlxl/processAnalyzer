@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
-// Copyright (c) 2026 Eser KUBALI
+// Copyright (c) 2024 Eser KUBALI
 
 #include "utils/Path.h"
 
@@ -23,11 +23,11 @@ Result<std::filesystem::path> makeRelative(const std::filesystem::path& path, co
     return relativePath;
 }
 
-bool pathsEquivalent(const std::filesystem::path& p1, const std::filesystem::path& p2) {
-    std::error_code ec1;
-    bool equivalent = std::filesystem::equivalent(p1, p2, ec1);
-    if (ec1) {
-        return false;
+Result<bool> pathsEquivalent(const std::filesystem::path& p1, const std::filesystem::path& p2) {
+    std::error_code ec;
+    bool equivalent = std::filesystem::equivalent(p1, p2, ec);
+    if (ec) {
+        return std::unexpected(ec);
     }
     return equivalent;
 }
@@ -50,15 +50,23 @@ Result<std::filesystem::path> readSymlink(const std::filesystem::path& link) {
     return result;
 }
 
-bool isSymlink(const std::filesystem::path& path) {
+Result<bool> isSymlink(const std::filesystem::path& path) {
     std::error_code ec;
-    return std::filesystem::is_symlink(path, ec);
+    bool isSym = std::filesystem::is_symlink(path, ec);
+    if (ec) {
+        return std::unexpected(ec);
+    }
+    return isSym;
 }
 
-// Implementations that might have been missing or inline
-std::filesystem::path getAbsolutePath(const std::filesystem::path& path) {
+// Simple utility wrappers for common path operations
+Result<std::filesystem::path> getAbsolutePath(const std::filesystem::path& path) {
     std::error_code ec;
-    return std::filesystem::absolute(path, ec);
+    auto absolutePath = std::filesystem::absolute(path, ec);
+    if (ec) {
+        return std::unexpected(ec);
+    }
+    return absolutePath;
 }
 
 std::string getFileName(const std::filesystem::path& path) {
@@ -80,6 +88,7 @@ std::filesystem::path getParentPath(const std::filesystem::path& path) {
 std::filesystem::path joinPaths(const std::vector<std::filesystem::path>& paths) {
     std::filesystem::path result;
     for (const auto& p : paths) {
+        // If `p` is an absolute path, operator/= replaces the existing `result`.
         result /= p;
     }
     return result;

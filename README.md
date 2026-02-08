@@ -7,104 +7,104 @@
 [![Version](https://img.shields.io/badge/Version-0.1.0-blue.svg)](https://github.com/eserlxl/processAnalyzer/releases)
 [![C++23](https://img.shields.io/badge/C%2B%2B-23-blue.svg)](https://en.cppreference.com/w/cpp/23)
 [![CMake](https://img.shields.io/badge/CMake-3.17%2B-blue.svg)](https://cmake.org/)
-[![Maintenance](https://img.shields.io/badge/Maintained-yes-green.svg)](https://github.com/eserlxl/processAnalyzer)
 
-## Why processAnalyzer?
+## Overview
 
-In a world of complex, containerized, and microservice-based architectures, understanding how processes interact with the system is critical. `processAnalyzer` solves this by offering a **single, powerful, and user-friendly interface** to the `/proc` filesystem.
+**processAnalyzer** is a modern, high-performance system diagnostics tool for Linux. Built with C++23, it provides a powerful interface to the `/proc` filesystem, allowing developers and system administrators to inspect, monitor, and analyze processes with precision.
 
-It is designed to be **Comprehensive**, **Efficient** (C++23), and **Modern**. Whether you're debugging a memory leak, analyzing performance bottlenecks, or monitoring containers, `processAnalyzer` provides the deep insights you need.
+Whether you are debugging complex microservices, analyzing memory footprints, or tracing process hierarchies, `processAnalyzer` delivers the insights you need through a user-friendly command-line interface.
 
-## Features
+## Key Features
 
-`processAnalyzer` provides a suite of tools for process monitoring and system diagnostics:
+-   **Deep Process Inspection**: Analyze memory maps, open files, network connections (TCP/UDP), and thread details.
+-   **Advanced Filtering**: precise filtering by PID, user, state, memory usage, and more.
+-   **System-Wide Metrics**: Monitor global CPU load, memory utilization, and I/O statistics.
+-   **Flexible Output Formats**: Export data to **JSON**, **CSV**, or formatted tables for easy integration with external tools.
+-   **Modern Architecture**: Written in C++23 for maximum performance and efficiency.
 
--   **Process Enumeration & Filtering**: List processes and filter by name, user, state, memory usage, and more.
--   **Deep Inspection**: Get detailed info including memory maps, open files, network connections (TCP/UDP), and process hierarchy.
--   **System Metrics**: Monitor global stats like CPU load, memory usage, disk I/O, and network interface traffic.
--   **Flexible Output**: Export data as formatted tables, CSV, or JSON for easy integration with other tools.
-
-See [docs/features.md](docs/features.md) for a complete feature list.
+For a detailed list of features, see [docs/features.md](docs/features.md).
 
 ## Installation
 
-**Prerequisites:**
--   Linux OS (relies on `/proc` filesystem)
--   C++23 Compiler (GCC 12+ / Clang 16+)
--   CMake 3.17+
--   git
+### Prerequisites
+
+-   **Operating System**: Linux (Kernel 5.x+ recommended for full feature support via `/proc`).
+-   **Compiler**: C++23 compatible compiler (GCC 12+ or Clang 16+).
+-   **Build System**: CMake 3.17+ and a build tool (Make or Ninja).
+-   **Version Control**: Git.
 
 ### Build from Source
 
 ```bash
+# Clone the repository
 git clone https://github.com/eserlxl/processAnalyzer.git
 cd processAnalyzer
+
+# Configure and build
 mkdir build && cd build
 cmake ..
-make
+make -j$(nproc)
 ```
 
-The executable will be located at `build/processAnalyzer`.
+The executable will be available at `build/processAnalyzer`.
 
-See [docs/build.md](docs/build.md) for detailed build and install instructions.
+For detailed build instructions and troubleshooting, see [docs/build.md](docs/build.md).
 
 ## Quick Start
+
+Get started immediately with these common commands:
 
 ```bash
 # List all running processes
 ./build/processAnalyzer list
 
-# Show help
+# Find processes by name (e.g., 'sshd')
+./build/processAnalyzer list --name sshd
+
+# Show detailed info for a specific PID (including children and open files)
+./build/processAnalyzer show --pid <PID> --children --open-files
+
+# Display help menu
 ./build/processAnalyzer --help
 ```
 
-## Usage Examples
-
-```bash
-# Filter by name and output as JSON
-./build/processAnalyzer list --name sshd --output json
-
-# Show full details for a specific PID (children, files, network)
-./build/processAnalyzer show --pid 1234 --children --open-files --network
-
-# Sort by resident memory usage in descending order
-./build/processAnalyzer list --sort-by rss --sort-order desc
-```
-
-See [docs/usage.md](docs/usage.md) for more examples and full command reference.
-
 ## Documentation
 
-*   **[API Reference](docs/api-reference.md)**: C++ API documentation for developers.
-*   **[Project Structure](docs/project-structure.md)**: Overview of the codebase organization.
-*   **[Utility Library](docs/utils.md)**: Documentation for the `utils` namespace.
-*   **[Build & Testing](docs/build.md)**: Detailed build instructions and test execution.
-*   **[Configuration](docs/configuration.md)**: Details on configuration options (Roadmap).
-*   **[Changelog](docs/changelog.md)**: History of changes.
+Comprehensive documentation is available in the `docs/` directory:
+
+| Document | Description |
+| :--- | :--- |
+| [**Usage Guide**](docs/usage.md) | detailed command reference and examples. |
+| [**API Reference**](docs/api-reference.md) | C++ API documentation for library integrators. |
+| [**Project Structure**](docs/project-structure.md) | Overview of the codebase organization. |
+| [**Configuration**](docs/configuration.md) | Configuration file options (Roadmap). |
+| [**Utility Library**](docs/utils.md) | Guide to the internal `utils` library. |
+| [**Changelog**](docs/changelog.md) | History of version changes. |
+
+## Project Structure
+
+The project follows a standard C++ directory layout:
+
+-   `src/`: Source code (`main.cpp`, CLI logic, Analyzer core).
+-   `include/`: Header files (API definitions).
+-   `tests/`: Unit and integration tests (GoogleTest).
+-   `docs/`: Project documentation.
 
 ## Testing
 
-`processAnalyzer` includes a comprehensive test suite using Google Test.
-
-To run the tests after building:
+We use GoogleTest for ensuring code reliability.
 
 ```bash
 cd build
 ctest --output-on-failure
 ```
 
-For more details on running specific tests or generating coverage reports, see [docs/build.md](docs/build.md).
-
-## Configuration
-
-Support for external configuration files is currently **experimental**. The tool is primarily designed to be configured via command-line arguments.
-
-See [docs/configuration.md](docs/configuration.md) for the roadmap and current status.
-
 ## Contributing
 
-We welcome contributions! Please see [docs/contributing.md](docs/contributing.md) for guidelines.
+Contributions are welcome! Whether it's reporting bugs, suggesting features, or submitting pull requests.
+
+Please read [docs/contributing.md](docs/contributing.md) for our contribution guidelines.
 
 ## License
 
-This project is licensed under the GNU General Public License v3.0. See the [LICENSE](LICENSE) file for more details.
+This project is open-source software licensed under the [GNU General Public License v3.0](LICENSE).
