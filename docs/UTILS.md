@@ -139,13 +139,13 @@ These functions interact with the file system using `std::filesystem`.
 
 ## System Interaction
 
-- `struct CommandOutput { std::string stdoutStr; std::string stderrStr; int exitCode; }`: Holds the output of an executed command.
-- `Result<CommandOutput> executeCommand(const std::string& command)`: Executes a shell command and captures its output and exit code.
-- `Result<std::string> getEnv(const std::string& name)`: Retrieves the value of an environment variable.
-- `Result<void> setEnv(std::string_view name, std::string_view value)`: Sets an environment variable.
-- `Result<void> unsetEnv(std::string_view name)`: Unsets an environment variable.
-- `Result<std::filesystem::path> getCurrentWorkingDirectory()`: Gets the current working directory.
-- `Result<void> setCurrentWorkingDirectory(const std::filesystem::path& path)`: Sets the current working directory.
+- `struct CommandOutput { std::string stdoutStr; std::string stderrStr; int exitCode; }`: Holds the output of an executed command. Note that for `executeCommand`, `stderrStr` will always be empty as `stderr` is redirected to `stdout`.
+- `Result<CommandOutput> executeCommand(const std::string& command)`: Executes a shell command and captures its output and exit code. All output from the command (both `stdout` and `stderr`) is captured in `stdoutStr`.
+- `Result<std::string> getEnv(const std::string& name)`: Retrieves the value of an environment variable. If the variable is not found, this function returns a `UtilsError::invalidArgument` error. This is a semantic choice to treat a request for a non-existent variable as an invalid argument.
+- `Result<void> setEnv(std::string_view name, std::string_view value)`: **(Not yet implemented)** Sets an environment variable. Currently returns `UtilsError::unsupportedOperation`.
+- `Result<void> unsetEnv(std::string_view name)`: **(Not yet implemented)** Unsets an environment variable. Currently returns `UtilsError::unsupportedOperation`.
+- `Result<std::filesystem::path> getCurrentWorkingDirectory()`: **(Not yet implemented)** Gets the current working directory. Currently returns `UtilsError::unsupportedOperation`.
+- `Result<void> setCurrentWorkingDirectory(const std::filesystem::path& path)`: **(Not yet implemented)** Sets the current working directory. Currently returns `UtilsError::unsupportedOperation`.
 
 ## Time Utilities
 

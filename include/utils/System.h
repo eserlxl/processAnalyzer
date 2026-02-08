@@ -19,8 +19,7 @@ struct CommandOutput {
 };
 Result<CommandOutput> executeCommand(const std::string& command);
 
-[[deprecated("Use Result-based executeCommand instead.")]]
-bool executeCommandDeprecated(const std::string& command, std::string& stdoutStr, std::string& stderrStr, int& exitCode);
+
 
 Result<std::string> getEnv(const std::string& name);
 Result<void> setEnv(std::string_view name, std::string_view value);

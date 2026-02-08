@@ -9,8 +9,6 @@
 #include <fstream>
 #include <cstdlib>
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
 // Helper to create a temporary file for testing
 std::filesystem::path createTempFile(const std::string& content) {
@@ -193,6 +191,8 @@ TEST(UtilsTest, MoveFile) {
     std::filesystem::remove(destPath);
 }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 TEST(UtilsTest, TraverseDirectory) {
     auto dirPath = createTempDir();
     auto subDir = dirPath / "subdir";
@@ -221,6 +221,7 @@ TEST(UtilsTest, TraverseDirectory) {
 
     std::filesystem::remove_all(dirPath);
 }
+#pragma GCC diagnostic pop
 
 TEST(UtilsTest, Exists) {
     auto filePath = createTempFile("temp");
@@ -512,18 +513,16 @@ TEST(UtilsTest, GetEnv) {
 }
 
 TEST(UtilsTest, ExecuteCommand) {
-    std::string stdoutStr;
-    std::string stderrStr;
-    int exitCode;
+    auto resultSuccess = utils::executeCommand("echo 'hello world'");
+    ASSERT_TRUE(resultSuccess.has_value());
+    EXPECT_EQ(resultSuccess.value().exitCode, 0);
+    EXPECT_EQ(utils::trim(resultSuccess.value().stdoutStr), "hello world");
+    EXPECT_TRUE(resultSuccess.value().stderrStr.empty()); // Per audit, stderrStr should be empty for executeCommand
 
-    bool result = utils::executeCommandDeprecated("echo 'hello world'", stdoutStr, stderrStr, exitCode);
-    ASSERT_TRUE(result);
-    EXPECT_EQ(exitCode, 0);
-    EXPECT_EQ(utils::trim(stdoutStr), "hello world");
-    
     // Test command that fails
-    result = utils::executeCommandDeprecated("ls non_existent_dir_12345", stdoutStr, stderrStr, exitCode);
-    ASSERT_TRUE(result);
-    EXPECT_NE(exitCode, 0);
-    EXPECT_TRUE(utils::contains(stdoutStr, "No such file or directory"));
+    auto resultFail = utils::executeCommand("ls non_existent_dir_12345");
+    ASSERT_TRUE(resultFail.has_value());
+    EXPECT_NE(resultFail.value().exitCode, 0);
+    EXPECT_TRUE(utils::contains(resultFail.value().stdoutStr, "No such file or directory"));
+    EXPECT_TRUE(resultFail.value().stderrStr.empty()); // Per audit, stderrStr should be empty for executeCommand
 }

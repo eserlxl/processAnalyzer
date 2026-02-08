@@ -4,7 +4,7 @@
 cmake_minimum_required(VERSION 3.17)
 
 # Adjust file paths to match actual directory structure
-add_process_analyzer_test(UtilsTest utils/Core.cpp)
+add_process_analyzer_test(UtilsTest utils/Core.cpp utils/SystemTest.cpp)
 add_process_analyzer_test(AnalyzerTest Analyzer.cpp TestUtils.cpp)
 add_process_analyzer_test(TestUtilsNewApiTest TestUtilsNewApi.cpp TestUtils.cpp)
 add_process_analyzer_test(UtilsNewApiTest utils/FileSystemTest.cpp)
