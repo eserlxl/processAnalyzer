@@ -214,48 +214,48 @@ TEST_F(ProcessAnalyzerTest, QueryProcessesFiltering) {
     ProcessFilter filter;
 
     // Filter by name
-    filter = {};
+    filter = ProcessFilter{};
     filter.nameContains = "kthread";
     auto results = analyzer.queryProcesses(filter);
     ASSERT_EQ(results.size(), 1);
     EXPECT_EQ(results[0].pid, kKthreaddPid);
 
     // Filter by parent PID (new in Iteration 7)
-    filter = {};
+    filter = ProcessFilter{};
     filter.ppidFilter = kInitPid;
     results = analyzer.queryProcesses(filter);
     ASSERT_EQ(results.size(), 2);
     EXPECT_TRUE((results[0].pid == kKthreaddPid && results[1].pid == kMyAppPid) || (results[0].pid == kMyAppPid && results[1].pid == kKthreaddPid));
 
     // Filter by state
-    filter = {};
+    filter = ProcessFilter{};
     filter.stateFilter = 'Z';
     results = analyzer.queryProcesses(filter);
     ASSERT_EQ(results.size(), 1);
     EXPECT_EQ(results[0].pid, kZombiePid);
 
     // Filter by UID
-    filter = {};
+    filter = ProcessFilter{};
     filter.uidFilter = kTestUserUid;
     results = analyzer.queryProcesses(filter);
     ASSERT_EQ(results.size(), 2); // PIDs 3 and 4
 
     // Filter by resident memory
-    filter = {};
+    filter = ProcessFilter{};
     filter.minResidentMemoryKB = kMinResidentMemoryKB;
     results = analyzer.queryProcesses(filter);
     ASSERT_EQ(results.size(), 1);
     EXPECT_EQ(results[0].pid, kMyAppPid);
 
     // Filter by executable path
-    filter = {};
+    filter = ProcessFilter{};
     filter.executablePathContains = "kthreadd";
     results = analyzer.queryProcesses(filter);
     ASSERT_EQ(results.size(), 1);
     EXPECT_EQ(results[0].pid, kKthreaddPid);
 
     // Filter by cmdline
-    filter = {};
+    filter = ProcessFilter{};
     filter.cmdlineContains = "config";
     results = analyzer.queryProcesses(filter);
     ASSERT_EQ(results.size(), 1);

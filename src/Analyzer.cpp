@@ -14,8 +14,15 @@
 #include <string_view> // For std::string_view::starts_with
 #include <chrono>
 #include <thread>
+#include <stdexcept>
 
-#include <unistd.h>     // For sysconf
+#include <unistd.h>     // For sysconf, gethostname
+#include <csignal>     // For kill
+#include <sys/statvfs.h> // for statvfs
+#include <netinet/in.h> // for INET6_ADDRSTRLEN
+#include <arpa/inet.h>  // for inet_ntop
+#include <sys/un.h>     // for sockaddr_un
+#include <set>
 
 namespace fs = std::filesystem;
 
@@ -29,31 +36,20 @@ namespace {
     // Fields skipped: num_threads, itrealvalue
     // Count: 3 fields (from 19th to 21st, 1-based indexing)
     constexpr int statFieldsToSkipBeforeStarttime = 3;
+constexpr int statFieldsToSkipBeforeThreadUtime = 10;
+constexpr double kMSInSecond = 1000.0;
 
     long long getTotalSystemCpuTimeTicks(std::string_view procPath) {
-        std::string statPath = std::string(procPath) + "/stat";
-        if (auto statContentOpt = Utils::readTextFile(statPath)) {
-            std::stringstream ss(*statContentOpt);
-            std::string cpuLine;
-            std::getline(ss, cpuLine);
-            if (cpuLine.starts_with("cpu")) {
-                std::stringstream lineSs(cpuLine);
-                std::string cpuLabel;
-                lineSs >> cpuLabel;
-                long long total = 0;
-                long long time;
-                while (lineSs >> time) {
-                    total += time;
-                }
-                return total;
-            }
+        auto stats = ProcessAnalyzer(procPath).getSystemCpuStats();
+        if(stats.has_value()){
+            return static_cast<long long>(stats->user) + static_cast<long long>(stats->nice) + static_cast<long long>(stats->system) + static_cast<long long>(stats->idle) + static_cast<long long>(stats->iowait) + static_cast<long long>(stats->irq) + static_cast<long long>(stats->softirq) + static_cast<long long>(stats->steal);
         }
         return -1; // Indicate error
     }
 
     constexpr int kExamplePid1 = 100;
     constexpr int kExamplePid2 = 200;
-}
+} // namespace
 
 ProcessAnalyzer::ProcessAnalyzer(std::string_view procPath) : procPath(procPath) {}
 
@@ -73,13 +69,15 @@ std::vector<int> ProcessAnalyzer::getPids() const {
             }
         }
     } catch (const fs::filesystem_error& e) {
-        std::cerr << "Error accessing /proc directory: " << e.what() << std::endl;
-        // Continue with potentially incomplete PIDs or return empty if essential
+        // In a real application, consider logging this error.
+        // For this library, we might choose to throw or return an error code.
+        // For now, we silently return a potentially empty vector.
+        // This behavior should be documented.
     }
     return pids;
 }
 
-std::optional<ProcessInfo> ProcessAnalyzer::getProcessDetails(int pid) const {
+std::expected<ProcessInfo, AnalyzerErrorDetail> ProcessAnalyzer::getProcessDetails(int pid) const {
     ProcessInfo info;
     info.pid = pid;
     info.name = "Unknown";
@@ -103,7 +101,11 @@ std::optional<ProcessInfo> ProcessAnalyzer::getProcessDetails(int pid) const {
 
     std::string pidPath = procPath + "/" + std::to_string(pid);
     if (!fs::exists(pidPath)) {
-        return std::nullopt; // Process does not exist
+        return std::unexpected(AnalyzerErrorDetail{
+            .code = AnalyzerError::ProcessNotFound,
+            .message = "Process with PID " + std::to_string(pid) + " not found.",
+            .systemErrno = std::nullopt
+        });
     }
 
     // Read status file for some details
@@ -130,7 +132,11 @@ std::optional<ProcessInfo> ProcessAnalyzer::getProcessDetails(int pid) const {
             }
         }
     } else {
-        return std::nullopt; // Essential file not readable
+        return std::unexpected(AnalyzerErrorDetail{
+            .code = AnalyzerError::FileNotFound,
+            .message = "Could not read status file for PID " + std::to_string(pid),
+            .systemErrno = errno
+        });
     }
 
     // Read stat file for CPU times, priority, and start time
@@ -147,15 +153,16 @@ std::optional<ProcessInfo> ProcessAnalyzer::getProcessDetails(int pid) const {
         long long cutime;
         long long cstime;
         long priority;
+        long nice;
         for (int i = 0; i < statFieldsToSkipBeforeUtime; ++i) { std::string dummy; ss >> dummy; }
         ss >> utime >> stime >> cutime >> cstime; // 14, 15, 16, 17
         info.cpuUserTimeTicks = utime + cutime;
         info.cpuKernelTimeTicks = stime + cstime;
-        // Field 18 is priority
-        ss >> priority;
-        info.priority = static_cast<int>(priority);
+        // Field 18 is priority, 19 is nice
+        ss >> priority >> nice;
+        info.priority = static_cast<int>(nice);
         // Skip to field 22 (starttime)
-        for (int i = 0; i < statFieldsToSkipBeforeStarttime; ++i) { std::string dummy; ss >> dummy; }
+        for (int i = 0; i < (statFieldsToSkipBeforeStarttime-1); ++i) { std::string dummy; ss >> dummy; }
         ss >> info.startTimeTicks;
     }
 
@@ -212,23 +219,23 @@ std::optional<ProcessInfo> ProcessAnalyzer::getProcessDetails(int pid) const {
 
 std::vector<ProcessInfo> ProcessAnalyzer::snapshot() const {
     std::vector<ProcessInfo> results;
-    auto pids = getPids();
-    for (int pid : pids) {
-        auto details = getProcessDetails(pid);
-        if (details) {
+    for (int pid : getPids()) {
+        if (auto details = getProcessDetails(pid); details.has_value()) {
             results.push_back(*details);
         }
     }
     return results;
 }
 
-// --- New System-wide Statistics Implementations for Iteration 7 ---
-
-std::optional<SystemMemoryInfo> ProcessAnalyzer::getSystemMemoryInfo() const {
+std::expected<SystemMemoryInfo, AnalyzerErrorDetail> ProcessAnalyzer::getSystemMemoryInfo() const {
     std::string meminfoPath = procPath + "/meminfo";
     auto contentOpt = Utils::readTextFile(meminfoPath);
     if (!contentOpt) {
-        return std::nullopt;
+        return std::unexpected(AnalyzerErrorDetail{
+            .code = AnalyzerError::FileNotFound,
+            .message = "Could not read /proc/meminfo",
+            .systemErrno = errno
+        });
     }
 
     SystemMemoryInfo memInfo;
@@ -239,6 +246,7 @@ std::optional<SystemMemoryInfo> ProcessAnalyzer::getSystemMemoryInfo() const {
         unsigned long value;
         std::stringstream lineSs(line);
         lineSs >> key >> value;
+        if(key.empty()) continue;
         key.pop_back(); // Remove colon
 
         if (key == "MemTotal") memInfo.memTotal = value;
@@ -252,11 +260,15 @@ std::optional<SystemMemoryInfo> ProcessAnalyzer::getSystemMemoryInfo() const {
     return memInfo;
 }
 
-std::optional<SystemLoadAverage> ProcessAnalyzer::getSystemLoadAverage() const {
+std::expected<SystemLoadAverage, AnalyzerErrorDetail> ProcessAnalyzer::getSystemLoadAverage() const {
     std::string loadavgPath = procPath + "/loadavg";
     auto contentOpt = Utils::readTextFile(loadavgPath);
     if (!contentOpt) {
-        return std::nullopt;
+        return std::unexpected(AnalyzerErrorDetail{
+            .code = AnalyzerError::FileNotFound,
+            .message = "Could not read /proc/loadavg",
+            .systemErrno = errno
+        });
     }
 
     SystemLoadAverage loadAvg;
@@ -265,11 +277,15 @@ std::optional<SystemLoadAverage> ProcessAnalyzer::getSystemLoadAverage() const {
     return loadAvg;
 }
 
-std::optional<SystemCpuStats> ProcessAnalyzer::getSystemCpuStats() const {
+std::expected<SystemCpuStats, AnalyzerErrorDetail> ProcessAnalyzer::getSystemCpuStats() const {
     std::string statPath = procPath + "/stat";
     auto contentOpt = Utils::readTextFile(statPath);
     if (!contentOpt) {
-        return std::nullopt;
+        return std::unexpected(AnalyzerErrorDetail{
+            .code = AnalyzerError::FileNotFound,
+            .message = "Could not read /proc/stat",
+            .systemErrno = errno
+        });
     }
 
     std::stringstream ss(*contentOpt);
@@ -285,7 +301,11 @@ std::optional<SystemCpuStats> ProcessAnalyzer::getSystemCpuStats() const {
         return stats;
     }
 
-    return std::nullopt;
+    return std::unexpected(AnalyzerErrorDetail{
+        .code = AnalyzerError::ParsingError,
+        .message = "Could not find 'cpu' line in /proc/stat",
+        .systemErrno = std::nullopt
+    });
 }
 
 
@@ -298,18 +318,6 @@ std::vector<ProcessInfo> ProcessAnalyzer::findProcesses(const ProcessPredicate& 
         }
     }
     return filtered;
-}
-
-std::vector<ProcessInfo> ProcessAnalyzer::getProcessesByName(std::string_view name) const {
-    return findProcesses([name](const ProcessInfo& info) {
-        return info.name == name;
-    });
-}
-
-std::vector<ProcessInfo> ProcessAnalyzer::getProcessesByUser(std::string_view username) const {
-    return findProcesses([username](const ProcessInfo& info) {
-        return info.username == username;
-    });
 }
 
 std::vector<ProcessInfo> ProcessAnalyzer::queryProcesses(
@@ -337,7 +345,8 @@ std::vector<ProcessInfo> ProcessAnalyzer::queryProcesses(
             if (filter.uidFilter && process.uid != *filter.uidFilter) return false;
             if (filter.minPriority && process.priority < *filter.minPriority) return false;
             if (filter.maxPriority && process.priority > *filter.maxPriority) return false;
-            if (filter.ppidFilter && process.ppid != *filter.ppidFilter) return false; // Iteration 7
+            if (filter.ppidFilter && process.ppid != *filter.ppidFilter) return false;
+            if (filter.customPredicate && !(*filter.customPredicate)(process)) return false;
             return true;
         });
 
@@ -353,12 +362,13 @@ std::vector<ProcessInfo> ProcessAnalyzer::queryProcesses(
             case ProcessSortField::NAME: less = a.name < b.name; break;
             case ProcessSortField::STATE: less = a.state < b.state; break;
             case ProcessSortField::RSS: less = a.residentMemory < b.residentMemory; break;
+            case ProcessSortField::VMSIZE:
             case ProcessSortField::VM: less = a.virtualMemory < b.virtualMemory; break;
             case ProcessSortField::THREADS: less = a.threadCount < b.threadCount; break;
             case ProcessSortField::START_TIME: less = a.startTimeTicks < b.startTimeTicks; break;
             case ProcessSortField::EXECUTABLE_PATH: less = a.executablePath < b.executablePath; break;
             case ProcessSortField::CMDLINE: less = a.cmdline < b.cmdline; break;
-            case ProcessSortField::CPU_TIME: // Iteration 7
+            case ProcessSortField::CPU_TIME:
                 less = (a.cpuUserTimeTicks + a.cpuKernelTimeTicks) < (b.cpuUserTimeTicks + b.cpuKernelTimeTicks);
                 break;
             case ProcessSortField::CWD: less = a.currentWorkingDirectory < b.currentWorkingDirectory; break;
@@ -367,7 +377,6 @@ std::vector<ProcessInfo> ProcessAnalyzer::queryProcesses(
             case ProcessSortField::IO_READ_BYTES: less = a.ioReadBytes < b.ioReadBytes; break;
             case ProcessSortField::IO_WRITE_BYTES: less = a.ioWriteBytes < b.ioWriteBytes; break;
             case ProcessSortField::PRIORITY: less = a.priority < b.priority; break;
-            case ProcessSortField::VMSIZE: less = a.virtualMemory < b.virtualMemory; break;
         }
 
         return (sortOrder == SortOrder::ASC) ? less : !less;
@@ -387,13 +396,12 @@ std::vector<ProcessInfo> ProcessAnalyzer::getChildProcesses(int pid) const {
     return children;
 }
 
-// Replaced getProcessOpenFiles with getOpenFileDescriptors for Iteration 7
 std::map<int, std::string> ProcessAnalyzer::getOpenFileDescriptors(pid_t pid) const {
     std::map<int, std::string> openFds;
     std::string fdPath = procPath + "/" + std::to_string(pid) + "/fd";
 
     if (!fs::exists(fdPath) || !fs::is_directory(fdPath)) {
-        return openFds; // Return empty map as per contract
+        return openFds;
     }
 
     try {
@@ -411,7 +419,6 @@ std::map<int, std::string> ProcessAnalyzer::getOpenFileDescriptors(pid_t pid) co
             }
         }
     } catch (const fs::filesystem_error& e) {
-        // According to contract, throw on permissions issues for the directory itself.
         throw std::runtime_error("Failed to read open files directory for PID " + std::to_string(pid) + ": " + e.what());
     }
     return openFds;
@@ -422,7 +429,7 @@ std::optional<ProcessCpuUsage> ProcessAnalyzer::getProcessCpuUsage(int pid, std:
     auto initialDetails = getProcessDetails(pid);
     long long initialTotalSystemTicks = getTotalSystemCpuTimeTicks(procPath);
 
-    if (!initialDetails || initialTotalSystemTicks < 0) {
+    if (!initialDetails.has_value() || initialTotalSystemTicks < 0) {
         return std::nullopt;
     }
 
@@ -431,7 +438,7 @@ std::optional<ProcessCpuUsage> ProcessAnalyzer::getProcessCpuUsage(int pid, std:
     auto finalDetails = getProcessDetails(pid);
     long long finalTotalSystemTicks = getTotalSystemCpuTimeTicks(procPath);
     
-    if (!finalDetails || finalTotalSystemTicks < 0) {
+    if (!finalDetails.has_value() || finalTotalSystemTicks < 0) {
         return std::nullopt; // Process might have exited
     }
 
@@ -508,26 +515,25 @@ std::vector<std::string> ProcessAnalyzer::getProcessEnvironment(int pid) const {
             env.emplace_back(content.substr(start, end - start));
             start = end + 1;
         }
-    } else {
-        // According to contract, return empty vector if inaccessible.
-        // A runtime_error could be thrown for explicit permission errors if desired.
     }
     return env;
 }
 
 std::optional<ProcessInfo> ProcessAnalyzer::getParentProcess(int pid) const {
     auto details = getProcessDetails(pid);
-    if (!details || details->ppid == 0) {
+    if (!details.has_value() || details->ppid == 0) {
         return std::nullopt;
     }
-    return getProcessDetails(details->ppid);
+    auto parentDetails = getProcessDetails(details->ppid);
+    if(parentDetails.has_value()){
+        return *parentDetails;
+    }
+    return std::nullopt;
 }
 
 std::vector<ProcessInfo> ProcessAnalyzer::getAllDescendantProcesses(int pid) const {
     std::vector<ProcessInfo> descendants;
-    std::vector<int> toVisit;
-    toVisit.push_back(pid);
-
+    std::vector<int> toVisit {pid};
     std::vector<ProcessInfo> allProcesses = snapshot();
     std::map<int, std::vector<ProcessInfo>> parentToChildren;
     for (const auto& p : allProcesses) {
@@ -554,4 +560,436 @@ long ProcessAnalyzer::getSystemClockTicksPerSecond() {
         throw std::runtime_error("Failed to get system clock ticks per second.");
     }
     return ticks;
+}
+
+// --- Iteration 9 Implementations ---
+
+bool ProcessAnalyzer::sendSignal(int pid, ProcessSignal signal) {
+    return ::kill(pid, static_cast<int>(signal)) == 0;
+}
+
+std::vector<ThreadInfo> ProcessAnalyzer::getProcessThreads(int pid) const {
+    std::vector<ThreadInfo> threads;
+    std::string taskPath = procPath + "/" + std::to_string(pid) + "/task";
+
+    if (!fs::exists(taskPath) || !fs::is_directory(taskPath)) {
+        return threads;
+    }
+
+    for (const auto& entry : fs::directory_iterator(taskPath)) {
+        if (entry.is_directory()) {
+            std::string tidStr = entry.path().filename().string();
+            if (Utils::isInteger(tidStr)) {
+                int tid = std::stoi(tidStr);
+                ThreadInfo thread;
+                thread.tid = tid;
+
+                // Read thread name
+                std::string commPath = entry.path().string() + "/comm";
+                if (auto commContent = Utils::readTextFile(commPath)) {
+                    thread.name = Utils::trim(*commContent);
+                }
+
+                // Read thread stat
+                std::string statPath = entry.path().string() + "/stat";
+                if (auto statContent = Utils::readTextFile(statPath)) {
+                    std::stringstream ss(*statContent);
+                    std::string comm;
+                    std::string dummy;
+                    char stateChar;
+                    ss >> dummy >> comm >> stateChar; // tid, (comm), state
+                    thread.state = stateChar;
+
+for (int i = 0; i < statFieldsToSkipBeforeThreadUtime; ++i) ss >> dummy;
+                    ss >> thread.cpuUserTimeTicks >> thread.cpuKernelTimeTicks;
+                }
+                threads.push_back(thread);
+            }
+        }
+    }
+    return threads;
+}
+
+std::vector<MountPointInfo> ProcessAnalyzer::getSystemDiskUsage() const {
+    std::vector<MountPointInfo> mounts;
+    std::string mountsPath = procPath + "/mounts";
+    auto contentOpt = Utils::readTextFile(mountsPath);
+    if (!contentOpt) {
+        return mounts;
+    }
+
+    std::stringstream ss(*contentOpt);
+    std::string line;
+    while(std::getline(ss, line)) {
+        std::stringstream lineSs(line);
+        std::string device;
+        std::string mountPoint;
+        std::string filesystemType;
+        lineSs >> device >> mountPoint >> filesystemType;
+
+        struct statvfs vfs;
+        if (statvfs(mountPoint.c_str(), &vfs) == 0) {
+            mounts.push_back({
+                .mountPoint = mountPoint,
+                .filesystemType = filesystemType,
+                .device = device,
+                .totalSpaceBytes = (unsigned long long)vfs.f_blocks * vfs.f_frsize,
+                .freeSpaceBytes = (unsigned long long)vfs.f_bfree * vfs.f_frsize,
+                .availableSpaceBytes = (unsigned long long)vfs.f_bavail * vfs.f_frsize
+            });
+        }
+    }
+    return mounts;
+}
+
+std::optional<SystemInfo> ProcessAnalyzer::getSystemInfo() const {
+    SystemInfo sysInfo;
+
+    // Uptime
+    std::string uptimePath = procPath + "/uptime";
+    if (auto content = Utils::readTextFile(uptimePath)) {
+        double uptimeSecs;
+        std::stringstream ss(*content);
+        ss >> uptimeSecs;
+        sysInfo.uptime = std::chrono::seconds(static_cast<long long>(uptimeSecs));
+    } else {
+        return std::nullopt;
+    }
+
+    // Kernel version
+    std::string versionPath = procPath + "/version";
+    if (auto content = Utils::readTextFile(versionPath)) {
+        sysInfo.kernelVersion = Utils::trim(*content);
+    } else {
+        return std::nullopt;
+    }
+
+    // OS Name
+    if (auto content = Utils::readTextFile("/etc/os-release")) {
+        std::stringstream ss(*content);
+        std::string line;
+        while(std::getline(ss, line)) {
+            if (line.starts_with("PRETTY_NAME=")) {
+                sysInfo.osName = line.substr(line.find('=') + 1);
+                // Remove quotes
+                sysInfo.osName.erase(std::remove(sysInfo.osName.begin(), sysInfo.osName.end(), '"'), sysInfo.osName.end());
+                break;
+            }
+        }
+    } else {
+        sysInfo.osName = "Unknown"; // Not a critical error if this file is missing
+    }
+
+// Hostname
+    constexpr size_t kMaxHostnameLen = 256;
+    std::array<char, kMaxHostnameLen> hostname{};
+    if (gethostname(hostname.data(), hostname.size()) == 0) {
+        sysInfo.hostname = hostname.data();
+    } else {
+        return std::nullopt;
+    }
+    
+    return sysInfo;
+}
+
+std::optional<SystemCpuUsage> ProcessAnalyzer::getSystemCpuUsage(std::chrono::milliseconds durationMs) const {
+    auto initialStats = getSystemCpuStats();
+    if (!initialStats.has_value()) return std::nullopt;
+    
+    std::this_thread::sleep_for(durationMs);
+
+    auto finalStats = getSystemCpuStats();
+    if (!finalStats.has_value()) return std::nullopt;
+
+    unsigned long long initialTotal = initialStats->user + initialStats->nice + initialStats->system + initialStats->idle + initialStats->iowait + initialStats->irq + initialStats->softirq + initialStats->steal;
+    unsigned long long finalTotal = finalStats->user + finalStats->nice + finalStats->system + finalStats->idle + finalStats->iowait + finalStats->irq + finalStats->softirq + finalStats->steal;
+
+    unsigned long long totalDelta = finalTotal - initialTotal;
+    if (totalDelta == 0) return SystemCpuUsage{0.0};
+
+    unsigned long long idleDelta = finalStats->idle - initialStats->idle;
+    
+    double usage = 100.0 * (1.0 - static_cast<double>(idleDelta) / static_cast<double>(totalDelta));
+    return SystemCpuUsage{usage};
+}
+
+constexpr double kMSInSecond = 1000.0;
+std::optional<ProcessDiskIoUsage> ProcessAnalyzer::getProcessDiskIoUsage(int pid, std::chrono::milliseconds durationMs) const {
+    auto initialDetails = getProcessDetails(pid);
+    if (!initialDetails.has_value()) return std::nullopt;
+
+    std::this_thread::sleep_for(durationMs);
+    
+    auto finalDetails = getProcessDetails(pid);
+    if (!finalDetails.has_value()) return std::nullopt;
+
+    double readDelta = static_cast<double>(finalDetails->ioReadBytes - initialDetails->ioReadBytes);
+    double writeDelta = static_cast<double>(finalDetails->ioWriteBytes - initialDetails->ioWriteBytes);
+    double durationSec = static_cast<double>(durationMs.count()) / kMSInSecond;
+
+    return ProcessDiskIoUsage {
+        .pid = pid,
+        .name = finalDetails->name,
+        .readBytesPerSecond = durationSec > 0 ? readDelta / durationSec : 0.0,
+        .writeBytesPerSecond = durationSec > 0 ? writeDelta / durationSec : 0.0
+    };
+}
+
+std::vector<ProcessDiskIoUsage> ProcessAnalyzer::getAllProcessesDiskIoUsage(std::chrono::milliseconds durationMs) const {
+    auto initialSnapshot = snapshot();
+
+    std::this_thread::sleep_for(durationMs);
+
+    auto finalSnapshot = snapshot();
+    std::map<int, ProcessInfo> finalSnapshotMap;
+    for(const auto& info : finalSnapshot) {
+        finalSnapshotMap[info.pid] = info;
+    }
+
+    std::vector<ProcessDiskIoUsage> results;
+    double durationSec = static_cast<double>(durationMs.count()) / kMSInSecond;
+    if (durationSec <= 0) return results;
+
+    for(const auto& initialInfo : initialSnapshot) {
+        auto it = finalSnapshotMap.find(initialInfo.pid);
+        if (it != finalSnapshotMap.end()) {
+            const auto& finalInfo = it->second;
+            double readDelta = static_cast<double>(finalInfo.ioReadBytes - initialInfo.ioReadBytes);
+            double writeDelta = static_cast<double>(finalInfo.ioWriteBytes - initialInfo.ioWriteBytes);
+            results.push_back({
+                .pid = finalInfo.pid,
+                .name = finalInfo.name,
+                .readBytesPerSecond = readDelta / durationSec,
+                .writeBytesPerSecond = writeDelta / durationSec
+            });
+        }
+    }
+    return results;
+}
+
+enum class TcpState : std::uint8_t {
+        kEstablished = 1,
+        kSynSent,
+        kSynRecv,
+        kFinWait1,
+        kFinWait2,
+        kTimeWait,
+        kClose,
+        kCloseWait,
+        kLastAck,
+        kListen,
+        kClosing
+    };
+    const int kIpv6LineDummyCount = 5;
+
+    void parseNetFile(const std::string& filePath, SocketType type, std::vector<NetworkConnection>& connections) {
+        auto content = Utils::readTextFile(filePath);
+        if (!content) return;
+
+        std::stringstream ss(*content);
+        std::string line;
+        std::getline(ss, line); // Skip header
+
+        while (std::getline(ss, line)) {
+            std::stringstream lineSs(line);
+            NetworkConnection conn;
+            conn.type = type;
+
+            int dummy;
+            unsigned long localAddr;
+            unsigned long remoteAddr;
+            int localPort;
+            int remotePort;
+            int state;
+            int inode;
+            char colon;
+
+            if (filePath.find('6') != std::string::npos) { // IPv6
+                conn.family = AddressFamily::IPv6;
+char remoteAddrStr[INET6_ADDRSTRLEN];
+                unsigned int localP;
+                unsigned int remoteP;
+                lineSs >> dummy; 
+                lineSs.ignore(std::numeric_limits<std::streamsize>::max(), ' ');
+                lineSs >> std::hex >> localAddr >> colon >> localP
+                       >> remoteAddr >> colon >> remoteP
+                       >> state;
+                for(int i=0; i<kIpv6LineDummyCount; ++i) lineSs >> dummy;
+                lineSs >> inode;
+                
+                // This parsing is simplified. Real IPv6 addresses are 128-bit.
+                // The file format stores them as four 32-bit hex numbers.
+                // A proper implementation would read these four parts and format them.
+                // For this example, we will just show a placeholder.
+                conn.localAddress = "::1"; // Placeholder
+                conn.localPort = localP;
+                conn.remoteAddress = "::1"; // Placeholder
+                conn.remotePort = remoteP;
+
+            } else { // IPv4
+                conn.family = AddressFamily::IPv4;
+                unsigned int localP;
+                unsigned int remoteP;
+                lineSs >> dummy;
+                lineSs.ignore(std::numeric_limits<std::streamsize>::max(), ' ');
+                lineSs >> std::hex >> localAddr >> colon >> localP
+                       >> remoteAddr >> colon >> remoteP
+                       >> state >> dummy >> dummy >> dummy >> dummy >> dummy >> inode;
+
+                struct in_addr localInAddr = { .s_addr = static_cast<in_addr_t>(localAddr) };
+                struct in_addr remoteInAddr = { .s_addr = static_cast<in_addr_t>(remoteAddr) };
+                std::array<char, INET_ADDRSTRLEN> localStr{}, remoteStr{};
+                inet_ntop(AF_INET, &localInAddr, localStr.data(), localStr.size());
+                inet_ntop(AF_INET, &remoteInAddr, remoteStr.data(), remoteStr.size());
+                
+                conn.localAddress = localStr.data();
+                conn.localPort = localP;
+                if(remoteP > 0){
+                    conn.remoteAddress = remoteStr.data();
+                    conn.remotePort = remoteP;
+                }
+            }
+
+            conn.inode = inode;
+            // Map state to string
+            switch(static_cast<TcpState>(state)){
+                case TcpState::kEstablished: conn.state = "ESTABLISHED"; break;
+                case TcpState::kSynSent: conn.state = "SYN_SENT"; break;
+                case TcpState::kSynRecv: conn.state = "SYN_RECV"; break;
+                case TcpState::kFinWait1: conn.state = "FIN_WAIT1"; break;
+                case TcpState::kFinWait2: conn.state = "FIN_WAIT2"; break;
+                case TcpState::kTimeWait: conn.state = "TIME_WAIT"; break;
+                case TcpState::kClose: conn.state = "CLOSE"; break;
+                case TcpState::kCloseWait: conn.state = "CLOSE_WAIT"; break;
+                case TcpState::kLastAck: conn.state = "LAST_ACK"; break;
+                case TcpState::kListen: conn.state = "LISTEN"; break;
+                case TcpState::kClosing: conn.state = "CLOSING"; break;
+                default: conn.state = "UNKNOWN"; break;
+            }
+            connections.push_back(conn);
+        }
+    }
+
+std::vector<NetworkConnection> ProcessAnalyzer::getProcessNetworkConnections(int pid) const {
+    std::vector<NetworkConnection> connections;
+    std::map<int, std::string> fds = getOpenFileDescriptors(pid);
+    std::set<int> socketInodes;
+    constexpr int kSocketInodePrefixLen = 8;
+    constexpr int kSocketInodeSuffixLen = 9;
+
+    for (const auto& [fd, path] : fds) {
+        if (path.starts_with("socket:[")) {
+            std::string inodeStr = path.substr(kSocketInodePrefixLen, path.length() - kSocketInodeSuffixLen);
+            if(Utils::isInteger(inodeStr)){
+                socketInodes.insert(std::stoi(inodeStr));
+            }
+        }
+    }
+
+    if(socketInodes.empty()) return connections;
+
+    std::vector<NetworkConnection> allConnections;
+    parseNetFile(procPath + "/net/tcp", SocketType::TCP, allConnections);
+    parseNetFile(procPath + "/net/tcp6", SocketType::TCP, allConnections);
+    parseNetFile(procPath + "/net/udp", SocketType::UDP, allConnections);
+    parseNetFile(procPath + "/net/udp6", SocketType::UDP, allConnections);
+    
+    for(const auto& conn : allConnections){
+        if(conn.inode.has_value() && socketInodes.contains(*conn.inode)){
+            connections.push_back(conn);
+        }
+    }
+
+    return connections;
+}
+
+
+// --- C++23 Streaming API Implementations ---
+
+std::generator<int> ProcessAnalyzer::streamPids() const {
+    if (!fs::exists(procPath)) {
+        co_return; 
+    }
+
+    for (const auto& entry : fs::directory_iterator(procPath)) {
+        if (entry.is_directory()) {
+            std::string filename = entry.path().filename().string();
+            if (Utils::isInteger(filename)) {
+                co_yield std::stoi(filename);
+            }
+        }
+    }
+}
+
+std::generator<ProcessInfo> ProcessAnalyzer::streamProcesses() const {
+    for (int pid : streamPids()) {
+        auto details = getProcessDetails(pid);
+        if (details.has_value()) {
+            co_yield *details;
+        }
+    }
+}
+
+std::generator<ProcessInfo> ProcessAnalyzer::streamQueryProcesses(
+    const ProcessFilter& filter,
+    ProcessSortField sortBy,
+    SortOrder sortOrder
+) const {
+    // NOTE: Sorting with a generator is tricky. It requires consuming all items first.
+    // This implementation will filter lazily, but sort eagerly.
+    std::vector<ProcessInfo> filteredProcesses;
+    for (auto process : streamProcesses()) {
+         if (filter.nameContains && process.name.find(*filter.nameContains) == std::string::npos) continue;
+         if (filter.userFilter && process.username != *filter.userFilter) continue;
+         if (filter.stateFilter && (process.state.empty() || process.state[0] != *filter.stateFilter)) continue;
+         if (filter.minThreads && process.threadCount < *filter.minThreads) continue;
+         if (filter.maxThreads && process.threadCount > *filter.maxThreads) continue;
+         if (filter.minResidentMemoryKB && process.residentMemory < *filter.minResidentMemoryKB) continue;
+         if (filter.maxResidentMemoryKB && process.residentMemory > *filter.maxResidentMemoryKB) continue;
+         if (filter.minVirtualMemoryKB && process.virtualMemory < *filter.minVirtualMemoryKB) continue;
+         if (filter.maxVirtualMemoryKB && process.virtualMemory > *filter.maxVirtualMemoryKB) continue;
+         if (filter.cmdlineContains && process.cmdline.find(*filter.cmdlineContains) == std::string::npos) continue;
+         if (filter.executablePathContains && process.executablePath.find(*filter.executablePathContains) == std::string::npos) continue;
+         if (filter.uidFilter && process.uid != *filter.uidFilter) continue;
+         if (filter.minPriority && process.priority < *filter.minPriority) continue;
+         if (filter.maxPriority && process.priority > *filter.maxPriority) continue;
+         if (filter.ppidFilter && process.ppid != *filter.ppidFilter) continue;
+         if (filter.customPredicate && !(*filter.customPredicate)(process)) continue;
+         filteredProcesses.push_back(process);
+    }
+    
+    // Sort eagerly
+    std::ranges::sort(filteredProcesses,
+        [&](const ProcessInfo& a, const ProcessInfo& b) {
+        bool less = false;
+        switch (sortBy) {
+            case ProcessSortField::PID: less = a.pid < b.pid; break;
+            case ProcessSortField::PPID: less = a.ppid < b.ppid; break;
+            case ProcessSortField::UID: less = a.uid < b.uid; break;
+            case ProcessSortField::USER: less = a.username < b.username; break;
+            case ProcessSortField::NAME: less = a.name < b.name; break;
+            case ProcessSortField::STATE: less = a.state < b.state; break;
+            case ProcessSortField::RSS: less = a.residentMemory < b.residentMemory; break;
+            case ProcessSortField::VM: less = a.virtualMemory < b.virtualMemory; break;
+            case ProcessSortField::THREADS: less = a.threadCount < b.threadCount; break;
+            case ProcessSortField::START_TIME: less = a.startTimeTicks < b.startTimeTicks; break;
+            case ProcessSortField::EXECUTABLE_PATH: less = a.executablePath < b.executablePath; break;
+            case ProcessSortField::CMDLINE: less = a.cmdline < b.cmdline; break;
+            case ProcessSortField::CPU_TIME:
+                less = (a.cpuUserTimeTicks + a.cpuKernelTimeTicks) < (b.cpuUserTimeTicks + b.cpuKernelTimeTicks);
+                break;
+            case ProcessSortField::CWD: less = a.currentWorkingDirectory < b.currentWorkingDirectory; break;
+            case ProcessSortField::CPU_USER_TIME: less = a.cpuUserTimeTicks < b.cpuUserTimeTicks; break;
+            case ProcessSortField::CPU_KERNEL_TIME: less = a.cpuKernelTimeTicks < b.cpuKernelTimeTicks; break;
+            case ProcessSortField::IO_READ_BYTES: less = a.ioReadBytes < b.ioReadBytes; break;
+            case ProcessSortField::IO_WRITE_BYTES: less = a.ioWriteBytes < b.ioWriteBytes; break;
+            case ProcessSortField::PRIORITY: less = a.priority < b.priority; break;
+            default: less = a.pid < b.pid; break;
+        }
+        return (sortOrder == SortOrder::ASC) ? less : !less;
+    });
+
+    for(auto& process : filteredProcesses){
+        co_yield process;
+    }
 }

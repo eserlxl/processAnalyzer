@@ -63,7 +63,7 @@ The project is organized to promote modularity and maintainability.
 
 For a detailed breakdown of the project directory structure, see [docs/project-structure.md](docs/project-structure.md).
 
-## Utility Library (`Utils` Namespace)
+## Utility Library (Utils)
 
 The project includes a robust `Utils` namespace in `src/utils.cpp` and `include/utils.h`. This library provides a collection of general-purpose utility functions for:
 
@@ -80,7 +80,7 @@ We welcome contributions to `processAnalyzer`! Please see our [contribution guid
 
 ## API Reference
 
-For detailed information on the `processAnalyzer` C++ API, including classes, functions, and data structures, please refer to the [API Reference documentation](docs/api-reference.md).
+The core `processAnalyzer` API, including key classes and functions such as those defined in `include/Analyzer.h`, is detailed in the API Reference documentation. For comprehensive information on `processAnalyzer`'s C++ API, including classes, functions, and data structures, please refer to the [API Reference documentation](docs/api-reference.md).
 
 ## Changelog
 
