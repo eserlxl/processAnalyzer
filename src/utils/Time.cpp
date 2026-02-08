@@ -87,21 +87,31 @@ Result<::std::chrono::steady_clock::time_point> getCurrentSteadyTime() {
 }
 
 Result<::std::string> formatTimestamp(::std::chrono::system_clock::time_point tp, const ::std::string& formatStr) {
-    if (formatStr.empty()) { // Explicitly check for empty format string
-        return ::std::unexpected(make_error_code(UtilsError::invalidArgument)); // Or unknownError
+    if (formatStr.empty()) {
+        return ::std::unexpected(make_error_code(UtilsError::invalidArgument));
     }
     auto tt = ::std::chrono::system_clock::to_time_t(tp);
     ::std::tm tmBuf{};
+    bool success = false;
 
-#if defined(_POSIX_C_SOURCE) || defined(_BSD_SOURCE) || defined(_SVID_SOURCE) || defined(_XOPEN_SOURCE)
-    ::localtime_r(&tt, &tmBuf);
+#ifdef _WIN32
+    if (::localtime_s(&tmBuf, &tt) == 0) {
+        success = true;
+    }
+#elif defined(_POSIX_C_SOURCE) || defined(_BSD_SOURCE) || defined(_SVID_SOURCE) || defined(_XOPEN_SOURCE)
+    if (::localtime_r(&tt, &tmBuf) != nullptr) {
+        success = true;
+    }
 #else
     if (::std::tm* tmp = ::std::localtime(&tt)) {
         tmBuf = *tmp;
-    } else {
-        return ::std::unexpected(make_error_code(UtilsError::unknownError));
+        success = true;
     }
 #endif
+
+    if (!success) {
+        return ::std::unexpected(make_error_code(UtilsError::unknownError));
+    }
 
     ::std::stringstream ss;
     ss << ::std::put_time(&tmBuf, formatStr.c_str());

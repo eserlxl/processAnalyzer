@@ -381,15 +381,19 @@ utils::Result<ProcessInfo> ProcessAnalyzer::getProcessDetails(pid_t pid) const {
 
             std::string key = utils::trim(line.substr(0, colonPos));
             std::string value = utils::trim(line.substr(colonPos + 1));
+            // Replace tabs with spaces to handle tab-separated values (common in /proc status)
+            ::std::replace(value.begin(), value.end(), '\t', ' ');
 
             if (key == "Name") {
                 info.name = value;
             } else if (key == "State") {
                 info.state = value;
             } else if (key == "VmSize") {
-                utils::tryParse(value, info.virtualMemory);
+                auto parts = utils::split(value, ' ', true);
+                if (!parts.empty()) utils::tryParse(parts[0], info.virtualMemory);
             } else if (key == "VmRSS") {
-                utils::tryParse(value, info.residentMemory);
+                auto parts = utils::split(value, ' ', true);
+                if (!parts.empty()) utils::tryParse(parts[0], info.residentMemory);
             } else if (key == "PPid") {
                 utils::tryParse(value, info.ppid);
             } else if (key == "Uid") {

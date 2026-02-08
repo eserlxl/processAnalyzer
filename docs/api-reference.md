@@ -40,7 +40,7 @@ The `utils` namespace offers a robust set of helper functions. The main header i
 *   System interactions.
 *   Time and Type utilities.
 
-For a comprehensive overview and usage examples of the utility library, please refer to **[docs/UTILS.md](UTILS.md)**.
+For a comprehensive overview and usage examples of the utility library, please refer to **[docs/utils.md](utils.md)**.
 
 ## Future Enhancements
 

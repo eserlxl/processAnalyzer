@@ -23,7 +23,7 @@ processAnalyzer/
 │   ├───features.md             # List of features.
 │   ├───project-structure.md    # This file, detailing the project's directory structure.
 │   ├───usage.md                # Detailed guide on using the processAnalyzer tool.
-│   ├───UTILS.md                # Documentation for the internal 'utils' library.
+│   ├───utils.md                # Documentation for the internal 'utils' library.
 │   └───audit/                  # Directory for audit-related documentation or logs.
 ├───include/                    # Public header files for the project.
 │   ├───utils.h                 # Main header for the utility library.

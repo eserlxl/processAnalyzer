@@ -25,7 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Refactored `Utils` library to use `std::expected` (as `Result<T>`) for robust error handling.
 - Deprecated older utility functions using `std::optional` or out-parameters for errors.
-- Enhanced `docs/UTILS.md` to reflect the new API and error handling patterns.
+- Enhanced `docs/utils.md` to reflect the new API and error handling patterns.
 - Added `TestUtilsNewApiTest` for verifying the new Utility API.
 
 ## [0.1.0] - 2026-02-08

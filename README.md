@@ -11,24 +11,30 @@
 
 ## Why processAnalyzer?
 
-In a world of complex, containerized, and microservice-based architectures, understanding how processes interact with the system is more critical than ever. `processAnalyzer` solves this by offering a **single, powerful, and user-friendly interface** to the `/proc` filesystem.
+In a world of complex, containerized, and microservice-based architectures, understanding how processes interact with the system is critical. `processAnalyzer` solves this by offering a **single, powerful, and user-friendly interface** to the `/proc` filesystem.
 
-It is designed to be **Comprehensive**, **Efficient** (C++23), **User-Friendly**, and **Modern**. Whether you're debugging a memory leak or monitoring containers, `processAnalyzer` provides the insights you need.
+It is designed to be **Comprehensive**, **Efficient** (C++23), and **Modern**. Whether you're debugging a memory leak, analyzing performance bottlenecks, or monitoring containers, `processAnalyzer` provides the deep insights you need.
 
 ## Features
 
-`processAnalyzer` provides a comprehensive suite of features for process monitoring and system diagnostics.
+`processAnalyzer` provides a suite of tools for process monitoring and system diagnostics:
 
--   **Process Enumeration and Filtering**: List and filter processes by name, user, state, PPID, memory, CPU, and more.
--   **In-Depth Process Details**: Get detailed information for a process, including memory maps, open files, network connections (IPv4/IPv6), resource limits, cgroups, and process hierarchy.
--   **System-Wide Metrics**: Monitor key system stats like CPU usage (total and per-core), memory usage, load average, disk I/O, network interface stats, and overall system activity.
--   **Flexible Output**: Customize output with selectable columns and formats like table, CSV, and JSON.
+-   **Process Enumeration & Filtering**: List processes and filter by name, user, state, memory usage, and more.
+-   **Deep Inspection**: Get detailed info including memory maps, open files, network connections (TCP/UDP), and process hierarchy.
+-   **System Metrics**: Monitor global stats like CPU load, memory usage, disk I/O, and network interface traffic.
+-   **Flexible Output**: Export data as formatted tables, CSV, or JSON for easy integration with other tools.
 
 See [docs/features.md](docs/features.md) for a complete feature list.
 
 ## Installation
 
-**Prerequisites:** Linux OS, C++23 Compiler (GCC 12+ / Clang 16+), CMake 3.17+, git.
+**Prerequisites:**
+-   Linux OS (relies on `/proc` filesystem)
+-   C++23 Compiler (GCC 12+ / Clang 16+)
+-   CMake 3.17+
+-   git
+
+### Build from Source
 
 ```bash
 git clone https://github.com/eserlxl/processAnalyzer.git
@@ -60,6 +66,9 @@ See [docs/build.md](docs/build.md) for detailed build and install instructions.
 
 # Show full details for a specific PID (children, files, network)
 ./build/processAnalyzer show --pid 1234 --children --open-files --network
+
+# Sort by resident memory usage in descending order
+./build/processAnalyzer list --sort-by rss --sort-order desc
 ```
 
 See [docs/usage.md](docs/usage.md) for more examples and full command reference.
@@ -68,10 +77,29 @@ See [docs/usage.md](docs/usage.md) for more examples and full command reference.
 
 *   **[API Reference](docs/api-reference.md)**: C++ API documentation for developers.
 *   **[Project Structure](docs/project-structure.md)**: Overview of the codebase organization.
-*   **[Utility Library](docs/UTILS.md)**: Documentation for the `utils` namespace.
-*   **[Build & Testing](docs/build.md)**: Detailed build instructions and how to run tests.
-*   **[Configuration](docs/configuration.md)**: Configuration options details.
+*   **[Utility Library](docs/utils.md)**: Documentation for the `utils` namespace.
+*   **[Build & Testing](docs/build.md)**: Detailed build instructions and test execution.
+*   **[Configuration](docs/configuration.md)**: Details on configuration options (Roadmap).
 *   **[Changelog](docs/changelog.md)**: History of changes.
+
+## Testing
+
+`processAnalyzer` includes a comprehensive test suite using Google Test.
+
+To run the tests after building:
+
+```bash
+cd build
+ctest --output-on-failure
+```
+
+For more details on running specific tests or generating coverage reports, see [docs/build.md](docs/build.md).
+
+## Configuration
+
+Support for external configuration files is currently **experimental**. The tool is primarily designed to be configured via command-line arguments.
+
+See [docs/configuration.md](docs/configuration.md) for the roadmap and current status.
 
 ## Contributing
 
