@@ -7,9 +7,7 @@
 #include <charconv>
 #include <cctype> // for std::isdigit, std::tolower, std::toupper
 #include <vector> // for std::vector
-#include <iostream> // for std::ios::ate in appendToFile, but also for debugging
 #include <iterator> // for std::istreambuf_iterator
-#include <set> // for listDirectory
 #include <cstdlib> // for getenv
 
 namespace Utils {

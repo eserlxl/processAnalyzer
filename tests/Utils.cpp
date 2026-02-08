@@ -7,9 +7,7 @@
 #include <vector>
 #include <filesystem>
 #include <fstream>
-#include <iostream>
 #include <cstdlib>
-#include <sstream> // For stringstream
 
 // Helper to create a temporary file for testing
 std::filesystem::path createTempFile(const std::string& content) {
