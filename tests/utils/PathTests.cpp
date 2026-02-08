@@ -15,7 +15,7 @@
 namespace fs = std::filesystem;
 
 // Helper function to generate a random string
-inline std::string generateRandomString(size_t length) {
+std::string generateRandomString(size_t length) {
     const std::string characters = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
     std::random_device rd;
     std::mt19937 generator(rd());
@@ -174,7 +174,7 @@ TEST_F(UtilsNewApiTest, CreateDirectoriesErrorHandling) {
     auto pathToCreate = fileAsIntermediateDir / "sub_dir" / "another_sub";
     result = utils::createDirectories(pathToCreate);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), utils::make_error_code(utils::UtilsError::invalidArgument)); // Or fileAlreadyExists, depending on specific OS error
+    EXPECT_EQ(result.error(), std::errc::file_exists); // Intermediate path component is a file
 
     fs::remove(fileAsIntermediateDir); // Cleanup
 }
@@ -450,7 +450,7 @@ TEST_F(UtilsPermissionsTest, ReadWriteExecutableChecks) {
     EXPECT_TRUE(utils::isReadable(testFile));
     EXPECT_TRUE(utils::isWritable(testFile));
     
-    // Test actual write capability check (Fix 2.2)
+    // Verify actual write capability by attempting to append to the file.
     {
         std::ofstream os(testFile, std::ios::app);
         EXPECT_TRUE(os.good());
