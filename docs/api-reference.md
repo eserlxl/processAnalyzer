@@ -9,13 +9,27 @@ While formal Doxygen-generated documentation is not currently provided, you can 
 
 ## Key API Components
 
-### `Analyzer` Class
+### `ProcessAnalyzer` Class
 
-The `Analyzer` class (defined in `include/Analyzer.h`) is the primary interface for interacting with system processes. It provides methods for:
+The `ProcessAnalyzer` class (defined in `include/Analyzer.h`) is the primary interface for interacting with system processes. It provides methods for:
 
-*   Listing all processes.
-*   Getting details for a specific process ID (PID).
-*   Filtering and sorting processes based on various criteria.
+*   **Process Enumeration**: `getPids()`, `streamPids()`, `streamProcesses()`, `queryProcesses()`.
+*   **Process Inspection**: `getProcessDetails()`, `getChildProcesses()`, `getParentProcess()`, `getAllDescendantProcesses()`.
+*   **Process Context**: `getProcessMemoryMaps()`, `getProcessResourceLimits()`, `getProcessCgroupInfo()`, `getProcessOpenFileDetails()`, `getProcessEnvironment()`.
+*   **System Metrics**: `getSystemMemoryInfo()`, `getSystemLoadAverage()`, `getSystemCpuStats()`, `getSystemDiskUsage()`.
+*   **Network & I/O**: `getNetworkConnections()`, `getProcessDiskIoUsage()`, `getSystemDiskIoStats()`, `getNetworkInterfaceStats()`.
+*   **Process Control**: `sendSignal()`, `setProcessNiceness()`, `setProcessCpuAffinity()`.
+
+### Key Data Structures
+
+*   `ProcessInfo`: Detailed information about a single process (PID, name, state, memory, CPU, etc.).
+*   `ProcessFilter`: Criteria for filtering processes (by name, user, usage, regex, etc.).
+*   `SystemMemoryInfo` & `SystemLoadAverage`: Overall system health metrics.
+*   `NetworkConnection`: Details of process network activity (protocol, addresses, ports).
+*   `ProcessDiskIoUsage`: Read/write rates for a process.
+*   `ThreadInfo`: Details about threads within a process.
+*   `MemoryMapInfo`: Process memory layout.
+*   `OpenFileDescriptorInfo`: Details on files opened by a process.
 
 ### `Utils` Namespace
 

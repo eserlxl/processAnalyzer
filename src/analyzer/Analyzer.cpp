@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Eser KUBALI
 
 #include "analyzer/Analyzer.h"
-#include "utils.h"
+#include "utils/Core.h"
 #include <iostream>
 #include <filesystem>
 

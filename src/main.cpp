@@ -11,7 +11,7 @@
 #include <sstream>
 #include <span> // Required for std::span
 #include "analyzer/Analyzer.h"
-#include "utils.h"
+#include "utils/Core.h"
 
 // Struct to hold parsed command-line arguments.
 struct ParsedArguments {

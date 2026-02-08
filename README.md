@@ -29,13 +29,13 @@ It provides a robust interface to deliver detailed resource usage metrics and ex
 
 ## Features
 
-`processAnalyzer` provides a comprehensive suite of features for process monitoring, system diagnostics, and real-time performance analysis.
+`processAnalyzer` provides a comprehensive suite of features for process monitoring, system diagnostics, and performance analysis.
 
 Key capabilities include:
--   **Process Enumeration and Filtering**: List, filter, and sort processes by various criteria.
--   **In-Depth Process Details**: Inspect process properties, including memory maps, open files, and network connections.
--   **Real-time Monitoring**: Get live updates on CPU, memory, and I/O usage, similar to `htop`.
+-   **Process Enumeration and Filtering**: List, filter, and sort processes by various criteria (name, user, usage, etc.).
+-   **In-Depth Process Details**: Inspect process properties, including memory maps, open files, network connections, and environment variables.
 -   **System-Wide Metrics**: Monitor overall system health, including CPU load, memory usage, and network statistics.
+-   **Performance Analysis**: Analyze CPU and memory usage patterns.
 
 For a complete list of features, please see the [Features documentation](docs/features.md).
 
@@ -117,7 +117,7 @@ For a detailed breakdown of the project directory structure, see [docs/project-s
 
 ## Utility Library (`utils` Namespace)
 
-`processAnalyzer` includes a powerful, modern C++23 utility library that provides a robust foundation for the application. It features a `std::expected`-based error handling model and offers a rich set of functions for:
+`processAnalyzer` includes a powerful, modern C++23 utility library that provides a robust foundation for the application. By simply including `include/utils.h`, you gain access to a comprehensive set of general-purpose utilities. It features a `std::expected`-based error handling model and offers a rich set of functions for:
 
 -   File system and path manipulation
 -   String processing and encoding (Base64, URL)
@@ -128,9 +128,9 @@ For complete documentation of all functions, error codes, and usage examples, pl
 
 ## Configuration
 
-`processAnalyzer` supports loading configuration settings from a specified file. This allows for persistent customization of behavior and default parameters.
+`processAnalyzer` is primarily configured via command-line arguments. While a `--config` option exists, support for external configuration files is currently **experimental** and under development.
 
-For details on available configuration options and file formats, please refer to the [Configuration documentation](docs/configuration.md).
+For details on the planned configuration options and future file formats, please refer to the [Configuration documentation](docs/configuration.md).
 
 ## Contributing
 

@@ -2,6 +2,37 @@
 
 The `utils` namespace provides a collection of general-purpose utility functions used throughout the `processAnalyzer` project. These utilities are organized into modules with headers in `include/utils/` and implementations in `src/utils/`. They aim to simplify common tasks related to file system operations, string manipulation, numeric conversions, and system interactions.
 
+## Usage
+
+To utilize the `utils` library in your C++ project, simply include the main umbrella header:
+
+```cpp
+#include <utils.h>
+```
+
+This single include provides access to all the utility functions and types defined across the various modules (e.g., `Core.h`, `File.h`, `Path.h`, `String.h`, `System.h`, `Time.h`, `Types.h`) within the `include/utils/` directory. This approach simplifies dependency management and reduces boilerplate when you need to use multiple utility features.
+
+You can then access the utilities via the `utils` namespace:
+
+```cpp
+#include <utils.h>
+#include <iostream>
+
+int main() {
+    auto result = utils::readTextFile("example.txt");
+    if (result) {
+        std::cout << "File content: " << *result << std::endl;
+    } else {
+        std::cerr << "Error reading file: " << result.error().message() << std::endl;
+    }
+
+    std::string uuid = utils::generateUuid().value_or("error");
+    std::cout << "Generated UUID: " << uuid << std::endl;
+
+    return 0;
+}
+```
+
 Many functions now return `Result<T>` which is a `std::expected<T, std::error_code>`, allowing for robust error handling. Older functions using `std::optional` or out-parameters for error codes are being deprecated.
 
 ## Error Handling

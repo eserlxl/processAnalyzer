@@ -7,7 +7,7 @@
 *   **Process Filtering**: Filter processes by various criteria such as name, user, state, parent process ID (PPID), memory usage, executable path, command line arguments, CPU usage, memory percentage, or network connection attributes.
 *   **Process Sorting**: Sort processes based on various fields like PID, user, name, memory usage, CPU time, start time, executable path, CPU usage percentage, memory usage percentage, etc.
 *   **Customizable Output**: Choose which columns to display and output results in different formats (table, CSV, JSON).
-*   **Real-time Monitoring**: Provides dynamic, real-time updates on process resource consumption and status, similar to 'top' or 'htop', including CPU and disk I/O usage per process and system-wide.
+*   **Performance Monitoring**: Provides instantaneous snapshots of process resource consumption and status. While the CLI tool functions like `ps` (one-shot output), the underlying API supports efficient, repetitive querying to build real-time monitoring solutions or dashboard feeds.
 *   **System Metrics**: Monitor system-wide metrics such as total memory usage, load average, CPU statistics (user, system, idle), per-CPU usage, disk I/O per device, network interface statistics, and system activity (interrupts, context switches, forks).
 *   **Network Activity**: Inspect detailed network connections (TCP, UDP, IPv4, IPv6) for individual processes.
 *   **Thread Details**: Enumerate and inspect individual threads within a process.
