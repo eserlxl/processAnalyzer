@@ -104,3 +104,7 @@ Functions for checking and converting string representations of numbers.
 
 - `std::optional<std::string> getEnv(const std::string& name)`
   Retrieves the value of an environment variable specified by `name`. Returns `std::nullopt` if the variable is not set.
+
+## Unit Tests
+
+The utility functions provided by the `Utils` namespace are thoroughly tested to ensure their correctness and reliability. Unit tests for the `Utils` library can be found in the `tests/` directory, specifically in `tests/Utils.cpp` and `tests/TestUtils.cpp`. These tests cover various scenarios, including edge cases and error conditions, to validate the behavior of each utility function.

@@ -8,13 +8,13 @@ The `processAnalyzer` executable can be found in the `build/` directory after co
 
 ### Listing All Processes
 
-To list all currently running processes on your system, use the `list` command. This is the default command if no specific command is provided.
+To list all currently running processes on your system, use the `list` command.
 
 ```bash
 ./processAnalyzer list
-# Or simply
-./processAnalyzer
 ```
+
+If you provide options without a command (e.g., `./processAnalyzer --brief`), it defaults to the `list` command. However, running `./processAnalyzer` without any arguments will display the help message.
 
 By default, this command will output a table including: Process ID (PID), User, Name, State, Resident Set Size (RSS), and Virtual Memory (VM).
 

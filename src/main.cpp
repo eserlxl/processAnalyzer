@@ -20,7 +20,7 @@ struct ParsedArguments {
     std::optional<std::string> user;
     std::optional<char> stateFilter;
     std::optional<ProcessSortField> sortBy;
-    SortOrder sortOrder = SortOrder::ASC; // Default to ascending
+    SortOrder sortOrder = SortOrder::asc; // Default to ascending
     bool briefMode = false;
     std::vector<std::string> selectedColumns;
     bool noTruncateCmdline = false;
@@ -41,15 +41,15 @@ void printVerticalProcessDetails(const ProcessInfo& info);
 // Helper to convert string to ProcessSortField
 std::optional<ProcessSortField> stringToProcessSortField(const std::string& s) {
     std::string lowerS = Utils::toLower(s);
-    if (lowerS == "pid") return ProcessSortField::PID;
-    if (lowerS == "ppid") return ProcessSortField::PPID;
-    if (lowerS == "uid") return ProcessSortField::UID;
-    if (lowerS == "user") return ProcessSortField::USER;
-    if (lowerS == "name") return ProcessSortField::NAME;
-    if (lowerS == "state") return ProcessSortField::STATE;
-    if (lowerS == "rss") return ProcessSortField::RSS;
-    if (lowerS == "vm") return ProcessSortField::VM;
-    if (lowerS == "threads") return ProcessSortField::THREADS;
+    if (lowerS == "pid") return ProcessSortField::pid;
+    if (lowerS == "ppid") return ProcessSortField::ppid;
+    if (lowerS == "uid") return ProcessSortField::uid;
+    if (lowerS == "user") return ProcessSortField::user;
+    if (lowerS == "name") return ProcessSortField::name;
+    if (lowerS == "state") return ProcessSortField::state;
+    if (lowerS == "rss") return ProcessSortField::rss;
+    if (lowerS == "vm") return ProcessSortField::vmsize;
+    if (lowerS == "threads") return ProcessSortField::threads;
     return std::nullopt;
 }
 
@@ -116,7 +116,7 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
             }
             args.sortBy = field;
         } else if (arg == "--desc") {
-            args.sortOrder = SortOrder::DESC;
+            args.sortOrder = SortOrder::desc;
         } else if (arg == "--brief") {
             args.briefMode = true;
         } else if (arg == "--columns") {
@@ -194,7 +194,7 @@ int main(int argc, char* argv[]) {
         filter.stateFilter = args.stateFilter;
 
         if (args.command == "list" || args.command == "name" || args.command == "user") {
-            processesToDisplay = analyzer.queryProcesses(filter, args.sortBy.value_or(ProcessSortField::PID), args.sortOrder);
+            processesToDisplay = analyzer.queryProcesses(filter, args.sortBy.value_or(ProcessSortField::pid), args.sortOrder);
         } else if (args.command == "pid") {
             if (!args.pid.has_value()) {
                 std::cerr << "Internal error: PID expected.\n";

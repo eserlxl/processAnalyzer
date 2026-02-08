@@ -142,6 +142,88 @@ TEST(UtilsTest, ListDirectory) {
     std::filesystem::remove_all(dirPath);
 }
 
+TEST(UtilsTest, GetFileSize) {
+    std::string content = "1234567890";
+    auto filePath = createTempFile(content);
+    std::error_code ec;
+    auto size = Utils::getFileSize(filePath, ec);
+    ASSERT_FALSE(ec);
+    ASSERT_TRUE(size.has_value());
+    EXPECT_EQ(size.value(), content.size());
+    std::filesystem::remove(filePath);
+
+    auto nonExistent = Utils::getFileSize("non_existent_file.txt", ec);
+    EXPECT_TRUE(ec);
+    EXPECT_FALSE(nonExistent.has_value());
+}
+
+TEST(UtilsTest, CopyFile) {
+    std::string content = "copy content";
+    auto srcPath = createTempFile(content);
+    auto destPath = std::filesystem::temp_directory_path() / "dest_file.txt";
+
+    std::error_code ec;
+    bool result = Utils::copyFile(srcPath, destPath, ec);
+    ASSERT_TRUE(result);
+    ASSERT_FALSE(ec);
+    EXPECT_TRUE(std::filesystem::exists(destPath));
+
+    auto readResult = Utils::readTextFile(destPath);
+    ASSERT_TRUE(readResult.has_value());
+    EXPECT_EQ(readResult.value(), content);
+
+    std::filesystem::remove(srcPath);
+    std::filesystem::remove(destPath);
+}
+
+TEST(UtilsTest, MoveFile) {
+    std::string content = "move content";
+    auto srcPath = createTempFile(content);
+    auto destPath = std::filesystem::temp_directory_path() / "dest_file_moved.txt";
+
+    std::error_code ec;
+    bool result = Utils::moveFile(srcPath, destPath, ec);
+    ASSERT_TRUE(result);
+    ASSERT_FALSE(ec);
+    EXPECT_FALSE(std::filesystem::exists(srcPath));
+    EXPECT_TRUE(std::filesystem::exists(destPath));
+
+    auto readResult = Utils::readTextFile(destPath);
+    ASSERT_TRUE(readResult.has_value());
+    EXPECT_EQ(readResult.value(), content);
+
+    std::filesystem::remove(destPath);
+}
+
+TEST(UtilsTest, TraverseDirectory) {
+    auto dirPath = createTempDir();
+    auto subDir = dirPath / "subdir";
+    Utils::createDirectories(subDir);
+    auto file1 = dirPath / "file1.txt";
+    auto file2 = subDir / "file2.txt";
+    std::ofstream(file1) << "1";
+    std::ofstream(file2) << "2";
+
+    std::vector<std::filesystem::path> paths;
+    bool result = Utils::traverseDirectory(dirPath, [&paths](const auto& path){
+        paths.push_back(path);
+    }, true);
+
+    ASSERT_TRUE(result);
+    EXPECT_EQ(paths.size(), 3); // dir, subdir, file1, file2 (recursive_directory_iterator includes the directories themselves)
+
+    // Non-recursive
+    paths.clear();
+    result = Utils::traverseDirectory(dirPath, [&paths](const auto& path){
+        paths.push_back(path);
+    }, false);
+    
+    ASSERT_TRUE(result);
+    EXPECT_EQ(paths.size(), 2); // subdir, file1.txt
+
+    std::filesystem::remove_all(dirPath);
+}
+
 TEST(UtilsTest, Exists) {
     auto filePath = createTempFile("temp");
     EXPECT_TRUE(Utils::exists(filePath));
@@ -212,6 +294,24 @@ TEST(UtilsTest, Contains) {
     EXPECT_FALSE(Utils::contains("", "a"));
 }
 
+TEST(UtilsTest, StartsWithIgnoreCase) {
+    EXPECT_TRUE(Utils::startsWithIgnoreCase("Hello World", "hello"));
+    EXPECT_FALSE(Utils::startsWithIgnoreCase("Hello World", "world"));
+    EXPECT_TRUE(Utils::startsWithIgnoreCase("HELLO", "hello"));
+}
+
+TEST(UtilsTest, EndsWithIgnoreCase) {
+    EXPECT_TRUE(Utils::endsWithIgnoreCase("Hello World", "WORLD"));
+    EXPECT_FALSE(Utils::endsWithIgnoreCase("Hello World", "HELLO"));
+    EXPECT_TRUE(Utils::endsWithIgnoreCase("WORLD", "world"));
+}
+
+TEST(UtilsTest, ContainsIgnoreCase) {
+    EXPECT_TRUE(Utils::containsIgnoreCase("Hello World", "lo wo"));
+    EXPECT_TRUE(Utils::containsIgnoreCase("Hello World", "LO WO"));
+    EXPECT_FALSE(Utils::containsIgnoreCase("Hello World", "foo"));
+}
+
 TEST(UtilsTest, ToLower) {
     EXPECT_EQ(Utils::toLower("HELLO World"), "hello world");
     EXPECT_EQ(Utils::toLower("123!@#"), "123!@#");
@@ -230,6 +330,24 @@ TEST(UtilsTest, Replace) {
     EXPECT_EQ(Utils::replace("hello", "l", ""), "heo");
     EXPECT_EQ(Utils::replace("hello", "", "x"), "hello");
     EXPECT_EQ(Utils::replace("", "a", "b"), "");
+}
+
+TEST(UtilsTest, ReplaceFirst) {
+    EXPECT_EQ(Utils::replaceFirst("banana", "a", "o"), "bonana");
+    EXPECT_EQ(Utils::replaceFirst("hello world world", "world", "galaxy"), "hello galaxy world");
+    EXPECT_EQ(Utils::replaceFirst("test", "not_found", "x"), "test");
+}
+
+TEST(UtilsTest, ReplaceN) {
+    EXPECT_EQ(Utils::replaceN("banana", "a", "o", 2), "bonona");
+    EXPECT_EQ(Utils::replaceN("ababab", "ab", "c", 2), "ccab");
+    EXPECT_EQ(Utils::replaceN("test", "t", "x", 10), "xesx"); // replace all
+}
+
+TEST(UtilsTest, FormatString) {
+    EXPECT_EQ(Utils::formatString("Hello, %s!", "world"), "Hello, world!");
+    EXPECT_EQ(Utils::formatString("Number: %d", 123), "Number: 123");
+    EXPECT_EQ(Utils::formatString("%d %f %s", -5, 3.14, "test"), "-5 3.140000 test");
 }
 
 TEST(UtilsTest, Join) {
@@ -351,6 +469,32 @@ TEST(UtilsTest, ToDouble) {
     EXPECT_DOUBLE_EQ(Utils::toDouble("1e-2").value_or(0.0), 0.01);
 }
 
+TEST(UtilsTest, ParseBool) {
+    EXPECT_TRUE(Utils::parseBool("true").value_or(false));
+    EXPECT_TRUE(Utils::parseBool("TRUE").value_or(false));
+    EXPECT_TRUE(Utils::parseBool("1").value_or(false));
+    EXPECT_TRUE(Utils::parseBool("yes").value_or(false));
+    EXPECT_FALSE(Utils::parseBool("false").value_or(true));
+    EXPECT_FALSE(Utils::parseBool("FALSE").value_or(true));
+    EXPECT_FALSE(Utils::parseBool("0").value_or(true));
+    EXPECT_FALSE(Utils::parseBool("no").value_or(true));
+    EXPECT_FALSE(Utils::parseBool("invalid").has_value());
+    EXPECT_FALSE(Utils::parseBool("").has_value());
+}
+
+TEST(UtilsTest, ToInt) {
+    EXPECT_EQ(Utils::toInt("123").value_or(0), 123);
+    EXPECT_EQ(Utils::toInt("-456").value_or(0), -456);
+    EXPECT_FALSE(Utils::toInt("2147483648").has_value()); // Out of range
+    EXPECT_FALSE(Utils::toInt("abc").has_value());
+}
+
+TEST(UtilsTest, ToFloat) {
+    EXPECT_FLOAT_EQ(Utils::toFloat("123.45").value_or(0.0F), 123.45F);
+    EXPECT_FLOAT_EQ(Utils::toFloat("-12.3").value_or(0.0F), -12.3F);
+    EXPECT_FALSE(Utils::toFloat("3.5e40").has_value()); // Out of range for float
+}
+
 TEST(UtilsTest, GetEnv) {
     // Set an environment variable
     #ifdef _WIN32
@@ -367,4 +511,21 @@ TEST(UtilsTest, GetEnv) {
 
     auto nonExistent = Utils::getEnv("NON_EXISTENT_VAR_XYZ_123");
     EXPECT_FALSE(nonExistent.has_value());
+}
+
+TEST(UtilsTest, ExecuteCommand) {
+    std::string stdoutStr;
+    std::string stderrStr;
+    int exitCode;
+
+    bool result = Utils::executeCommand("echo 'hello world'", stdoutStr, stderrStr, exitCode);
+    ASSERT_TRUE(result);
+    EXPECT_EQ(exitCode, 0);
+    EXPECT_EQ(Utils::trim(stdoutStr), "hello world");
+    
+    // Test command that fails
+    result = Utils::executeCommand("ls non_existent_dir_12345", stdoutStr, stderrStr, exitCode);
+    ASSERT_TRUE(result);
+    EXPECT_NE(exitCode, 0);
+    EXPECT_TRUE(Utils::contains(stdoutStr, "No such file or directory"));
 }

@@ -32,7 +32,12 @@ It provides a robust interface to deliver detailed resource usage metrics and ex
 
 To get `processAnalyzer` up and running, you'll need to build it from source.
 
-Please refer to the [Build Instructions](docs/build.md) for detailed prerequisites and steps on how to compile the project.
+**Prerequisites:**
+*   Linux OS (relies on `/proc` filesystem)
+*   C++23 compatible compiler (e.g., GCC, Clang)
+*   CMake 3.17 or higher
+
+For detailed build steps, please refer to the [Build Instructions](docs/build.md).
 
 ## Quick Start
 
@@ -42,6 +47,12 @@ To list all running processes:
 
 ```bash
 ./processAnalyzer list
+```
+
+To see available commands and options:
+
+```bash
+./processAnalyzer --help
 ```
 
 For more detailed usage examples and commands, please refer to the [Usage Guide](docs/usage.md).

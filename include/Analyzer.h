@@ -222,7 +222,7 @@ enum class ProcessSortField {
     uid,
     user,
     state,
-    vm,
+
     threads,
     cwd,
     cpuUserTime,

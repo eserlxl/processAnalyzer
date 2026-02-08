@@ -9,6 +9,9 @@
 #include <vector> // for std::vector
 #include <iterator> // for std::istreambuf_iterator
 #include <cstdlib> // for getenv
+#include <cstdarg> // for va_list, va_start, va_end
+#include <cstdio>  // for vsnprintf
+#include <memory>  // for std::unique_ptr
 
 namespace Utils {
 
@@ -173,6 +176,46 @@ Result<std::vector<std::filesystem::path>> listDirectory(const std::filesystem::
     return entries;
 }
 
+bool copyFile(const std::filesystem::path& source, const std::filesystem::path& destination, std::error_code& ec) {
+    std::filesystem::copy(source, destination, std::filesystem::copy_options::overwrite_existing, ec);
+    return !ec;
+}
+
+bool moveFile(const std::filesystem::path& source, const std::filesystem::path& destination, std::error_code& ec) {
+    std::filesystem::rename(source, destination, ec);
+    return !ec;
+}
+
+std::optional<uintmax_t> getFileSize(const std::filesystem::path& filePath, std::error_code& ec) {
+    if (std::filesystem::exists(filePath, ec) && !ec && std::filesystem::is_regular_file(filePath, ec) && !ec) {
+        return std::filesystem::file_size(filePath, ec);
+    }
+    if (!ec) {
+        ec = make_error_code(UtilsError::FileNotFound);
+    }
+    return std::nullopt;
+}
+
+bool traverseDirectory(const std::filesystem::path& dirPath, const std::function<void(const std::filesystem::path&)>& callback, bool recursive) {
+    std::error_code ec;
+    if (!std::filesystem::is_directory(dirPath, ec)) {
+        return false;
+    }
+
+    if (recursive) {
+        for (const auto& entry : std::filesystem::recursive_directory_iterator(dirPath, ec)) {
+            if (ec) return false;
+            callback(entry.path());
+        }
+    } else {
+        for (const auto& entry : std::filesystem::directory_iterator(dirPath, ec)) {
+            if (ec) return false;
+            callback(entry.path());
+        }
+    }
+    return !ec;
+}
+
 bool exists(const std::filesystem::path& path) {
     std::error_code ec;
     return std::filesystem::exists(path, ec);
@@ -211,6 +254,33 @@ bool contains(std::string_view s, std::string_view substring) {
     return s.find(substring) != std::string_view::npos;
 }
 
+bool startsWithIgnoreCase(std::string_view str, std::string_view prefix) {
+    if (prefix.length() > str.length()) {
+        return false;
+    }
+    return std::equal(prefix.begin(), prefix.end(), str.begin(),
+                      [](unsigned char c1, unsigned char c2) {
+                          return std::tolower(c1) == std::tolower(c2);
+                      });
+}
+
+bool endsWithIgnoreCase(std::string_view str, std::string_view suffix) {
+    if (suffix.length() > str.length()) {
+        return false;
+    }
+    return std::equal(suffix.rbegin(), suffix.rend(), str.rbegin(),
+                      [](unsigned char c1, unsigned char c2) {
+                          return std::tolower(c1) == std::tolower(c2);
+                      });
+}
+
+bool containsIgnoreCase(std::string_view str, std::string_view subStr) {
+    auto it = std::search(str.begin(), str.end(),
+                          subStr.begin(), subStr.end(),
+                          [](unsigned char ch1, unsigned char ch2) { return std::tolower(ch1) == std::tolower(ch2); });
+    return it != str.end();
+}
+
 std::string toLower(std::string_view s) {
     std::string result(s.length(), ' ');
     std::ranges::transform(s, result.begin(),
@@ -244,6 +314,44 @@ std::string replace(std::string_view s, std::string_view target, std::string_vie
     return result;
 }
 
+std::string replaceFirst(std::string_view s, std::string_view from, std::string_view to) {
+    auto pos = s.find(from);
+    if (pos == std::string_view::npos) {
+        return std::string(s);
+    }
+    std::string result;
+    result.reserve(s.length() - from.length() + to.length());
+    result.append(s.substr(0, pos));
+    result.append(to);
+    result.append(s.substr(pos + from.length()));
+    return result;
+}
+
+std::string replaceN(std::string_view s, std::string_view from, std::string_view to, size_t count) {
+    if (from.empty() || count == 0) {
+        return std::string(s);
+    }
+
+    std::string result;
+    result.reserve(s.length());
+    size_t currentPos = 0;
+    size_t replacements = 0;
+
+    while (replacements < count) {
+        auto foundPos = s.find(from, currentPos);
+        if (foundPos == std::string_view::npos) {
+            break;
+        }
+        result.append(s.substr(currentPos, foundPos - currentPos));
+        result.append(to);
+        currentPos = foundPos + from.length();
+        replacements++;
+    }
+
+    result.append(s.substr(currentPos));
+    return result;
+}
+
 std::string join(const std::vector<std::string>& parts, std::string_view delimiter) {
     if (parts.empty()) {
         return "";
@@ -265,6 +373,28 @@ std::string join(const std::vector<std::string>& parts, std::string_view delimit
         result.append(*it);
     }
     return result;
+}
+
+std::string formatString(const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    
+    // First, determine the required buffer size
+    va_list argsCopy;
+    va_copy(argsCopy, args);
+    int size = std::vsnprintf(nullptr, 0, fmt, argsCopy);
+    va_end(argsCopy);
+
+    if (size < 0) {
+        va_end(args);
+        return ""; // Encoding error
+    }
+
+    auto buf = std::make_unique<char[]>(size + 1);
+    std::vsnprintf(buf.get(), size + 1, fmt, args);
+    
+    va_end(args);
+    return std::string(buf.get(), size);
 }
 
 std::vector<std::string> split(std::string_view s, char delimiter, bool skipEmpty) {
@@ -366,6 +496,47 @@ std::optional<double> toDouble(std::string_view s) {
     return std::nullopt;
 }
 
+std::optional<bool> parseBool(std::string_view s) {
+    std::string lowerS = toLower(s);
+    if (lowerS == "true" || lowerS == "1" || lowerS == "yes") {
+        return true;
+    }
+    if (lowerS == "false" || lowerS == "0" || lowerS == "no") {
+        return false;
+    }
+    return std::nullopt;
+}
+
+std::optional<int> toInt(std::string_view s) {
+    long val;
+    std::string_view subS = s;
+    if (!s.empty() && s[0] == '+') {
+        subS = s.substr(1);
+    }
+    
+    if (subS.empty()) return std::nullopt;
+
+    auto res = std::from_chars(subS.data(), subS.data() + subS.size(), val);
+    if (res.ec == std::errc() && res.ptr == subS.data() + subS.size()) {
+        if (val >= std::numeric_limits<int>::min() && val <= std::numeric_limits<int>::max()) {
+            return static_cast<int>(val);
+        }
+    }
+    return std::nullopt;
+}
+
+std::optional<float> toFloat(std::string_view s) {
+    double val;
+    auto opt = toDouble(s);
+    if (opt) {
+        val = *opt;
+        if (val >= -std::numeric_limits<float>::max() && val <= std::numeric_limits<float>::max()) {
+            return static_cast<float>(val);
+        }
+    }
+    return std::nullopt;
+}
+
 // --- System Interaction ---
 
 std::optional<std::string> getEnv(const std::string& name) {
@@ -374,6 +545,26 @@ std::optional<std::string> getEnv(const std::string& name) {
         return std::string(value);
     }
     return std::nullopt;
+}
+
+bool executeCommand(const std::string& command, std::string& stdoutStr, std::string& stderrStr, int& exitCode) {
+    std::string commandRedirect = command + " 2>&1";
+    FILE* pipe = popen(commandRedirect.c_str(), "r");
+    if (!pipe) {
+        stderrStr = "popen() failed!";
+        return false;
+    }
+
+    std::array<char, 128> buffer;
+    stdoutStr.clear();
+    while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
+        stdoutStr += buffer.data();
+    }
+
+    int pcloseResult = pclose(pipe);
+    exitCode = WEXITSTATUS(pcloseResult);
+
+    return true;
 }
 
 } // namespace Utils

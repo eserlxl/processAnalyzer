@@ -65,7 +65,7 @@ protected:
 
         // PID 3: another process, child of PID 1, running state
         mockProc->createProcFile(kMyAppPid, "status", "Name:\tmy-app\nState:\tR (running)\nPPid:\t1\nUid:\t1000\t1000\t1000\t1000\nThreads:\t10\nVmRSS:\t50000 kB\nVmSize:\t100000 kB\n");
-        mockProc->createProcFile(kMyAppPid, "stat", "3 (my-app) R 1 3 3 0 -1 4202752 239 0 0 0 15 25 0 0 15 0 1 0 23456 102400000 50000 18446744073709551615 1 1 0 0 0 0 0 4096 0 0 0 0 17 0 0 0 0 0 0 0 0 0 0 0 0 0 0");
+        mockProc->createProcFile(kMyAppPid, "stat", "3 (my-app) R 1 3 3 0 -1 4202752 239 0 0 0 15 25 0 0 20 15 1 0 23456 102400000 50000 18446744073709551615 1 1 0 0 0 0 0 4096 0 0 0 0 17 0 0 0 0 0 0 0 0 0 0 0 0 0 0");
         mockProc->createProcFile(kMyAppPid, "cmdline", std::string("/usr/bin/my-app\0--config\0/etc/my-app.conf", kMyAppCmdlineSize));
         mockProc->createProcFile(kMyAppPid, "environ", std::string("PATH=/usr/bin\0USER=testuser\0", kMyAppEnvSize));
         mockProc->createSymlink(kMyAppPid, "exe", "/usr/bin/my-app");
@@ -266,20 +266,20 @@ TEST_F(ProcessAnalyzerTest, QueryProcessesSorting) {
     ProcessAnalyzer analyzer(mockProc->getPath());
 
     // Sort by PID descending
-    auto results = analyzer.queryProcesses({}, ProcessSortField::PID, SortOrder::DESC);
+    auto results = analyzer.queryProcesses({}, ProcessSortField::pid, SortOrder::desc);
     ASSERT_EQ(results.size(), 4);
     EXPECT_EQ(results[0].pid, kZombiePid);
     EXPECT_EQ(results[3].pid, kInitPid);
 
     // Sort by RSS ascending
-    results = analyzer.queryProcesses({}, ProcessSortField::RSS, SortOrder::ASC);
+    results = analyzer.queryProcesses({}, ProcessSortField::rss, SortOrder::asc);
     ASSERT_EQ(results.size(), 4);
     EXPECT_EQ(results[0].residentMemory, 0); // pid 2 or 4
     EXPECT_EQ(results[3].pid, kMyAppPid); // pid 3 has most RSS
 
     // Sort by total CPU Time ascending (new in Iteration 7)
     // PID 4: 0, PID 1: 30, PID 3: 40, PID 2: 300
-    results = analyzer.queryProcesses({}, ProcessSortField::CPU_TIME, SortOrder::ASC);
+    results = analyzer.queryProcesses({}, ProcessSortField::cpuTime, SortOrder::asc);
     ASSERT_EQ(results.size(), 4);
     EXPECT_EQ(results[0].pid, kZombiePid);
     EXPECT_EQ(results[1].pid, kInitPid);
@@ -287,13 +287,13 @@ TEST_F(ProcessAnalyzerTest, QueryProcessesSorting) {
     EXPECT_EQ(results[3].pid, kKthreaddPid);
 
     // Sort by start time descending
-    results = analyzer.queryProcesses({}, ProcessSortField::START_TIME, SortOrder::DESC);
+    results = analyzer.queryProcesses({}, ProcessSortField::startTime, SortOrder::desc);
     ASSERT_EQ(results.size(), 4);
     EXPECT_EQ(results[0].pid, kZombiePid); // pid 4 has largest start time
     EXPECT_EQ(results[3].pid, kInitPid);
 
     // Sort by executable path ascending
-    results = analyzer.queryProcesses({}, ProcessSortField::EXECUTABLE_PATH, SortOrder::ASC);
+    results = analyzer.queryProcesses({}, ProcessSortField::executablePath, SortOrder::asc);
     ASSERT_EQ(results.size(), 4);
     EXPECT_EQ(results[0].pid, kZombiePid); // Empty path comes first
     EXPECT_EQ(results[1].pid, kInitPid);
