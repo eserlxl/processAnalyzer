@@ -202,7 +202,7 @@ std::vector<std::string> split(std::string_view s, std::string_view delimiter, b
         return tokens;
     }
     if (delimiter.empty()) {
-        if (!s.empty()) tokens.emplace_back(std::string(s));
+        if (!s.empty()) tokens.emplace_back(s);
         return tokens;
     }
 

@@ -34,27 +34,33 @@ To get `processAnalyzer` up and running, you'll need to build it from source.
 *   C++23 compatible compiler (e.g., GCC, Clang)
 *   CMake 3.17 or higher
 
-For detailed build steps, please refer to the [Build Instructions](docs/build.md).
+**Quick Build:**
+
+```bash
+mkdir build && cd build
+cmake ..
+make
+```
+
+For detailed build steps, including running tests and coverage, please refer to the [Build Instructions](docs/build.md).
 
 ## Getting Started
 
-Once `processAnalyzer` is built (see [Installation](#installation)), you can quickly run it from the `build` directory.
+Once built, the binary is located in `build/processAnalyzer`.
 
-To list all running processes:
+To verify it works, list the running processes:
 
 ```bash
 ./processAnalyzer list
 ```
 
-> **Note:** Some process information may be restricted to the owner or the root user. If you don't see expected details, try running with `sudo`.
+> **Note:** Some process information may be restricted. Run with `sudo` if you need full system visibility.
 
-To see available commands and options:
+To see all available commands and options:
 
 ```bash
 ./processAnalyzer --help
 ```
-
-For more detailed usage examples and commands, please refer to the [Usage Guide](docs/usage.md).
 
 ## Features
 
@@ -74,7 +80,23 @@ For more detailed usage examples and commands, please refer to the [Usage Guide]
 
 ## Usage
 
-For comprehensive usage instructions, command-line arguments, and examples, please refer to the [Usage Guide](docs/usage.md).
+Here are some common commands to get you started:
+
+```bash
+# List all running processes
+./processAnalyzer list
+
+# Filter by name and output as JSON
+./processAnalyzer name chrome --format json
+
+# Show details for a specific PID, including children and open files
+./processAnalyzer pid 1234 --children --open-files
+
+# List processes sorted by memory usage (RSS) in descending order
+./processAnalyzer list --sort-by rss --desc
+```
+
+For comprehensive usage instructions, command-line arguments, and detailed examples, please refer to the [Usage Guide](docs/usage.md).
 
 ## Project Structure
 
@@ -91,21 +113,17 @@ For a detailed breakdown of the project directory structure, see [docs/project-s
 
 ## Utility Library (`utils` Namespace)
 
-`processAnalyzer` is built on a powerful, modern C++23 utility library contained within the `utils` namespace. This library, defined in `include/utils.h` and implemented in `src/utils.cpp`, provides a solid foundation for the entire application by offering a wide range of general-purpose functionalities.
+`processAnalyzer` is built on a powerful, modern C++23 utility library contained within the `utils` namespace. This library, defined in `include/utils.h` and implemented in `src/utils.cpp`, provides a solid foundation for the entire application.
 
-The library is designed with a focus on robustness, safety, and ease of use, leveraging modern C++ features like `std::expected` for clear and explicit error handling (`Result<T>`).
+It features a `std::expected`-based error handling model (`Result<T>`) and covers a wide range of functionalities:
 
-Key features of the `utils` library include:
+*   **File I/O**: Atomic writes, directory traversal, permissions, and temp file management.
+*   **Path Manipulation**: Canonicalization, relative paths, and symlink handling.
+*   **String Ops**: Trimming, splitting, encoding/decoding (Base64, URL), and UUID generation.
+*   **System**: Command execution, environment variable management, and current working directory.
+*   **Time & Hashing**: Timestamp formatting, elapsed time, and file hashing (SHA256, MD5, etc.).
 
-*   **Advanced File I/O**: Functions for reading, writing, and appending to files (text and binary), including atomic write operations for data integrity. It also includes comprehensive tools for directory traversal, permission management, and temporary file/directory creation.
-*   **Robust Path Manipulation**: A suite of functions for safely and reliably handling file paths, including canonicalization, relative path calculation, and symlink management.
-*   **Rich String Manipulation**: A wide array of string utilities, from simple checks (`startsWith`, `contains`) and transformations (`toLower`, `trim`) to more complex operations like URL and Base64 encoding/decoding, UUID generation, and `std::format`-based string formatting.
-*   **Safe Numeric Parsing**: Type-safe and error-checked functions for converting strings to numeric types, preventing common runtime errors.
-*   **Seamless System Interaction**: Utilities for executing external commands, managing environment variables, and handling the current working directory.
-*   **Time Utilities**: A set of functions for getting the current time, formatting and parsing timestamps, and measuring elapsed time.
-*   **File Hashing**: Tools to compute file hashes using various algorithms like SHA256, SHA512, MD5, and CRC32.
-
-For a complete and detailed documentation of all functions, error codes, and usage examples, please refer to the **[Utils Library Documentation](docs/UTILS.md)**.
+For complete documentation of all functions, error codes, and usage examples, please refer to the **[Utils Library Documentation](docs/UTILS.md)**.
 
 ## Contributing
 

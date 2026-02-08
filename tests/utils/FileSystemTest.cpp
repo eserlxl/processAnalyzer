@@ -6,8 +6,19 @@
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <span>
+#include <vector>
+#include <thread>
+#include <chrono>
 
 namespace fs = std::filesystem;
+
+namespace {
+    constexpr int kCleanupRetryCount = 3;
+    constexpr int kCleanupRetryDelayMs = 50;
+    const std::vector<std::byte> kTestData = {std::byte{0xDE}, std::byte{0xAD}, std::byte{0xBE}, std::byte{0xEF}};
+    const std::vector<std::byte> kAppendData = {std::byte{0x00}, std::byte{0xFF}};
+}
 
 // Base fixture for tests requiring a temporary directory
 class TempDirTest : public ::testing::Test {
@@ -30,6 +41,32 @@ protected:
     void TearDown() override {
         std::error_code ec;
         fs::remove_all(testDir, ec);
+        if (ec) {
+            // Retry a few times if cleanup failed (e.g. Windows file locking)
+            for (int i = 0; i < kCleanupRetryCount; ++i) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(kCleanupRetryDelayMs));
+                fs::remove_all(testDir, ec);
+                if (!ec) break;
+            }
+        }
+    }
+
+    bool canCreateSymlinks() {
+        std::error_code ec;
+        auto target = testDir / "symlink_test_target";
+        auto link = testDir / "symlink_test_link";
+        
+        // Create target if not exists
+        if (!fs::exists(target)) {
+            std::ofstream(target) << "test";
+        }
+        
+        fs::create_symlink(target, link, ec);
+        if (!ec) {
+            fs::remove(link, ec);
+            return true;
+        }
+        return false;
     }
 };
 
@@ -64,12 +101,14 @@ TEST_F(UtilsNewApiTest, CanonicalPath) {
     ASSERT_TRUE(result2.has_value());
     EXPECT_EQ(result2.value(), fs::canonical(fileAPath));
 
-    // Test with a symlink
-    auto symlinkPath = testDir / "link_to_A";
-    fs::create_symlink(fileAPath, symlinkPath);
-    auto result3 = utils::canonicalPath(symlinkPath);
-    ASSERT_TRUE(result3.has_value());
-    EXPECT_EQ(result3.value(), fs::canonical(fileAPath));
+    // Test with a symlink (if supported)
+    if (canCreateSymlinks()) {
+        auto symlinkPath = testDir / "link_to_A";
+        fs::create_symlink(fileAPath, symlinkPath);
+        auto result3 = utils::canonicalPath(symlinkPath);
+        ASSERT_TRUE(result3.has_value());
+        EXPECT_EQ(result3.value(), fs::canonical(fileAPath));
+    }
 
     // Test with non-existent path
     auto nonExistentPath = testDir / "nonexistent.txt";
@@ -103,6 +142,11 @@ TEST_F(UtilsNewApiTest, MakeRelative) {
     auto result4 = utils::makeRelative(path4, base);
     ASSERT_TRUE(result4.has_value());
     EXPECT_EQ(result4.value(), fs::path("..") / "d");
+    
+    // 5. Cross-drive (Windows-ish check)
+    // We can't easily simulate drives on Linux without mount points, 
+    // but we can check the implementation behavior if it were possible.
+    // Ideally utils::makeRelative handles root differences.
 }
 
 TEST_F(UtilsNewApiTest, PathsEquivalent) {
@@ -119,9 +163,11 @@ TEST_F(UtilsNewApiTest, PathsEquivalent) {
     EXPECT_TRUE(utils::pathsEquivalent(fileAPath, pathWithDots));
 
     // 3. One path being a symlink to the other
-    auto symlinkPath = testDir / "link_to_A";
-    fs::create_symlink(fileAPath, symlinkPath);
-    EXPECT_TRUE(utils::pathsEquivalent(fileAPath, symlinkPath));
+    if (canCreateSymlinks()) {
+        auto symlinkPath = testDir / "link_to_A";
+        fs::create_symlink(fileAPath, symlinkPath);
+        EXPECT_TRUE(utils::pathsEquivalent(fileAPath, symlinkPath));
+    }
 
     // 4. Two different files
     EXPECT_FALSE(utils::pathsEquivalent(fileAPath, fileBPath));
@@ -134,6 +180,10 @@ TEST_F(UtilsNewApiTest, PathsEquivalent) {
 }
 
 TEST_F(UtilsNewApiTest, SymlinkManagement) {
+    if (!canCreateSymlinks()) {
+        GTEST_SKIP() << "Symlink creation not supported (insufficient privileges or filesystem support).";
+    }
+
     auto targetPath = testDir / "target.txt";
     std::ofstream(targetPath) << "symlink target";
 
@@ -164,6 +214,12 @@ TEST_F(UtilsNewApiTest, SymlinkManagement) {
     // b. Read a non-link
     auto readNonLinkResult = utils::readSymlink(targetPath);
     EXPECT_FALSE(readNonLinkResult.has_value());
+
+    // 6. Dangling symlink
+    auto danglingLink = testDir / "dangling";
+    fs::create_symlink(testDir / "nonexistent_target", danglingLink);
+    EXPECT_TRUE(utils::isSymlink(danglingLink));
+    EXPECT_FALSE(fs::exists(danglingLink)); // Target doesn't exist
 }
 
 TEST_F(UtilsPermissionsTest, GetAndSetPermissions) {
@@ -217,7 +273,13 @@ TEST_F(UtilsPermissionsTest, ReadWriteExecutableChecks) {
     // Test with default permissions (usually read/write for owner)
     EXPECT_TRUE(utils::isReadable(testFile));
     EXPECT_TRUE(utils::isWritable(testFile));
-    // Executable is not usually set by default
+    
+    // Test actual write capability check (Fix 2.2)
+    {
+        std::ofstream os(testFile, std::ios::app);
+        EXPECT_TRUE(os.good());
+    }
+
     #ifndef _WIN32
     EXPECT_FALSE(utils::isExecutable(testFile));
     #endif
@@ -226,6 +288,13 @@ TEST_F(UtilsPermissionsTest, ReadWriteExecutableChecks) {
     ASSERT_TRUE(utils::setPermissions(testFile, fs::perms::owner_read).has_value());
     EXPECT_TRUE(utils::isReadable(testFile));
     EXPECT_FALSE(utils::isWritable(testFile));
+    
+    // Verify actual write failure
+    {
+        std::ofstream os(testFile, std::ios::app);
+        EXPECT_FALSE(os.good());
+    }
+
     #ifndef _WIN32
     EXPECT_FALSE(utils::isExecutable(testFile));
     #endif
@@ -241,4 +310,155 @@ TEST_F(UtilsPermissionsTest, Chown) {
     auto chownResult = utils::chown(testFile, "user", "group");
     ASSERT_FALSE(chownResult.has_value());
     EXPECT_EQ(chownResult.error(), utils::make_error_code(utils::UtilsError::unsupportedOperation));
+}
+
+// --------------------------------------------------------------------------
+// New Tests for Missing Implementations
+// --------------------------------------------------------------------------
+
+TEST_F(UtilsNewApiTest, ReadWriteBinaryFile) {
+    auto binaryFile = testDir / "binary.dat";
+    std::vector<std::byte> data = kTestData;
+
+    // Write
+    auto writeResult = utils::writeBinaryFile(binaryFile, data);
+    ASSERT_TRUE(writeResult.has_value());
+    ASSERT_TRUE(fs::exists(binaryFile));
+    EXPECT_EQ(fs::file_size(binaryFile), 4);
+
+    // Read
+    auto readResult = utils::readBinaryFile(binaryFile);
+    ASSERT_TRUE(readResult.has_value());
+    EXPECT_EQ(readResult.value(), data);
+
+    // Append
+    std::vector<std::byte> moreData = kAppendData;
+    auto appendResult = utils::appendToBinaryFile(binaryFile, moreData);
+    ASSERT_TRUE(appendResult.has_value());
+    
+    // Read again
+    auto readResult2 = utils::readBinaryFile(binaryFile);
+    ASSERT_TRUE(readResult2.has_value());
+    EXPECT_EQ(readResult2.value().size(), 6);
+    EXPECT_EQ(readResult2.value()[4], kAppendData[0]);
+    EXPECT_EQ(readResult2.value()[5], kAppendData[1]);
+}
+
+TEST_F(UtilsNewApiTest, WriteAtomic) {
+    auto path = testDir / "atomic.txt";
+    std::string content = "atomic content";
+    
+    auto result = utils::writeTextFileAtomic(path, content);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(fs::exists(path));
+    
+    auto readRes = utils::readTextFile(path);
+    ASSERT_TRUE(readRes.has_value());
+    EXPECT_EQ(readRes.value(), content);
+
+    // Binary atomic
+    auto binPath = testDir / "atomic.bin";
+    std::vector<std::byte> binContent = {std::byte{1}, std::byte{2}};
+    auto binResult = utils::writeBinaryFileAtomic(binPath, binContent);
+    ASSERT_TRUE(binResult.has_value());
+    EXPECT_TRUE(fs::exists(binPath));
+}
+
+TEST_F(UtilsNewApiTest, TemporaryFiles) {
+    auto tempFile = utils::createTemporaryFile("test_prefix_", ".tmp");
+    ASSERT_TRUE(tempFile.has_value());
+    EXPECT_TRUE(fs::exists(tempFile.value()));
+    EXPECT_TRUE(fs::is_regular_file(tempFile.value()));
+    
+    std::string filename = tempFile.value().filename().string();
+    EXPECT_TRUE(filename.find("test_prefix_") == 0);
+    EXPECT_TRUE(filename.find(".tmp") != std::string::npos);
+
+    auto tempDir = utils::createTemporaryDirectory("test_dir_");
+    ASSERT_TRUE(tempDir.has_value());
+    EXPECT_TRUE(fs::exists(tempDir.value()));
+    EXPECT_TRUE(fs::is_directory(tempDir.value()));
+    
+    std::string dirname = tempDir.value().filename().string();
+    EXPECT_TRUE(dirname.find("test_dir_") == 0);
+
+    // Cleanup
+    fs::remove(tempFile.value());
+    fs::remove_all(tempDir.value());
+}
+
+TEST_F(UtilsNewApiTest, TraverseDirectory) {
+    // Setup directory structure
+    // root/
+    //   file1.txt
+    //   sub1/
+    //     file2.txt
+    //   sub2/
+    //     sub3/
+    //       file3.txt
+    
+    auto sub1 = testDir / "sub1";
+    auto sub2 = testDir / "sub2";
+    auto sub3 = sub2 / "sub3";
+    fs::create_directories(sub1);
+    fs::create_directories(sub3);
+    
+    std::ofstream(testDir / "file1.txt") << "1";
+    std::ofstream(sub1 / "file2.txt") << "2";
+    std::ofstream(sub3 / "file3.txt") << "3";
+
+    // 1. Recursive traversal
+    std::vector<fs::path> visited;
+    utils::TraversalOptions opts;
+    opts.recursive = true;
+    
+    EXPECT_TRUE(utils::traverseDirectory(testDir, [&](const fs::directory_entry& entry) {
+        visited.push_back(entry.path());
+        return utils::TraversalControl::Continue;
+    }, opts).has_value());
+    
+    // Expect 5 entries: file1, sub1, file2, sub2, sub3, file3 (order depends on OS)
+    // Actually we have: file1.txt, sub1, sub2. Inside sub1: file2.txt. Inside sub2: sub3. Inside sub3: file3.txt.
+    // Total: 3 (files) + 3 (dirs) = 6 entries (excluding root itself)
+    EXPECT_GE(visited.size(), 6);
+
+    // 2. Non-recursive
+    visited.clear();
+    opts.recursive = false;
+    EXPECT_TRUE(utils::traverseDirectory(testDir, [&](const fs::directory_entry& entry) {
+        visited.push_back(entry.path());
+        return utils::TraversalControl::Continue;
+    }, opts).has_value());
+    
+    // Expect file1, sub1, sub2
+    EXPECT_EQ(visited.size(), 3);
+
+    // 3. Stop control
+    int count = 0;
+    EXPECT_TRUE(utils::traverseDirectory(testDir, [&](const fs::directory_entry&) {
+        count++;
+        return utils::TraversalControl::stop;
+    }, opts).has_value());
+    EXPECT_EQ(count, 1);
+
+    // 4. SkipDir control
+    visited.clear();
+    opts.recursive = true;
+    EXPECT_TRUE(utils::traverseDirectory(testDir, [&](const fs::directory_entry& entry) {
+        visited.push_back(entry.path());
+        if (entry.is_directory() && entry.path().filename() == "sub1") {
+            return utils::TraversalControl::skipDir;
+        }
+        return utils::TraversalControl::Continue;
+    }, opts).has_value());
+    
+    // Should visit sub1 (the entry itself) but NOT file2.txt inside it
+    bool visitedSub1 = false;
+    bool visitedFile2 = false;
+    for(const auto& p : visited) {
+        if (p.filename() == "sub1") visitedSub1 = true;
+        if (p.filename() == "file2.txt") visitedFile2 = true;
+    }
+    EXPECT_TRUE(visitedSub1); // "sub1" itself is visited
+    EXPECT_FALSE(visitedFile2); // its children skipped
 }

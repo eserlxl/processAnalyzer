@@ -5,8 +5,252 @@
 #include <fstream>
 #include <vector>
 #include <iterator>
+#include <random>
+#include <sstream>
+#include <iomanip>
 
 namespace utils {
+
+// Helper to generate random string for temp files
+namespace {
+    constexpr size_t kTempFileSuffixLen = 6;
+    constexpr size_t kTempCreationRetries = 10;
+    constexpr size_t kRandomNameLen = 16;
+}
+
+static std::string generateRandomString(size_t length) {
+    static constexpr std::string_view charset =
+        "0123456789"
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        "abcdefghijklmnopqrstuvwxyz";
+    static std::mt19937 rg{std::random_device{}()};
+    static std::uniform_int_distribution<std::string::size_type> pick(0, charset.size() - 1);
+
+    std::string s;
+    s.reserve(length);
+    for (size_t i = 0; i < length; ++i)
+        s += charset[pick(rg)];
+    return s;
+}
+
+Result<std::vector<std::byte>> readBinaryFile(const std::filesystem::path& path) {
+    std::error_code ec;
+    if (!std::filesystem::exists(path, ec)) {
+        if (ec) return std::unexpected(ec);
+        return std::unexpected(make_error_code(UtilsError::fileNotFound));
+    }
+
+    std::ifstream file(path, std::ios::binary | std::ios::ate);
+    if (!file.is_open()) {
+        return std::unexpected(make_error_code(UtilsError::permissionDenied));
+    }
+
+    auto fileSize = file.tellg();
+    if (fileSize == -1) {
+        return std::unexpected(make_error_code(UtilsError::ioError));
+    }
+
+    std::vector<std::byte> buffer(static_cast<size_t>(fileSize));
+    file.seekg(0, std::ios::beg);
+
+    if (!file.read(reinterpret_cast<char*>(buffer.data()), fileSize)) {
+        return std::unexpected(make_error_code(UtilsError::ioError));
+    }
+
+    return buffer;
+}
+
+Result<void> writeBinaryFile(const std::filesystem::path& path, std::span<const std::byte> content) {
+    std::ofstream file(path, std::ios::out | std::ios::trunc | std::ios::binary);
+    if (!file.is_open()) {
+        return std::unexpected(make_error_code(UtilsError::permissionDenied));
+    }
+    if (file.write(reinterpret_cast<const char*>(content.data()), static_cast<std::streamsize>(content.size()))) {
+        return {};
+    }
+    return std::unexpected(make_error_code(UtilsError::ioError));
+}
+
+Result<void> writeTextFileAtomic(const std::filesystem::path& path, std::string_view content) {
+    // Write to a temp file in the same directory then rename
+    auto parent = path.parent_path();
+    if (parent.empty()) parent = ".";
+    
+    std::error_code ec;
+    if (!std::filesystem::exists(parent, ec)) {
+        return std::unexpected(make_error_code(UtilsError::fileNotFound));
+    }
+
+    auto tempPath = parent / (path.filename().string() + "." + generateRandomString(kTempFileSuffixLen) + ".tmp");
+    
+    auto writeResult = writeTextFile(tempPath, content);
+    if (!writeResult) {
+        std::filesystem::remove(tempPath, ec); // Try cleanup
+        return writeResult;
+    }
+
+    std::filesystem::rename(tempPath, path, ec);
+    if (ec) {
+        std::filesystem::remove(tempPath, ec); // Try cleanup
+        return std::unexpected(ec);
+    }
+    return {};
+}
+
+Result<void> writeBinaryFileAtomic(const std::filesystem::path& path, std::span<const std::byte> content) {
+     auto parent = path.parent_path();
+    if (parent.empty()) parent = ".";
+    
+    std::error_code ec;
+    if (!std::filesystem::exists(parent, ec)) {
+        return std::unexpected(make_error_code(UtilsError::fileNotFound));
+    }
+
+    auto tempPath = parent / (path.filename().string() + "." + generateRandomString(kTempFileSuffixLen) + ".tmp");
+    
+    auto writeResult = writeBinaryFile(tempPath, content);
+    if (!writeResult) {
+        std::filesystem::remove(tempPath, ec); 
+        return writeResult;
+    }
+
+    std::filesystem::rename(tempPath, path, ec);
+    if (ec) {
+        std::filesystem::remove(tempPath, ec);
+        return std::unexpected(ec);
+    }
+    return {};
+}
+
+Result<void> appendToBinaryFile(const std::filesystem::path& path, std::span<const std::byte> content) {
+    std::ofstream file(path, std::ios::out | std::ios::app | std::ios::binary);
+    if (!file.is_open()) {
+        return std::unexpected(make_error_code(UtilsError::permissionDenied));
+    }
+    if (file.write(reinterpret_cast<const char*>(content.data()), static_cast<std::streamsize>(content.size()))) {
+        return {};
+    }
+    return std::unexpected(make_error_code(UtilsError::ioError));
+}
+
+Result<std::filesystem::path> createTemporaryFile(std::string_view prefix, std::string_view suffix) {
+    auto tempDir = std::filesystem::temp_directory_path();
+    std::filesystem::path tempPath;
+    std::error_code ec;
+    
+    // Try a few times to generate a unique name
+    for (size_t i = 0; i < kTempCreationRetries; ++i) {
+        std::string name = std::string(prefix) + generateRandomString(kRandomNameLen) + std::string(suffix);
+        tempPath = tempDir / name;
+        if (!std::filesystem::exists(tempPath, ec)) {
+            // Create empty file
+            std::ofstream file(tempPath);
+            if (file.is_open()) {
+                return tempPath;
+            }
+        }
+    }
+    return std::unexpected(make_error_code(UtilsError::ioError));
+}
+
+Result<std::filesystem::path> createTemporaryDirectory(std::string_view prefix) {
+    auto tempDir = std::filesystem::temp_directory_path();
+    std::filesystem::path path;
+    std::error_code ec;
+
+    for (size_t i = 0; i < kTempCreationRetries; ++i) {
+        std::string name = std::string(prefix) + generateRandomString(kRandomNameLen);
+        path = tempDir / name;
+        if (std::filesystem::create_directory(path, ec)) {
+            return path;
+        }
+    }
+    return std::unexpected(make_error_code(UtilsError::ioError));
+}
+
+Result<void> traverseDirectory(const std::filesystem::path& dirPath, TraversalCallback callback, const TraversalOptions& options) {
+    std::error_code ec;
+    if (!std::filesystem::exists(dirPath, ec) || !std::filesystem::is_directory(dirPath, ec)) {
+         return std::unexpected(make_error_code(UtilsError::fileNotFound));
+    }
+
+    auto traverseImpl = [&](auto&& self, const std::filesystem::path& currentDir, int currentDepth) -> Result<void> {
+        if (options.maxDepth != -1 && currentDepth > options.maxDepth) {
+            return {};
+        }
+
+        std::error_code iterEc;
+        auto iter = std::filesystem::directory_iterator(currentDir, iterEc);
+        if (iterEc) return std::unexpected(iterEc);
+
+        for (const auto& entry : iter) {
+            bool isDir = entry.is_directory(iterEc);
+            if (iterEc) continue; // Skip entries we can't stat
+
+            bool shouldCallback = (isDir && options.includeDirectories) || (!isDir && options.includeFiles);
+            
+            TraversalControl control = TraversalControl::Continue;
+            if (shouldCallback) {
+                control = callback(entry);
+            }
+
+            if (control == TraversalControl::stop) {
+                return std::unexpected(make_error_code(UtilsError::none)); // Signal stop via error or return value? The API returns Result<void>. 
+                                                                           // Usually traversal stop is not an error. 
+                                                                           // We need a way to propagate stop. 
+                                                                           // For this implementation, let's assume 'stop' means return success immediately.
+                // Wait, if I return success, the caller loop continues. I need to propagate the stop signal.
+                // But the return type is Result<void>. 
+                // Let's rely on the lambda return logic.
+                // If I return unexpected(error), it stops. But 'stop' is not an error.
+                // I'll use a special error code or just a boolean flag passed by reference? 
+                // The structure prevents easy flag passing without changing signature.
+                // Actually, I can just return normally but have a check.
+                // Refactoring to iterative or using a stateful lambda is better.
+                // But let's stick to recursive for simplicity if depth isn't huge.
+            }
+
+            if (control == TraversalControl::stop) {
+                 // Hack: use a specific error code to unwind, then catch it at top level?
+                 // Or just return a "stopped" result?
+                 // The Audit says "traverseDirectory (New API with TraversalCallback)".
+                 // Let's assume the user handles the "stop" logic via the callback side effects or we just stop processing.
+                 // To break the recursion, I need to know we stopped.
+                 return std::unexpected(make_error_code(UtilsError::none)); // Using 'none' as a signal "Stop/Success"
+            }
+
+            if (isDir && options.recursive && control != TraversalControl::skipDir) {
+                if (entry.is_symlink() && !options.followSymlinks) {
+                    continue;
+                }
+                
+                auto res = self(self, entry.path(), currentDepth + 1);
+                if (!res) {
+                    if (res.error() == make_error_code(UtilsError::none)) {
+                        return res; // Propagate stop
+                    }
+                    return res; // Propagate actual error
+                }
+            }
+        }
+        return {};
+    };
+    
+    // I need to wrap the implementation to handle the "Stop" signal (UtilsError::none) as success.
+    // However, make_error_code(UtilsError::none) typically means "no error", so `!res` might be false (i.e. it is a success).
+    // `std::expected` with `error_code`... if I return `unexpected(error_code(0, ...))`, `has_value()` is false.
+    // So `if (!res)` will be true.
+    
+    auto res = traverseImpl(traverseImpl, dirPath, 0);
+    if (!res) {
+        if (res.error() == make_error_code(UtilsError::none)) {
+            return {}; // Stopped, treat as success
+        }
+        return res; // Real error
+    }
+
+    return {};
+}
 
 Result<std::string> readTextFile(const std::filesystem::path& path) {
     std::error_code ec;
