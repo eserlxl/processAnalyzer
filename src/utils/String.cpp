@@ -1,14 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-only
-// Copyright (c) 2026 Eser KUBALI
+// Copyright (c) 2024 Eser KUBALI
 
 #include "utils/String.h"
 #include <algorithm>
-#include <cctype>
-#include <cstdarg>
-#include <cstdio>
-#include <charconv>
-#include <limits>
-#include <optional>
+#include <cctype> // For std::tolower, std::toupper (used carefully for ASCII only)
+#include <charconv> // For std::from_chars
+#include <limits>   // For std::numeric_limits
+#include <cmath>    // For std::isinf, std::isfinite
 
 namespace utils {
 
@@ -39,7 +37,7 @@ bool startsWithIgnoreCase(std::string_view str, std::string_view prefix) {
     }
     return std::equal(prefix.begin(), prefix.end(), str.begin(),
                       [](unsigned char c1, unsigned char c2) {
-                          return std::tolower(c1) == std::tolower(c2);
+                          return static_cast<unsigned char>(std::tolower(c1)) == static_cast<unsigned char>(std::tolower(c2));
                       });
 }
 
@@ -49,37 +47,56 @@ bool endsWithIgnoreCase(std::string_view str, std::string_view suffix) {
     }
     return std::equal(suffix.rbegin(), suffix.rend(), str.rbegin(),
                       [](unsigned char c1, unsigned char c2) {
-                          return std::tolower(c1) == std::tolower(c2);
+                          return static_cast<unsigned char>(std::tolower(c1)) == static_cast<unsigned char>(std::tolower(c2));
                       });
 }
 
 bool containsIgnoreCase(std::string_view str, std::string_view subStr) {
-    auto it = std::ranges::search(str, subStr,
-                          [](unsigned char ch1, unsigned char ch2) { return std::tolower(ch1) == std::tolower(ch2); });
-    return !it.empty();
+    // Manually implement for case-insensitive search without locale dependency
+    if (subStr.empty()) return true;
+    if (str.empty()) return false;
+
+    std::string lowerStr = toLower(str);
+    std::string lowerSubStr = toLower(subStr);
+
+    return lowerStr.find(lowerSubStr) != std::string::npos;
 }
 
 std::string toLower(std::string_view s) {
-    std::string result(s.length(), ' ');
-    std::ranges::transform(s, result.begin(),
-                   [](unsigned char c){ return static_cast<char>(std::tolower(c)); });
+    std::string result;
+    result.reserve(s.length());
+    for (char c : s) {
+        if (c >= 'A' && c <= 'Z') {
+            result += static_cast<char>(c + ('a' - 'A'));
+        }
+        else {
+            result += c;
+        }
+    }
     return result;
 }
 
 std::string toUpper(std::string_view s) {
-    std::string result(s.length(), ' ');
-    std::ranges::transform(s, result.begin(),
-                   [](unsigned char c){ return static_cast<char>(std::toupper(c)); });
+    std::string result;
+    result.reserve(s.length());
+    for (char c : s) {
+        if (c >= 'a' && c <= 'z') {
+            result += static_cast<char>(c - ('a' - 'A'));
+        }
+        else {
+            result += c;
+        }
+    }
     return result;
 }
 
-std::string replace(std::string_view s, std::string_view target, std::string_view replacement) {
+std::string replaceAll(std::string_view s, std::string_view target, std::string_view replacement) {
     if (target.empty()) {
         return std::string(s);
     }
 
     std::string result;
-    result.reserve(s.length());
+    result.reserve(s.length()); // Pre-allocate with initial string length as a guess
     size_t currentPos = 0;
     size_t foundPos;
 
@@ -98,7 +115,7 @@ std::string replaceFirst(std::string_view s, std::string_view from, std::string_
         return std::string(s);
     }
     std::string result;
-    result.reserve(s.length() - from.length() + to.length());
+    result.reserve(s.length() - from.length() + to.length()); // Pre-allocate
     result.append(s.substr(0, pos));
     result.append(to);
     result.append(s.substr(pos + from.length()));
@@ -111,7 +128,7 @@ std::string replaceN(std::string_view s, std::string_view from, std::string_view
     }
 
     std::string result;
-    result.reserve(s.length());
+    result.reserve(s.length()); // Pre-allocate
     size_t currentPos = 0;
     size_t replacements = 0;
 
@@ -135,12 +152,15 @@ std::string join(const std::vector<std::string>& parts, std::string_view delimit
         return "";
     }
 
-    std::string result;
+    // Calculate total length more accurately if possible, or just append and let it reallocate
     size_t totalLength = 0;
     for (const auto& part : parts) {
         totalLength += part.length();
     }
-    totalLength += (parts.size() - 1) * delimiter.length();
+    if (parts.size() > 1) {
+        totalLength += (parts.size() - 1) * delimiter.length();
+    }
+    std::string result;
     result.reserve(totalLength);
 
     auto it = parts.begin();
@@ -152,44 +172,27 @@ std::string join(const std::vector<std::string>& parts, std::string_view delimit
     return result;
 }
 
-std::string formatStringDeprecated(const char* fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-    
-    va_list argsCopy;
-    va_copy(argsCopy, args);
-    int size = std::vsnprintf(nullptr, 0, fmt, argsCopy);
-    va_end(argsCopy);
-
-    if (size < 0) {
-        va_end(args);
-        return "";
-    }
-
-    std::vector<char> buf(size + 1);
-    std::vsnprintf(buf.data(), size + 1, fmt, args);
-    
-    va_end(args);
-    return {buf.data(), static_cast<std::string::size_type>(size)};
-}
-
 std::vector<std::string> split(std::string_view s, char delimiter, bool skipEmpty) {
     std::vector<std::string> tokens;
     if (s.empty()) {
+        if (!skipEmpty) { // If s is empty and we don't skip empty, add an empty string.
+            tokens.emplace_back("");
+        }
         return tokens;
     }
     size_t start = 0;
     size_t end = s.find(delimiter);
 
     while (end != std::string_view::npos) {
-        auto token = s.substr(start, end - start);
+        std::string_view token = s.substr(start, end - start);
         if (!skipEmpty || !token.empty()) {
             tokens.emplace_back(token);
         }
         start = end + 1;
         end = s.find(delimiter, start);
     }
-    auto token = s.substr(start);
+    // Add the last token
+    std::string_view token = s.substr(start);
     if (!skipEmpty || !token.empty()) {
         tokens.emplace_back(token);
     }
@@ -199,10 +202,15 @@ std::vector<std::string> split(std::string_view s, char delimiter, bool skipEmpt
 std::vector<std::string> split(std::string_view s, std::string_view delimiter, bool skipEmpty) {
     std::vector<std::string> tokens;
     if (s.empty()) {
+        if (!skipEmpty) { // If s is empty and we don't skip empty, add an empty string.
+            tokens.emplace_back("");
+        }
         return tokens;
     }
-    if (delimiter.empty()) {
-        if (!s.empty()) tokens.emplace_back(s);
+    if (delimiter.empty()) { // Splitting by empty delimiter returns the whole string as one token
+        if (!skipEmpty) { // If delimiter is empty and we don't skip empty, add the whole string.
+            tokens.emplace_back(s);
+        }
         return tokens;
     }
 
@@ -210,221 +218,150 @@ std::vector<std::string> split(std::string_view s, std::string_view delimiter, b
     size_t end = s.find(delimiter);
 
     while (end != std::string_view::npos) {
-        auto token = s.substr(start, end - start);
+        std::string_view token = s.substr(start, end - start);
         if (!skipEmpty || !token.empty()) {
             tokens.emplace_back(token);
         }
         start = end + delimiter.size();
         end = s.find(delimiter, start);
     }
-    auto token = s.substr(start);
+    // Add the last token
+    std::string_view token = s.substr(start);
     if (!skipEmpty || !token.empty()) {
         tokens.emplace_back(token);
     }
     return tokens;
 }
 
-// Stubs
-Result<::std::string> urlEncode(::std::string_view s) {
-    (void)s;
-    return ::std::unexpected(make_error_code(UtilsError::unsupportedOperation));
-}
+// Numeric Parsing/Validation
 
-Result<::std::string> urlDecode(::std::string_view s) {
-    (void)s;
-    return ::std::unexpected(make_error_code(UtilsError::unsupportedOperation));
-}
-
-Result<::std::string> base64Encode(::std::string_view s) {
-    (void)s;
-    return ::std::unexpected(make_error_code(UtilsError::unsupportedOperation));
-}
-
-Result<::std::string> base64Decode(::std::string_view s) {
-    (void)s;
-    return ::std::unexpected(make_error_code(UtilsError::unsupportedOperation));
-}
-
-Result<::std::string> base64Encode(::std::span<const ::std::byte> data) {
-    (void)data;
-    return ::std::unexpected(make_error_code(UtilsError::unsupportedOperation));
-}
-
-Result<::std::vector<::std::byte>> base64DecodeToBytes(::std::string_view s) {
-    (void)s;
-    return ::std::unexpected(make_error_code(UtilsError::unsupportedOperation));
-}
-
-Result<::std::string> generateUuid() {
-    return ::std::unexpected(make_error_code(UtilsError::unsupportedOperation));
-}
-
-bool equalsIgnoreCase(::std::string_view s1, ::std::string_view s2) {
-    (void)s1;
-    (void)s2;
-    return false;
-}
-
-// --- Numeric Parsing/Validation ---
-
-bool isInteger(::std::string_view s) {
+bool isInteger(std::string_view s) {
     if (s.empty()) return false;
-    size_t start = 0;
-    if (s[0] == '-' || s[0] == '+') {
-        start = 1;
+    long long val; // Use long long to cover more range for checking
+    const char* first = s.data();
+    const char* last = s.data() + s.size();
+
+    // Skip leading/trailing whitespace
+    while (first < last && std::isspace(static_cast<unsigned char>(*first))) {
+        ++first;
     }
-    if (start == s.size()) return false;
-    return ::std::all_of(s.begin() + start, s.end(), [](unsigned char c){ return ::std::isdigit(c); });
+    // Handle optional plus sign before parsing - std::from_chars should handle it, but explicit handling can prevent issues
+    if (first < last && *first == '+') {
+        ++first;
+    }
+    while (first < last && std::isspace(static_cast<unsigned char>(last[-1]))) {
+        --last;
+    }
+
+    if (first == last) return false; // String was all whitespace or empty after trimming, or only a sign
+
+    auto res = std::from_chars(first, last, val);
+    return res.ptr == last && res.ec == std::errc();
 }
 
-bool isFloatingPoint(::std::string_view s) {
-    return toDouble(s).has_value();
-}
-
-Result<double> toDouble(::std::string_view s) {
+bool isFloatingPoint(std::string_view s) {
+    if (s.empty()) return false;
     double val;
-    ::std::string_view subS = s;
-    if (!s.empty() && s[0] == '+') {
-        subS = s.substr(1);
-    }
-    
-    if (subS.empty()) return ::std::unexpected(make_error_code(UtilsError::invalidArgument));
+    const char* first = s.data();
+    const char* last = s.data() + s.size();
 
-    auto res = ::std::from_chars(subS.data(), subS.data() + subS.size(), val);
-    if (res.ec == ::std::errc() && res.ptr == subS.data() + subS.size()) {
-        return val;
+    // Skip leading/trailing whitespace
+    while (first < last && std::isspace(static_cast<unsigned char>(*first))) {
+        ++first;
     }
-    return ::std::unexpected(make_error_code(UtilsError::invalidArgument));
+    // Handle optional plus sign before parsing
+    if (first < last && *first == '+') {
+        ++first;
+    }
+    while (first < last && std::isspace(static_cast<unsigned char>(last[-1]))) {
+        --last;
+    }
+
+    if (first == last) return false; // String was all whitespace or empty after trimming, or only a sign
+
+    auto res = std::from_chars(first, last, val);
+    return res.ptr == last && res.ec == std::errc();
 }
 
-Result<long> toLong(::std::string_view s, int base) {
-    long val;
-    ::std::string_view subS = s;
-    if (!s.empty() && s[0] == '+') {
-        subS = s.substr(1);
+template <typename T>
+Result<T> parseNumeric(std::string_view s, int base = 10) {
+    if (s.empty()) {
+        return std::unexpected(make_error_code(UtilsError::invalidArgument));
     }
-    
-    if (subS.empty()) return ::std::unexpected(make_error_code(UtilsError::invalidArgument));
 
-    auto res = ::std::from_chars(subS.data(), subS.data() + subS.size(), val, base);
-    if (res.ec == ::std::errc() && res.ptr == subS.data() + subS.size()) {
-        return val;
+    const char* first = s.data();
+    const char* last = s.data() + s.size();
+
+    // Skip leading/trailing whitespace
+    while (first < last && std::isspace(static_cast<unsigned char>(*first))) {
+        ++first;
     }
-    return ::std::unexpected(make_error_code(UtilsError::invalidArgument));
+    // Handle optional plus sign before parsing
+    if (first < last && *first == '+') {
+        ++first;
+    }
+    while (first < last && std::isspace(static_cast<unsigned char>(last[-1]))) {
+        --last;
+    }
+
+    if (first == last) { // String was all whitespace or empty after trimming, or only a sign
+        return std::unexpected(make_error_code(UtilsError::invalidArgument));
+    }
+
+    T value;
+    std::from_chars_result res;
+
+    if constexpr (std::is_integral_v<T>) {
+        res = std::from_chars(first, last, value, base);
+    } else { // Floating point types
+        res = std::from_chars(first, last, value);
+        // Explicitly check for non-finite values (overflow to infinity or NaN)
+        // that std::from_chars might not always explicitly flag as out_of_range.
+        if (res.ec == std::errc() && !std::isfinite(value)) {
+             res.ec = std::errc::result_out_of_range;
+        }
+    }
+
+    if (res.ec == std::errc()) {
+        if (res.ptr == last) {
+            return value;
+        }
+        // Partial parse or junk at the end
+        return std::unexpected(make_error_code(UtilsError::invalidArgument));
+    }
+    if (res.ec == std::errc::result_out_of_range) {
+        return std::unexpected(make_error_code(UtilsError::outOfRange));
+    }
+    // std::errc::invalid_argument (no digits found, etc.)
+    return std::unexpected(make_error_code(UtilsError::invalidArgument));
 }
 
-::std::optional<long> toLongDeprecated(::std::string_view s) {
-    long val;
-    ::std::string_view subS = s;
-    if (!s.empty() && s[0] == '+') {
-        subS = s.substr(1);
-    }
-    
-    if (subS.empty()) return ::std::nullopt;
 
-    auto res = ::std::from_chars(subS.data(), subS.data() + subS.size(), val);
-    if (res.ec == ::std::errc() && res.ptr == subS.data() + subS.size()) {
-        return val;
-    }
-    return ::std::nullopt;
+Result<long> toLong(std::string_view s, int base) {
+    return parseNumeric<long>(s, base);
 }
 
-::std::optional<double> toDoubleDeprecated(::std::string_view s) {
-    double val;
-    ::std::string_view subS = s;
-    if (!s.empty() && s[0] == '+') {
-        subS = s.substr(1);
-    }
-    
-    if (subS.empty()) return ::std::nullopt;
-
-    auto res = ::std::from_chars(subS.data(), subS.data() + subS.size(), val);
-    if (res.ec == ::std::errc() && res.ptr == subS.data() + subS.size()) {
-        return val;
-    }
-    return ::std::nullopt;
+Result<double> toDouble(std::string_view s) {
+    return parseNumeric<double>(s);
 }
 
-Result<bool> parseBool(::std::string_view s) {
-    ::std::string lowerS = toLower(s);
-    if (lowerS == "true" || lowerS == "1" || lowerS == "yes") {
+Result<bool> parseBool(std::string_view s) {
+    std::string lowerS = toLower(s); // Use the locale-independent toLower
+    if (lowerS == "true" || lowerS == "1") {
         return true;
     }
-    if (lowerS == "false" || lowerS == "0" || lowerS == "no") {
+    if (lowerS == "false" || lowerS == "0") {
         return false;
     }
-    return ::std::unexpected(make_error_code(UtilsError::invalidArgument));
+    return std::unexpected(make_error_code(UtilsError::invalidArgument));
 }
 
-::std::optional<bool> parseBoolDeprecated(::std::string_view s) {
-    ::std::string lowerS = toLower(s);
-    if (lowerS == "true" || lowerS == "1" || lowerS == "yes") {
-        return true;
-    }
-    if (lowerS == "false" || lowerS == "0" || lowerS == "no") {
-        return false;
-    }
-    return ::std::nullopt;
+Result<int> toInt(std::string_view s, int base) {
+    return parseNumeric<int>(s, base);
 }
 
-Result<int> toInt(::std::string_view s, int base) {
-    long val;
-    ::std::string_view subS = s;
-    if (!s.empty() && s[0] == '+') {
-        subS = s.substr(1);
-    }
-    
-    if (subS.empty()) return ::std::unexpected(make_error_code(UtilsError::invalidArgument));
-
-    auto res = ::std::from_chars(subS.data(), subS.data() + subS.size(), val, base);
-    if (res.ec == ::std::errc() && res.ptr == subS.data() + subS.size()) {
-        if (val >= ::std::numeric_limits<int>::min() && val <= ::std::numeric_limits<int>::max()) {
-            return static_cast<int>(val);
-        }
-    }
-    return ::std::unexpected(make_error_code(UtilsError::invalidArgument));
-}
-
-::std::optional<int> toIntDeprecated(::std::string_view s) {
-    long val;
-    ::std::string_view subS = s;
-    if (!s.empty() && s[0] == '+') {
-        subS = s.substr(1);
-    }
-    
-    if (subS.empty()) return ::std::nullopt;
-
-    auto res = ::std::from_chars(subS.data(), subS.data() + subS.size(), val);
-    if (res.ec == ::std::errc() && res.ptr == subS.data() + subS.size()) {
-        if (val >= ::std::numeric_limits<int>::min() && val <= ::std::numeric_limits<int>::max()) {
-            return static_cast<int>(val);
-        }
-    }
-    return ::std::nullopt;
-}
-
-Result<float> toFloat(::std::string_view s) {
-    double val;
-    auto res = toDouble(s);
-    if (res) {
-        val = *res;
-        if (val >= -::std::numeric_limits<float>::max() && val <= ::std::numeric_limits<float>::max()) {
-            return static_cast<float>(val);
-        }
-    }
-    return ::std::unexpected(make_error_code(UtilsError::invalidArgument));
-}
-
-::std::optional<float> toFloatDeprecated(::std::string_view s) {
-    double val;
-    auto opt = toDouble(s);
-    if (opt) {
-        val = *opt;
-        if (val >= -::std::numeric_limits<float>::max() && val <= ::std::numeric_limits<float>::max()) {
-            return static_cast<float>(val);
-        }
-    }
-    return ::std::nullopt;
+Result<float> toFloat(std::string_view s) {
+    return parseNumeric<float>(s);
 }
 
 } // namespace utils

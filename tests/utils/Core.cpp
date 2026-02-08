@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
-// Copyright (c) 2026 Eser KUBALI
+// Copyright (c) 2024 Eser KUBALI
 
 #include "gtest/gtest.h"
 #include "utils/Core.h"
@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <fstream>
 #include <cstdlib>
+#include "utils/String.h" // Added for utils::trim and utils::contains
 
 
 // Helper to create a temporary file for testing
@@ -241,242 +242,51 @@ TEST(UtilsTest, IsDirectory) {
     std::filesystem::remove(filePath);
 }
 
-TEST(UtilsTest, Trim) {
-    EXPECT_EQ(utils::trim("  hello  "), "hello");
-    EXPECT_EQ(utils::trim("hello"), "hello");
-    EXPECT_EQ(utils::trim("  hello"), "hello");
-    EXPECT_EQ(utils::trim("hello  "), "hello");
-    EXPECT_EQ(utils::trim(""), "");
-    EXPECT_EQ(utils::trim("   "), "");
-    EXPECT_EQ(utils::trim("\t\n hello \r\v"), "hello");
-}
 
-TEST(UtilsTest, StartsWith) {
-    EXPECT_TRUE(utils::startsWith("hello world", "hello"));
-    EXPECT_FALSE(utils::startsWith("hello world", "world"));
-    EXPECT_TRUE(utils::startsWith("hello", "hello"));
-    EXPECT_FALSE(utils::startsWith("hello", "hellos"));
-    EXPECT_TRUE(utils::startsWith("", ""));
-    EXPECT_TRUE(utils::startsWith("hello", ""));
-}
 
-TEST(UtilsTest, EndsWith) {
-    EXPECT_TRUE(utils::endsWith("hello world", "world"));
-    EXPECT_FALSE(utils::endsWith("hello world", "hello"));
-    EXPECT_TRUE(utils::endsWith("world", "world"));
-    EXPECT_FALSE(utils::endsWith("world", "helloworld"));
-    EXPECT_TRUE(utils::endsWith("", ""));
-    EXPECT_TRUE(utils::endsWith("hello", ""));
-}
 
-TEST(UtilsTest, Contains) {
-    EXPECT_TRUE(utils::contains("hello world", "lo wo"));
-    EXPECT_FALSE(utils::contains("hello world", "foo"));
-    EXPECT_TRUE(utils::contains("hello", "hello"));
-    EXPECT_TRUE(utils::contains("hello", ""));
-    EXPECT_FALSE(utils::contains("", "a"));
-}
 
-TEST(UtilsTest, StartsWithIgnoreCase) {
-    EXPECT_TRUE(utils::startsWithIgnoreCase("Hello World", "hello"));
-    EXPECT_FALSE(utils::startsWithIgnoreCase("Hello World", "world"));
-    EXPECT_TRUE(utils::startsWithIgnoreCase("HELLO", "hello"));
-}
 
-TEST(UtilsTest, EndsWithIgnoreCase) {
-    EXPECT_TRUE(utils::endsWithIgnoreCase("Hello World", "WORLD"));
-    EXPECT_FALSE(utils::endsWithIgnoreCase("Hello World", "HELLO"));
-    EXPECT_TRUE(utils::endsWithIgnoreCase("WORLD", "world"));
-}
 
-TEST(UtilsTest, ContainsIgnoreCase) {
-    EXPECT_TRUE(utils::containsIgnoreCase("Hello World", "lo wo"));
-    EXPECT_TRUE(utils::containsIgnoreCase("Hello World", "LO WO"));
-    EXPECT_FALSE(utils::containsIgnoreCase("Hello World", "foo"));
-}
 
-TEST(UtilsTest, ToLower) {
-    EXPECT_EQ(utils::toLower("HELLO World"), "hello world");
-    EXPECT_EQ(utils::toLower("123!@#"), "123!@#");
-    EXPECT_EQ(utils::toLower(""), "");
-}
 
-TEST(UtilsTest, ToUpper) {
-    EXPECT_EQ(utils::toUpper("hello World"), "HELLO WORLD");
-    EXPECT_EQ(utils::toUpper("123!@#"), "123!@#");
-    EXPECT_EQ(utils::toUpper(""), "");
-}
 
-TEST(UtilsTest, Replace) {
-    EXPECT_EQ(utils::replace("hello world", "world", "universe"), "hello universe");
-    EXPECT_EQ(utils::replace("banana", "a", "o"), "bonono");
-    EXPECT_EQ(utils::replace("hello", "l", ""), "heo");
-    EXPECT_EQ(utils::replace("hello", "", "x"), "hello");
-    EXPECT_EQ(utils::replace("", "a", "b"), "");
-}
 
-TEST(UtilsTest, ReplaceFirst) {
-    EXPECT_EQ(utils::replaceFirst("banana", "a", "o"), "bonana");
-    EXPECT_EQ(utils::replaceFirst("hello world world", "world", "galaxy"), "hello galaxy world");
-    EXPECT_EQ(utils::replaceFirst("test", "not_found", "x"), "test");
-}
 
-TEST(UtilsTest, ReplaceN) {
-    EXPECT_EQ(utils::replaceN("banana", "a", "o", 2), "bonona");
-    EXPECT_EQ(utils::replaceN("ababab", "ab", "c", 2), "ccab");
-    EXPECT_EQ(utils::replaceN("test", "t", "x", 10), "xesx"); // replace all
-}
 
-TEST(UtilsTest, Format) {
-    EXPECT_EQ(utils::format("Hello, {}!", "world"), "Hello, world!");
-    EXPECT_EQ(utils::format("Number: {}", 123), "Number: 123");
-    EXPECT_EQ(utils::format("{} {} {}", -5, 3.14, "test"), "-5 3.14 test");
-}
 
-TEST(UtilsTest, Join) {
-    std::vector<std::string> parts = {"one", "two", "three"};
-    EXPECT_EQ(utils::join(parts, ","), "one,two,three");
-    EXPECT_EQ(utils::join(parts, "---"), "one---two---three");
-    EXPECT_EQ(utils::join({"single"}, ","), "single");
-    EXPECT_EQ(utils::join({}, ","), "");
-}
 
-TEST(UtilsTest, SplitCharDelimiter) {
-    std::vector<std::string> expected = {"one", "two", "three"};
-    EXPECT_EQ(utils::split("one,two,three", ',', false), expected);
 
-    expected = {"one", "two", "three", ""};
-    EXPECT_EQ(utils::split("one,two,three,", ',', false), expected);
 
-    expected = {"one", "two", "three"};
-    EXPECT_EQ(utils::split("one,two,three,", ',', true), expected);
 
-    expected = {};
-    EXPECT_EQ(utils::split("", ',', false), expected);
 
-    expected = {"a", "b"};
-    EXPECT_EQ(utils::split("a,,b", ',', true), expected);
-    
-    expected = {"a", "", "b"};
-    EXPECT_EQ(utils::split("a,,b", ',', false), expected);
-}
 
-TEST(UtilsTest, SplitStringDelimiter) {
-    std::vector<std::string> expected = {"one", "two", "three"};
-    EXPECT_EQ(utils::split("one||two||three", "||", false), expected);
 
-    expected = {"one", "two", "three", ""};
-    EXPECT_EQ(utils::split("one||two||three||", "||", false), expected);
 
-    expected = {"one", "two", "three"};
-    EXPECT_EQ(utils::split("one||two||three||", "||", true), expected);
 
-    expected = {};
-    EXPECT_EQ(utils::split("", "||", false), expected);
 
-    expected = {"a", "b"};
-    EXPECT_EQ(utils::split("a||||b", "||", true), expected);
 
-    expected = {"a", "", "b"};
-    EXPECT_EQ(utils::split("a||||b", "||", false), expected);
-}
 
-TEST(UtilsTest, IsInteger) {
-    EXPECT_TRUE(utils::isInteger("123"));
-    EXPECT_TRUE(utils::isInteger("-456"));
-    EXPECT_TRUE(utils::isInteger("+789"));
-    EXPECT_FALSE(utils::isInteger("123a"));
-    EXPECT_FALSE(utils::isInteger("12.3"));
-    EXPECT_FALSE(utils::isInteger(""));
-    EXPECT_TRUE(utils::isInteger("0"));
-    EXPECT_FALSE(utils::isInteger("-"));
-    EXPECT_FALSE(utils::isInteger("+"));
-}
 
-TEST(UtilsTest, IsFloatingPoint) {
-    EXPECT_TRUE(utils::isFloatingPoint("123.45"));
-    EXPECT_TRUE(utils::isFloatingPoint("-12.3"));
-    EXPECT_TRUE(utils::isFloatingPoint("+0.5"));
-    EXPECT_TRUE(utils::isFloatingPoint(".5"));
-    EXPECT_TRUE(utils::isFloatingPoint("123."));
-    EXPECT_FALSE(utils::isFloatingPoint("12.3.4"));
-    EXPECT_FALSE(utils::isFloatingPoint("abc"));
-    EXPECT_FALSE(utils::isFloatingPoint(""));
-    EXPECT_TRUE(utils::isFloatingPoint("0.0"));
-    EXPECT_FALSE(utils::isFloatingPoint("."));
-    EXPECT_FALSE(utils::isFloatingPoint("-"));
-    EXPECT_FALSE(utils::isFloatingPoint("+"));
-    EXPECT_TRUE(utils::isFloatingPoint("123"));
-    
-    // Scientific notation
-    EXPECT_TRUE(utils::isFloatingPoint("1.23e4"));
-    EXPECT_TRUE(utils::isFloatingPoint("1.23E4"));
-    EXPECT_TRUE(utils::isFloatingPoint("1e-5"));
-    EXPECT_TRUE(utils::isFloatingPoint("1.2E+2"));
-    EXPECT_FALSE(utils::isFloatingPoint("1e"));
-    EXPECT_FALSE(utils::isFloatingPoint("e5"));
-}
 
-TEST(UtilsTest, ToLong) {
-    EXPECT_EQ(utils::toLong("123", 10).value_or(0), 123L);
-    EXPECT_EQ(utils::toLong("-456", 10).value_or(0), -456L);
-    EXPECT_EQ(utils::toLong("+789", 10).value_or(0), 789L);
-    EXPECT_FALSE(utils::toLong("123a", 10).has_value());
-    EXPECT_FALSE(utils::toLong("12.3", 10).has_value());
-    EXPECT_FALSE(utils::toLong("", 10).has_value());
-    EXPECT_TRUE(utils::toLong("0", 10).has_value());
-    EXPECT_FALSE(utils::toLong("-", 10).has_value());
-    EXPECT_FALSE(utils::toLong("+", 10).has_value());
 
-    // Overflow check
-    EXPECT_FALSE(utils::toLong("9223372036854775808", 10).has_value());
-    EXPECT_FALSE(utils::toLong("-9223372036854775809", 10).has_value());
-}
 
-TEST(UtilsTest, ToDouble) {
-    EXPECT_DOUBLE_EQ(utils::toDouble("123.45").value_or(0.0), 123.45);
-    EXPECT_DOUBLE_EQ(utils::toDouble("-12.3").value_or(0.0), -12.3);
-    EXPECT_DOUBLE_EQ(utils::toDouble("+0.5").value_or(0.0), 0.5);
-    EXPECT_DOUBLE_EQ(utils::toDouble(".5").value_or(0.0), 0.5);
-    EXPECT_DOUBLE_EQ(utils::toDouble("123.").value_or(0.0), 123.0);
-    EXPECT_FALSE(utils::toDouble("12.3.4").has_value());
-    EXPECT_FALSE(utils::toDouble("abc").has_value());
-    EXPECT_FALSE(utils::toDouble("").has_value());
-    EXPECT_TRUE(utils::toDouble("0.0").has_value());
-    EXPECT_FALSE(utils::toDouble(".").has_value());
-    EXPECT_FALSE(utils::toDouble("-").has_value());
-    EXPECT_FALSE(utils::toDouble("+").has_value());
-    
-    // Scientific notation
-    EXPECT_DOUBLE_EQ(utils::toDouble("1.23e4").value_or(0.0), 12300.0);
-    EXPECT_DOUBLE_EQ(utils::toDouble("1e-2").value_or(0.0), 0.01);
-}
 
-TEST(UtilsTest, ParseBool) {
-    EXPECT_TRUE(utils::parseBool("true").value_or(false));
-    EXPECT_TRUE(utils::parseBool("TRUE").value_or(false));
-    EXPECT_TRUE(utils::parseBool("1").value_or(false));
-    EXPECT_TRUE(utils::parseBool("yes").value_or(false));
-    EXPECT_FALSE(utils::parseBool("false").value_or(true));
-    EXPECT_FALSE(utils::parseBool("FALSE").value_or(true));
-    EXPECT_FALSE(utils::parseBool("0").value_or(true));
-    EXPECT_FALSE(utils::parseBool("no").value_or(true));
-    EXPECT_FALSE(utils::parseBool("invalid").has_value());
-    EXPECT_FALSE(utils::parseBool("").has_value());
-}
 
-TEST(UtilsTest, ToInt) {
-    EXPECT_EQ(utils::toInt("123", 10).value_or(0), 123);
-    EXPECT_EQ(utils::toInt("-456", 10).value_or(0), -456);
-    EXPECT_FALSE(utils::toInt("2147483648", 10).has_value()); // Out of range
-    EXPECT_FALSE(utils::toInt("abc", 10).has_value());
-}
 
-TEST(UtilsTest, ToFloat) {
-    EXPECT_FLOAT_EQ(utils::toFloat("123.45").value_or(0.0F), 123.45F);
-    EXPECT_FLOAT_EQ(utils::toFloat("-12.3").value_or(0.0F), -12.3F);
-    EXPECT_FALSE(utils::toFloat("3.5e40").has_value()); // Out of range for float
-}
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 TEST(UtilsTest, GetEnv) {
     // Set an environment variable

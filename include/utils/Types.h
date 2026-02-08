@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
-// Copyright (c) 2026 Eser KUBALI
+// Copyright (c) 2024 Eser KUBALI
 
 #ifndef UTILS_TYPES_H
 #define UTILS_TYPES_H
@@ -52,6 +52,7 @@ enum class UtilsError {
     timeParseError,
     traversalStopped,
     tempDirectoryError,
+    outOfRange, // Added: For numeric parsing errors
 
     // Analyzer specific errors
     analyzerProcessNotFound,
@@ -102,6 +103,7 @@ public:
             case UtilsError::timeParseError: return "Time parsing error";
             case UtilsError::traversalStopped: return "Directory traversal stopped by callback";
             case UtilsError::tempDirectoryError: return "Temporary directory error";
+            case UtilsError::outOfRange: return "Value out of range"; // Added message
             case UtilsError::analyzerProcessNotFound: return "Analyzer: Process not found";
             case UtilsError::analyzerParsingError: return "Analyzer: Parsing error";
             case UtilsError::analyzerSystemError: return "Analyzer: System error";
@@ -133,6 +135,8 @@ public:
             case UtilsError::fileTooLarge:
             case UtilsError::analyzerParsingError: // Map Analyzer parsing error to invalid argument
                 return condition == ::std::errc::invalid_argument;
+            case UtilsError::outOfRange: // Map outOfRange
+                return condition == ::std::errc::result_out_of_range;
             case UtilsError::fileAlreadyExists:
                 return condition == ::std::errc::file_exists;
             case UtilsError::directoryNotEmpty:

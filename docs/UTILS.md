@@ -211,6 +211,7 @@ int main() {
 - `template<typename... Args> std::string format(std::string_view fmt, Args&&... args)`: Formats a string using `std::format`-like syntax.
 - `std::vector<std::string> split(std::string_view s, char delimiter, bool skipEmpty = false)`: Splits a string by a character delimiter.
 - `std::vector<std::string> split(std::string_view s, std::string_view delimiter, bool skipEmpty = false)`: Splits a string by a string delimiter.
+- `std::vector<std::string> splitAndTrim(std::string_view s, char delimiter, bool skipEmpty = false)`: Splits a string by a character delimiter and trims whitespace from each part.
 
 ## Numeric Parsing/Validation
 

@@ -129,9 +129,9 @@ For a detailed breakdown of the project directory structure, see [docs/project-s
 
 ## Utility Library (`utils` Namespace)
 
-The project includes a modern C++23 utility library in the `utils` namespace, offering robust, general-purpose functions for file systems, string manipulation, system interaction, and more. All utilities are accessible via the `<utils.h>` header.
+`processAnalyzer` includes a modern C++23 utility library (`utils` namespace) with robust, general-purpose functions for file systems, string manipulation, system interaction, and more. All utilities are accessible via the `<utils.h>` header.
 
-For complete documentation of all functions, error codes, and usage examples, please refer to the **[Utils Library Documentation](docs/UTILS.md)**.
+For complete documentation, including functions, error codes, and usage examples, please refer to the **[Utils Library Documentation](docs/UTILS.md)**.
 
 ## Testing
 

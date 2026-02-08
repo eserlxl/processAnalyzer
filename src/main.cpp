@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
-// Copyright (c) 2026 Eser KUBALI
+// Copyright (c) 2024 Eser KUBALI
 
 #include <iostream>
 #include <string>
@@ -12,6 +12,7 @@
 #include <span> // Required for std::span
 #include "analyzer/Analyzer.h"
 #include "utils/Core.h"
+#include "utils/String.h" // Explicitly include String.h
 
 // Struct to hold parsed command-line arguments.
 struct ParsedArguments {
@@ -135,11 +136,11 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
                 return std::nullopt; 
             }
             const std::string& stateStr = cliArgs[++i];
-            if (!(stateStr.length() == 1 && std::isalpha(stateStr[0]))) { // Invert condition
+            if (!(stateStr.length() == 1 && std::isalpha(static_cast<unsigned char>(stateStr[0])))) { // Invert condition
                 std::cerr << "Error: --state requires a single character (e.g., 'R', 'S').\n";
                 return std::nullopt;
             }
-            args.stateFilter = std::toupper(stateStr[0]);
+            args.stateFilter = static_cast<char>(std::toupper(static_cast<unsigned char>(stateStr[0])));
         } else if (arg == "--sort-by") {
             if (i + 1 >= cliArgs.size()) { 
                 std::cerr << "Error: --sort-by requires an argument.\n"; 
@@ -498,7 +499,7 @@ void printProcessCsv(const std::vector<ProcessInfo>& processes, const std::vecto
 
             // Quote if necessary
             if (value.find(',') != std::string::npos || value.find('"') != std::string::npos) {
-                value = std::string("\"") + utils::replace(value, "\"", "\"\"") + "\"";
+                value = std::string("\"") + utils::replaceAll(value, "\"", "\"\"") + "\"";
             }
             values.push_back(value);
         }
@@ -522,8 +523,8 @@ void printProcessJson(const std::vector<ProcessInfo>& processes, const std::vect
                 ss << value; // Numerical values as is
             } else {
                 // Escape quotes and backslashes for string values
-                value = utils::replace(value, "\\", "\\\\");
-                value = utils::replace(value, "\"", "\\\"");
+                value = utils::replaceAll(value, "\\", "\\\\");
+                value = utils::replaceAll(value, "\"", "\\\"");
                 ss << "\"" << value << "\"";
             }
             pairs.push_back(ss.str());
