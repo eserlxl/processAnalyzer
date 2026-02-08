@@ -143,7 +143,7 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
         } else {
             // Positional arguments
             if (args.command == "pid" && !args.pid) {
-                if (auto pid = Utils::toLong(arg)) {
+                if (auto pid = Utils::toLong(arg, 10)) {
                     args.pid = (int)*pid;
                 } else {
                     std::cerr << "Error: Invalid PID '" << arg << "'.\n";

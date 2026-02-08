@@ -145,16 +145,15 @@ TEST(UtilsTest, ListDirectory) {
 TEST(UtilsTest, GetFileSize) {
     std::string content = "1234567890";
     auto filePath = createTempFile(content);
-    std::error_code ec;
-    auto size = Utils::getFileSize(filePath, ec);
-    ASSERT_FALSE(ec);
-    ASSERT_TRUE(size.has_value());
-    EXPECT_EQ(size.value(), content.size());
+    
+    auto sizeResult = Utils::getFileSize(filePath);
+    ASSERT_TRUE(sizeResult.has_value());
+    EXPECT_EQ(sizeResult.value(), content.size());
     std::filesystem::remove(filePath);
 
-    auto nonExistent = Utils::getFileSize("non_existent_file.txt", ec);
-    EXPECT_TRUE(ec);
-    EXPECT_FALSE(nonExistent.has_value());
+    auto nonExistentResult = Utils::getFileSize("non_existent_file.txt");
+    ASSERT_FALSE(nonExistentResult.has_value());
+    EXPECT_EQ(nonExistentResult.error(), std::make_error_code(std::errc::no_such_file_or_directory));
 }
 
 TEST(UtilsTest, CopyFile) {
@@ -162,10 +161,8 @@ TEST(UtilsTest, CopyFile) {
     auto srcPath = createTempFile(content);
     auto destPath = std::filesystem::temp_directory_path() / "dest_file.txt";
 
-    std::error_code ec;
-    bool result = Utils::copyFile(srcPath, destPath, ec);
-    ASSERT_TRUE(result);
-    ASSERT_FALSE(ec);
+    auto result = Utils::copyFile(srcPath, destPath);
+    ASSERT_TRUE(result.has_value());
     EXPECT_TRUE(std::filesystem::exists(destPath));
 
     auto readResult = Utils::readTextFile(destPath);
@@ -181,10 +178,8 @@ TEST(UtilsTest, MoveFile) {
     auto srcPath = createTempFile(content);
     auto destPath = std::filesystem::temp_directory_path() / "dest_file_moved.txt";
 
-    std::error_code ec;
-    bool result = Utils::moveFile(srcPath, destPath, ec);
-    ASSERT_TRUE(result);
-    ASSERT_FALSE(ec);
+    auto result = Utils::moveFile(srcPath, destPath);
+    ASSERT_TRUE(result.has_value());
     EXPECT_FALSE(std::filesystem::exists(srcPath));
     EXPECT_TRUE(std::filesystem::exists(destPath));
 
@@ -198,14 +193,14 @@ TEST(UtilsTest, MoveFile) {
 TEST(UtilsTest, TraverseDirectory) {
     auto dirPath = createTempDir();
     auto subDir = dirPath / "subdir";
-    Utils::createDirectories(subDir);
+    ASSERT_TRUE(Utils::createDirectories(subDir));
     auto file1 = dirPath / "file1.txt";
     auto file2 = subDir / "file2.txt";
     std::ofstream(file1) << "1";
     std::ofstream(file2) << "2";
 
     std::vector<std::filesystem::path> paths;
-    bool result = Utils::traverseDirectory(dirPath, [&paths](const auto& path){
+    bool result = Utils::traverseDirectory_deprecated(dirPath, [&paths](const auto& path){
         paths.push_back(path);
     }, true);
 
@@ -214,7 +209,7 @@ TEST(UtilsTest, TraverseDirectory) {
 
     // Non-recursive
     paths.clear();
-    result = Utils::traverseDirectory(dirPath, [&paths](const auto& path){
+    result = Utils::traverseDirectory_deprecated(dirPath, [&paths](const auto& path){
         paths.push_back(path);
     }, false);
     
@@ -344,10 +339,10 @@ TEST(UtilsTest, ReplaceN) {
     EXPECT_EQ(Utils::replaceN("test", "t", "x", 10), "xesx"); // replace all
 }
 
-TEST(UtilsTest, FormatString) {
-    EXPECT_EQ(Utils::formatString("Hello, %s!", "world"), "Hello, world!");
-    EXPECT_EQ(Utils::formatString("Number: %d", 123), "Number: 123");
-    EXPECT_EQ(Utils::formatString("%d %f %s", -5, 3.14, "test"), "-5 3.140000 test");
+TEST(UtilsTest, Format) {
+    EXPECT_EQ(Utils::format("Hello, {}!", "world"), "Hello, world!");
+    EXPECT_EQ(Utils::format("Number: {}", 123), "Number: 123");
+    EXPECT_EQ(Utils::format("{} {} {}", -5, 3.14, "test"), "-5 3.14 test");
 }
 
 TEST(UtilsTest, Join) {
@@ -435,19 +430,19 @@ TEST(UtilsTest, IsFloatingPoint) {
 }
 
 TEST(UtilsTest, ToLong) {
-    EXPECT_EQ(Utils::toLong("123").value_or(0), 123L);
-    EXPECT_EQ(Utils::toLong("-456").value_or(0), -456L);
-    EXPECT_EQ(Utils::toLong("+789").value_or(0), 789L);
-    EXPECT_FALSE(Utils::toLong("123a").has_value());
-    EXPECT_FALSE(Utils::toLong("12.3").has_value());
-    EXPECT_FALSE(Utils::toLong("").has_value());
-    EXPECT_TRUE(Utils::toLong("0").has_value());
-    EXPECT_FALSE(Utils::toLong("-").has_value());
-    EXPECT_FALSE(Utils::toLong("+").has_value());
+    EXPECT_EQ(Utils::toLong("123", 10).value_or(0), 123L);
+    EXPECT_EQ(Utils::toLong("-456", 10).value_or(0), -456L);
+    EXPECT_EQ(Utils::toLong("+789", 10).value_or(0), 789L);
+    EXPECT_FALSE(Utils::toLong("123a", 10).has_value());
+    EXPECT_FALSE(Utils::toLong("12.3", 10).has_value());
+    EXPECT_FALSE(Utils::toLong("", 10).has_value());
+    EXPECT_TRUE(Utils::toLong("0", 10).has_value());
+    EXPECT_FALSE(Utils::toLong("-", 10).has_value());
+    EXPECT_FALSE(Utils::toLong("+", 10).has_value());
 
     // Overflow check
-    EXPECT_FALSE(Utils::toLong("9223372036854775808").has_value());
-    EXPECT_FALSE(Utils::toLong("-9223372036854775809").has_value());
+    EXPECT_FALSE(Utils::toLong("9223372036854775808", 10).has_value());
+    EXPECT_FALSE(Utils::toLong("-9223372036854775809", 10).has_value());
 }
 
 TEST(UtilsTest, ToDouble) {
@@ -483,10 +478,10 @@ TEST(UtilsTest, ParseBool) {
 }
 
 TEST(UtilsTest, ToInt) {
-    EXPECT_EQ(Utils::toInt("123").value_or(0), 123);
-    EXPECT_EQ(Utils::toInt("-456").value_or(0), -456);
-    EXPECT_FALSE(Utils::toInt("2147483648").has_value()); // Out of range
-    EXPECT_FALSE(Utils::toInt("abc").has_value());
+    EXPECT_EQ(Utils::toInt("123", 10).value_or(0), 123);
+    EXPECT_EQ(Utils::toInt("-456", 10).value_or(0), -456);
+    EXPECT_FALSE(Utils::toInt("2147483648", 10).has_value()); // Out of range
+    EXPECT_FALSE(Utils::toInt("abc", 10).has_value());
 }
 
 TEST(UtilsTest, ToFloat) {
@@ -518,13 +513,13 @@ TEST(UtilsTest, ExecuteCommand) {
     std::string stderrStr;
     int exitCode;
 
-    bool result = Utils::executeCommand("echo 'hello world'", stdoutStr, stderrStr, exitCode);
+    bool result = Utils::executeCommand_deprecated("echo 'hello world'", stdoutStr, stderrStr, exitCode);
     ASSERT_TRUE(result);
     EXPECT_EQ(exitCode, 0);
     EXPECT_EQ(Utils::trim(stdoutStr), "hello world");
     
     // Test command that fails
-    result = Utils::executeCommand("ls non_existent_dir_12345", stdoutStr, stderrStr, exitCode);
+    result = Utils::executeCommand_deprecated("ls non_existent_dir_12345", stdoutStr, stderrStr, exitCode);
     ASSERT_TRUE(result);
     EXPECT_NE(exitCode, 0);
     EXPECT_TRUE(Utils::contains(stdoutStr, "No such file or directory"));

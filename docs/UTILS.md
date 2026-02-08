@@ -2,7 +2,7 @@
 
 The `Utils` namespace, implemented in `src/utils.cpp` and declared in `include/utils.h`, provides a collection of general-purpose utility functions used throughout the `processAnalyzer` project. These utilities aim to simplify common tasks related to file system operations, string manipulation, numeric conversions, and system interactions.
 
-All file system operations and some other functions return `Result<T>` which is a `std::expected<T, std::error_code>`, allowing for robust error handling.
+Many functions now return `Result<T>` which is a `std::expected<T, std::error_code>`, allowing for robust error handling. Older functions using `std::optional` or out-parameters for error codes are being deprecated.
 
 ## Error Handling
 
@@ -14,97 +14,180 @@ The custom error codes are defined in the `UtilsError` enum:
 - `UtilsError::PermissionDenied`: Access to the file or resource was denied.
 - `UtilsError::IOError`: A general input/output error occurred.
 - `UtilsError::InvalidArgument`: An invalid argument was provided to the function.
-- `UtilsError::ParseError`: An error occurred during parsing (e.g., numeric conversion).
+- `UtilsError::UnsupportedOperation`: The attempted operation is not supported.
+- `UtilsError::PathError`: A path manipulation failure occurred.
+- `UtilsError::CommandExecutionError`: An error occurred during external command execution.
 
 ## File System Operations
 
 These functions interact with the file system using `std::filesystem`.
 
 - `Result<std::string> readTextFile(const std::filesystem::path& path)`
-  Reads the entire content of a text file into a `std::string`. Returns `UtilsError::FileNotFound`, `UtilsError::PermissionDenied`, or `UtilsError::IOError` on failure.
+  Reads the entire content of a text file into a `std::string`.
+
+- `Result<std::vector<std::byte>> readBinaryFile(const std::filesystem::path& path)`
+  Reads the entire content of a binary file into a `std::vector<std::byte>`.
 
 - `Result<void> writeTextFile(const std::filesystem::path& path, std::string_view content)`
-  Writes the given `content` to a text file. If the file exists, its content is truncated. Returns `UtilsError::PermissionDenied` or `UtilsError::IOError` on failure.
+  Writes the given `content` to a text file, overwriting it if it exists.
 
-- `bool exists(const std::filesystem::path& path)`
-  Checks if a file or directory exists at the specified path.
-
-- `bool isFile(const std::filesystem::path& path)`
-  Checks if the specified path points to a regular file.
-
-- `bool isDirectory(const std::filesystem::path& path)`
-  Checks if the specified path points to a directory.
+- `Result<void> writeBinaryFile(const std::filesystem::path& path, std::span<const std::byte> content)`
+  Writes the given `content` to a binary file, overwriting it if it exists.
 
 - `Result<void> appendToFile(const std::filesystem::path& path, std::string_view content)`
-  Appends the given `content` to the end of a text file. Returns `UtilsError::PermissionDenied` or `UtilsError::IOError` on failure.
+  Appends the given `content` to the end of a text file.
+
+- `Result<void> appendToBinaryFile(const std::filesystem::path& path, std::span<const std::byte> content)`
+  Appends the given `content` to the end of a binary file.
+
+- `bool exists(const std::filesystem::path& path)`
+  Checks if a file or directory exists.
+
+- `bool isFile(const std::filesystem::path& path)`
+  Checks if a path points to a regular file.
+
+- `bool isDirectory(const std::filesystem::path& path)`
+  Checks if a path points to a directory.
 
 - `Result<std::vector<std::string>> readLines(const std::filesystem::path& path)`
-  Reads all lines from a text file into a `std::vector<std::string>`. Returns `UtilsError::FileNotFound`, `UtilsError::PermissionDenied`, or `UtilsError::IOError` on failure.
+  Reads all lines from a text file into a vector of strings.
 
 - `Result<void> createDirectories(const std::filesystem::path& path)`
-  Creates all directories in the specified path, including any necessary parent directories. Returns an `std::error_code` on failure.
+  Creates all directories in the specified path.
 
 - `Result<void> remove(const std::filesystem::path& path, bool recursive = false)`
-  Removes a file or an empty directory. If `recursive` is `true`, it removes a directory and all its contents. Returns `UtilsError::FileNotFound`, `UtilsError::PermissionDenied`, or an `std::error_code` on failure.
+  Removes a file or a directory. If `recursive` is `true`, it removes a directory and all its contents.
+
+- `Result<std::filesystem::path> createTemporaryFile(std::string_view prefix = "", std::string_view suffix = "")`
+  Creates a temporary file.
+
+- `Result<std::filesystem::path> createTemporaryDirectory(std::string_view prefix = "")`
+  Creates a temporary directory.
 
 - `Result<std::vector<std::filesystem::path>> listDirectory(const std::filesystem::path& path)`
-  Lists all entries (files and directories) directly within the specified directory. Returns `UtilsError::FileNotFound`, `UtilsError::IOError`, or an `std::error_code` on failure.
+  Lists all entries within a directory.
+
+- `Result<void> copyFile(const std::filesystem::path& source, const std::filesystem::path& destination)`
+  Copies a file from source to destination.
+
+- `Result<void> moveFile(const std::filesystem::path& source, const std::filesystem::path& destination)`
+  Moves a file from source to destination.
+
+- `Result<uintmax_t> getFileSize(const std::filesystem::path& filePath)`
+  Gets the size of a file in bytes.
+
+## Path Manipulation
+
+- `std::filesystem::path getAbsolutePath(const std::filesystem::path& path)`
+  Returns the absolute path for a given path.
+
+- `std::string getFileName(const std::filesystem::path& path)`
+  Extracts the file name from a path.
+
+- `std::string getFileNameWithoutExtension(const std::filesystem::path& path)`
+  Extracts the file name without its extension.
+
+- `std::string getFileExtension(const std::filesystem::path& path)`
+  Extracts the file extension from a path.
+
+- `std::filesystem::path getParentPath(const std::filesystem::path& path)`
+  Gets the parent path of a given path.
+
+- `std::filesystem::path joinPaths(const std::vector<std::filesystem::path>& paths)`
+  Joins multiple path components into a single path.
+
+## File Hashing
+
+- `enum class HashAlgorithm { SHA256, MD5, CRC32 }`
+  Specifies the hashing algorithm to use.
+
+- `Result<std::string> calculateFileHash(const std::filesystem::path& path, HashAlgorithm algo)`
+  Calculates the hash of a file using the specified algorithm.
 
 ## String Manipulation
 
-These functions provide common string processing capabilities.
-
 - `std::string trim(std::string_view s)`
-  Removes leading and trailing whitespace characters (space, tab, newline, carriage return, form feed, vertical tab) from a string view.
+  Removes leading and trailing whitespace.
 
 - `bool startsWith(std::string_view s, std::string_view prefix)`
-  Checks if a string view `s` starts with the given `prefix`.
+  Checks for a prefix.
 
 - `bool endsWith(std::string_view s, std::string_view suffix)`
-  Checks if a string view `s` ends with the given `suffix`.
+  Checks for a suffix.
 
 - `bool contains(std::string_view s, std::string_view substring)`
-  Checks if a string view `s` contains the given `substring`.
+  Checks for a substring.
+
+- `bool startsWithIgnoreCase(std::string_view str, std::string_view prefix)`
+  Case-insensitive check for a prefix.
+
+- `bool endsWithIgnoreCase(std::string_view str, std::string_view suffix)`
+  Case-insensitive check for a suffix.
+
+- `bool containsIgnoreCase(std::string_view str, std::string_view subStr)`
+  Case-insensitive check for a substring.
 
 - `std::string toLower(std::string_view s)`
-  Converts all characters in a string view to lowercase.
+  Converts a string to lowercase.
 
 - `std::string toUpper(std::string_view s)`
-  Converts all characters in a string view to uppercase.
+  Converts a string to uppercase.
 
 - `std::string replace(std::string_view s, std::string_view target, std::string_view replacement)`
-  Replaces all occurrences of `target` with `replacement` in a string view `s`.
+  Replaces all occurrences of a substring.
+
+- `std::string replaceFirst(std::string_view s, std::string_view from, std::string_view to)`
+  Replaces the first occurrence of a substring.
+
+- `std::string replaceN(std::string_view s, std::string_view from, std::string_view to, size_t count)`
+  Replaces the first `count` occurrences of a substring.
 
 - `std::string join(const std::vector<std::string>& parts, std::string_view delimiter)`
-  Concatenates a vector of strings into a single string, separated by the `delimiter`.
+  Joins a collection of strings with a delimiter.
+
+- `template<typename... Args> std::string format(std::string_view fmt, Args&&... args)`
+  Formats a string using `std::format`-like syntax.
 
 - `std::vector<std::string> split(std::string_view s, char delimiter, bool skipEmpty = false)`
-  Splits a string view `s` into a vector of strings using a character `delimiter`. If `skipEmpty` is true, empty tokens are not included.
+  Splits a string by a character delimiter.
 
 - `std::vector<std::string> split(std::string_view s, std::string_view delimiter, bool skipEmpty = false)`
-  Splits a string view `s` into a vector of strings using a string `delimiter`. If `skipEmpty` is true, empty tokens are not included.
+  Splits a string by a string delimiter.
 
 ## Numeric Parsing/Validation
 
-Functions for checking and converting string representations of numbers.
-
 - `bool isInteger(std::string_view s)`
-  Checks if a string view `s` represents a valid integer (can include optional leading `+` or `-`).
+  Checks if a string represents an integer.
 
 - `bool isFloatingPoint(std::string_view s)`
-  Checks if a string view `s` represents a valid floating-point number.
+  Checks if a string represents a floating-point number.
 
-- `std::optional<long> toLong(std::string_view s)`
-  Converts a string view `s` to a `long`. Returns `std::nullopt` if the conversion fails. Handles optional leading `+`.
+- `Result<long> toLong(std::string_view s, int base = 10)`
+  Converts a string to a `long`.
 
-- `std::optional<double> toDouble(std::string_view s)`
-  Converts a string view `s` to a `double`. Returns `std::nullopt` if the conversion fails. Handles optional leading `+`.
+- `Result<double> toDouble(std::string_view s)`
+  Converts a string to a `double`.
+
+- `Result<int> toInt(std::string_view s, int base = 10)`
+  Converts a string to an `int`.
+
+- `Result<float> toFloat(std::string_view s)`
+  Converts a string to a `float`.
+
+- `Result<bool> parseBool(std::string_view s)`
+  Parses a string into a boolean (`true`, `false`, `1`, `0`).
 
 ## System Interaction
 
-- `std::optional<std::string> getEnv(const std::string& name)`
-  Retrieves the value of an environment variable specified by `name`. Returns `std::nullopt` if the variable is not set.
+- `struct CommandOutput { std::string stdoutStr; std::string stderrStr; int exitCode; };`
+  Holds the output of an executed command.
+
+- `Result<CommandOutput> executeCommand(const std::string& command)`
+  Executes a shell command and captures its output and exit code.
+
+- `Result<std::string> getEnv(const std::string& var)`
+  Retrieves the value of an environment variable. Returns an error if the variable is not set.
 
 ## Unit Tests
 
-The utility functions provided by the `Utils` namespace are thoroughly tested to ensure their correctness and reliability. Unit tests for the `Utils` library can be found in the `tests/` directory, specifically in `tests/Utils.cpp` and `tests/TestUtils.cpp`. These tests cover various scenarios, including edge cases and error conditions, to validate the behavior of each utility function.
+The utility functions are tested in `tests/Utils.cpp` and `tests/TestUtils.cpp`. These tests cover various scenarios, including edge cases and error conditions.

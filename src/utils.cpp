@@ -28,7 +28,9 @@ public:
             case UtilsError::PermissionDenied: return "Permission denied";
             case UtilsError::IOError: return "I/O error";
             case UtilsError::InvalidArgument: return "Invalid argument";
-            case UtilsError::ParseError: return "Parse error";
+            case UtilsError::UnsupportedOperation: return "Unsupported operation";
+            case UtilsError::PathError: return "Path error";
+            case UtilsError::CommandExecutionError: return "Command execution error";
             default: return "Unknown error";
         }
     }
@@ -176,17 +178,44 @@ Result<std::vector<std::filesystem::path>> listDirectory(const std::filesystem::
     return entries;
 }
 
-bool copyFile(const std::filesystem::path& source, const std::filesystem::path& destination, std::error_code& ec) {
+Result<void> copyFile(const std::filesystem::path& source, const std::filesystem::path& destination) {
+    std::error_code ec;
+    std::filesystem::copy(source, destination, std::filesystem::copy_options::overwrite_existing, ec);
+    if (ec) {
+        return std::unexpected(ec);
+    }
+    return {};
+}
+
+bool copyFile_deprecated(const std::filesystem::path& source, const std::filesystem::path& destination, std::error_code& ec) {
     std::filesystem::copy(source, destination, std::filesystem::copy_options::overwrite_existing, ec);
     return !ec;
 }
 
-bool moveFile(const std::filesystem::path& source, const std::filesystem::path& destination, std::error_code& ec) {
+Result<void> moveFile(const std::filesystem::path& source, const std::filesystem::path& destination) {
+    std::error_code ec;
+    std::filesystem::rename(source, destination, ec);
+    if (ec) {
+        return std::unexpected(ec);
+    }
+    return {};
+}
+
+bool moveFile_deprecated(const std::filesystem::path& source, const std::filesystem::path& destination, std::error_code& ec) {
     std::filesystem::rename(source, destination, ec);
     return !ec;
 }
 
-std::optional<uintmax_t> getFileSize(const std::filesystem::path& filePath, std::error_code& ec) {
+Result<uintmax_t> getFileSize(const std::filesystem::path& filePath) {
+    std::error_code ec;
+    auto size = std::filesystem::file_size(filePath, ec);
+    if (ec) {
+        return std::unexpected(ec);
+    }
+    return size;
+}
+
+std::optional<uintmax_t> getFileSize_deprecated(const std::filesystem::path& filePath, std::error_code& ec) {
     if (std::filesystem::exists(filePath, ec) && !ec && std::filesystem::is_regular_file(filePath, ec) && !ec) {
         return std::filesystem::file_size(filePath, ec);
     }
@@ -196,7 +225,7 @@ std::optional<uintmax_t> getFileSize(const std::filesystem::path& filePath, std:
     return std::nullopt;
 }
 
-bool traverseDirectory(const std::filesystem::path& dirPath, const std::function<void(const std::filesystem::path&)>& callback, bool recursive) {
+bool traverseDirectory_deprecated(const std::filesystem::path& dirPath, const std::function<void(const std::filesystem::path&)>& callback, bool recursive) {
     std::error_code ec;
     if (!std::filesystem::is_directory(dirPath, ec)) {
         return false;
@@ -375,7 +404,7 @@ std::string join(const std::vector<std::string>& parts, std::string_view delimit
     return result;
 }
 
-std::string formatString(const char* fmt, ...) {
+std::string formatString_deprecated(const char* fmt, ...) {
     va_list args;
     va_start(args, fmt);
     
@@ -464,7 +493,39 @@ bool isFloatingPoint(std::string_view s) {
     return toDouble(s).has_value();
 }
 
-std::optional<long> toLong(std::string_view s) {
+Result<double> toDouble(std::string_view s) {
+    double val;
+    std::string_view subS = s;
+    if (!s.empty() && s[0] == '+') {
+        subS = s.substr(1);
+    }
+    
+    if (subS.empty()) return std::unexpected(make_error_code(UtilsError::InvalidArgument));
+
+    auto res = std::from_chars(subS.data(), subS.data() + subS.size(), val);
+    if (res.ec == std::errc() && res.ptr == subS.data() + subS.size()) {
+        return val;
+    }
+    return std::unexpected(make_error_code(UtilsError::InvalidArgument));
+}
+
+Result<long> toLong(std::string_view s, int base) {
+    long val;
+    std::string_view subS = s;
+    if (!s.empty() && s[0] == '+') {
+        subS = s.substr(1);
+    }
+    
+    if (subS.empty()) return std::unexpected(make_error_code(UtilsError::InvalidArgument));
+
+    auto res = std::from_chars(subS.data(), subS.data() + subS.size(), val, base);
+    if (res.ec == std::errc() && res.ptr == subS.data() + subS.size()) {
+        return val;
+    }
+    return std::unexpected(make_error_code(UtilsError::InvalidArgument));
+}
+
+std::optional<long> toLong_deprecated(std::string_view s) {
     long val;
     std::string_view subS = s;
     if (!s.empty() && s[0] == '+') {
@@ -480,7 +541,7 @@ std::optional<long> toLong(std::string_view s) {
     return std::nullopt;
 }
 
-std::optional<double> toDouble(std::string_view s) {
+std::optional<double> toDouble_deprecated(std::string_view s) {
     double val;
     std::string_view subS = s;
     if (!s.empty() && s[0] == '+') {
@@ -496,7 +557,18 @@ std::optional<double> toDouble(std::string_view s) {
     return std::nullopt;
 }
 
-std::optional<bool> parseBool(std::string_view s) {
+Result<bool> parseBool(std::string_view s) {
+    std::string lowerS = toLower(s);
+    if (lowerS == "true" || lowerS == "1" || lowerS == "yes") {
+        return true;
+    }
+    if (lowerS == "false" || lowerS == "0" || lowerS == "no") {
+        return false;
+    }
+    return std::unexpected(make_error_code(UtilsError::InvalidArgument));
+}
+
+std::optional<bool> parseBool_deprecated(std::string_view s) {
     std::string lowerS = toLower(s);
     if (lowerS == "true" || lowerS == "1" || lowerS == "yes") {
         return true;
@@ -507,7 +579,25 @@ std::optional<bool> parseBool(std::string_view s) {
     return std::nullopt;
 }
 
-std::optional<int> toInt(std::string_view s) {
+Result<int> toInt(std::string_view s, int base) {
+    long val;
+    std::string_view subS = s;
+    if (!s.empty() && s[0] == '+') {
+        subS = s.substr(1);
+    }
+    
+    if (subS.empty()) return std::unexpected(make_error_code(UtilsError::InvalidArgument));
+
+    auto res = std::from_chars(subS.data(), subS.data() + subS.size(), val, base);
+    if (res.ec == std::errc() && res.ptr == subS.data() + subS.size()) {
+        if (val >= std::numeric_limits<int>::min() && val <= std::numeric_limits<int>::max()) {
+            return static_cast<int>(val);
+        }
+    }
+    return std::unexpected(make_error_code(UtilsError::InvalidArgument));
+}
+
+std::optional<int> toInt_deprecated(std::string_view s) {
     long val;
     std::string_view subS = s;
     if (!s.empty() && s[0] == '+') {
@@ -525,7 +615,19 @@ std::optional<int> toInt(std::string_view s) {
     return std::nullopt;
 }
 
-std::optional<float> toFloat(std::string_view s) {
+Result<float> toFloat(std::string_view s) {
+    double val;
+    auto res = toDouble(s);
+    if (res) {
+        val = *res;
+        if (val >= -std::numeric_limits<float>::max() && val <= std::numeric_limits<float>::max()) {
+            return static_cast<float>(val);
+        }
+    }
+    return std::unexpected(make_error_code(UtilsError::InvalidArgument));
+}
+
+std::optional<float> toFloat_deprecated(std::string_view s) {
     double val;
     auto opt = toDouble(s);
     if (opt) {
@@ -539,15 +641,36 @@ std::optional<float> toFloat(std::string_view s) {
 
 // --- System Interaction ---
 
-std::optional<std::string> getEnv(const std::string& name) {
+Result<std::string> getEnv(const std::string& name) {
     char* value = std::getenv(name.c_str());
     if (value) {
         return std::string(value);
     }
-    return std::nullopt;
+    return std::unexpected(make_error_code(UtilsError::InvalidArgument));
 }
 
-bool executeCommand(const std::string& command, std::string& stdoutStr, std::string& stderrStr, int& exitCode) {
+Result<CommandOutput> executeCommand(const std::string& command) {
+    std::string commandRedirect = command + " 2>&1";
+    FILE* pipe = popen(commandRedirect.c_str(), "r");
+    if (!pipe) {
+        return std::unexpected(make_error_code(UtilsError::CommandExecutionError));
+    }
+
+    std::array<char, 128> buffer;
+    std::string stdoutStr;
+    while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
+        stdoutStr += buffer.data();
+    }
+
+    int pcloseResult = pclose(pipe);
+    int exitCode = WEXITSTATUS(pcloseResult);
+
+    // With 2>&1, stderr is mixed with stdout. We can't separate them with popen.
+    // For more complex scenarios, a different approach (e.g., custom fork/exec) would be needed.
+    return CommandOutput{stdoutStr, "", exitCode};
+}
+
+bool executeCommand_deprecated(const std::string& command, std::string& stdoutStr, std::string& stderrStr, int& exitCode) {
     std::string commandRedirect = command + " 2>&1";
     FILE* pipe = popen(commandRedirect.c_str(), "r");
     if (!pipe) {
