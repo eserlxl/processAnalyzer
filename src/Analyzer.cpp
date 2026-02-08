@@ -187,9 +187,9 @@ std::optional<ProcessInfo> ProcessAnalyzer::getProcessDetails(int pid) const {
     }
     
     // Read symlinks for executable path and CWD
-            try {
-                info.executablePath = fs::read_symlink(pidPath + "/exe").string();
-            } catch (const fs::filesystem_error& e) { (void)e; /* Ignore if not accessible */ }
+    try {
+        info.executablePath = fs::read_symlink(pidPath + "/exe").string();
+    } catch (const fs::filesystem_error& e) { (void)e; /* Ignore if not accessible */ }
     try {
         info.currentWorkingDirectory = fs::read_symlink(pidPath + "/cwd").string();
     } catch (const fs::filesystem_error& e) { (void)e; /* Ignore if not accessible */ }
@@ -221,6 +221,73 @@ std::vector<ProcessInfo> ProcessAnalyzer::snapshot() const {
     }
     return results;
 }
+
+// --- New System-wide Statistics Implementations for Iteration 7 ---
+
+std::optional<SystemMemoryInfo> ProcessAnalyzer::getSystemMemoryInfo() const {
+    std::string meminfoPath = procPath + "/meminfo";
+    auto contentOpt = Utils::readTextFile(meminfoPath);
+    if (!contentOpt) {
+        return std::nullopt;
+    }
+
+    SystemMemoryInfo memInfo;
+    std::stringstream ss(*contentOpt);
+    std::string line;
+    while (std::getline(ss, line)) {
+        std::string key;
+        unsigned long value;
+        std::stringstream lineSs(line);
+        lineSs >> key >> value;
+        key.pop_back(); // Remove colon
+
+        if (key == "MemTotal") memInfo.memTotal = value;
+        else if (key == "MemFree") memInfo.memFree = value;
+        else if (key == "MemAvailable") memInfo.memAvailable = value;
+        else if (key == "Buffers") memInfo.buffers = value;
+        else if (key == "Cached") memInfo.cached = value;
+        else if (key == "SwapTotal") memInfo.swapTotal = value;
+        else if (key == "SwapFree") memInfo.swapFree = value;
+    }
+    return memInfo;
+}
+
+std::optional<SystemLoadAverage> ProcessAnalyzer::getSystemLoadAverage() const {
+    std::string loadavgPath = procPath + "/loadavg";
+    auto contentOpt = Utils::readTextFile(loadavgPath);
+    if (!contentOpt) {
+        return std::nullopt;
+    }
+
+    SystemLoadAverage loadAvg;
+    std::stringstream ss(*contentOpt);
+    ss >> loadAvg.oneMin >> loadAvg.fiveMin >> loadAvg.fifteenMin;
+    return loadAvg;
+}
+
+std::optional<SystemCpuStats> ProcessAnalyzer::getSystemCpuStats() const {
+    std::string statPath = procPath + "/stat";
+    auto contentOpt = Utils::readTextFile(statPath);
+    if (!contentOpt) {
+        return std::nullopt;
+    }
+
+    std::stringstream ss(*contentOpt);
+    std::string line;
+    std::getline(ss, line);
+
+    if (line.starts_with("cpu ")) {
+        SystemCpuStats stats;
+        std::stringstream lineSs(line);
+        std::string cpuLabel;
+        lineSs >> cpuLabel >> stats.user >> stats.nice >> stats.system >> stats.idle 
+                >> stats.iowait >> stats.irq >> stats.softirq >> stats.steal;
+        return stats;
+    }
+
+    return std::nullopt;
+}
+
 
 std::vector<ProcessInfo> ProcessAnalyzer::findProcesses(const ProcessPredicate& predicate) const {
     std::vector<ProcessInfo> allProcesses = snapshot();
@@ -270,11 +337,12 @@ std::vector<ProcessInfo> ProcessAnalyzer::queryProcesses(
             if (filter.uidFilter && process.uid != *filter.uidFilter) return false;
             if (filter.minPriority && process.priority < *filter.minPriority) return false;
             if (filter.maxPriority && process.priority > *filter.maxPriority) return false;
+            if (filter.ppidFilter && process.ppid != *filter.ppidFilter) return false; // Iteration 7
             return true;
         });
 
     // Apply sorting
-    std::ranges::sort(filteredProcesses, 
+    std::ranges::sort(filteredProcesses,
         [&](const ProcessInfo& a, const ProcessInfo& b) {
         bool less = false;
         switch (sortBy) {
@@ -289,12 +357,17 @@ std::vector<ProcessInfo> ProcessAnalyzer::queryProcesses(
             case ProcessSortField::THREADS: less = a.threadCount < b.threadCount; break;
             case ProcessSortField::START_TIME: less = a.startTimeTicks < b.startTimeTicks; break;
             case ProcessSortField::EXECUTABLE_PATH: less = a.executablePath < b.executablePath; break;
+            case ProcessSortField::CMDLINE: less = a.cmdline < b.cmdline; break;
+            case ProcessSortField::CPU_TIME: // Iteration 7
+                less = (a.cpuUserTimeTicks + a.cpuKernelTimeTicks) < (b.cpuUserTimeTicks + b.cpuKernelTimeTicks);
+                break;
             case ProcessSortField::CWD: less = a.currentWorkingDirectory < b.currentWorkingDirectory; break;
             case ProcessSortField::CPU_USER_TIME: less = a.cpuUserTimeTicks < b.cpuUserTimeTicks; break;
             case ProcessSortField::CPU_KERNEL_TIME: less = a.cpuKernelTimeTicks < b.cpuKernelTimeTicks; break;
             case ProcessSortField::IO_READ_BYTES: less = a.ioReadBytes < b.ioReadBytes; break;
             case ProcessSortField::IO_WRITE_BYTES: less = a.ioWriteBytes < b.ioWriteBytes; break;
             case ProcessSortField::PRIORITY: less = a.priority < b.priority; break;
+            case ProcessSortField::VMSIZE: less = a.virtualMemory < b.virtualMemory; break;
         }
 
         return (sortOrder == SortOrder::ASC) ? less : !less;
@@ -314,26 +387,36 @@ std::vector<ProcessInfo> ProcessAnalyzer::getChildProcesses(int pid) const {
     return children;
 }
 
-std::vector<std::string> ProcessAnalyzer::getProcessOpenFiles(int pid) const {
-    std::vector<std::string> openFiles;
+// Replaced getProcessOpenFiles with getOpenFileDescriptors for Iteration 7
+std::map<int, std::string> ProcessAnalyzer::getOpenFileDescriptors(pid_t pid) const {
+    std::map<int, std::string> openFds;
     std::string fdPath = procPath + "/" + std::to_string(pid) + "/fd";
 
     if (!fs::exists(fdPath) || !fs::is_directory(fdPath)) {
-        // Return empty if directory doesn't exist (e.g., process not found, permissions)
-        return openFiles;
+        return openFds; // Return empty map as per contract
     }
 
     try {
         for (const auto& entry : fs::directory_iterator(fdPath)) {
-            // Each entry in /proc/<pid>/fd is a symlink to the actual file
-            openFiles.push_back(fs::read_symlink(entry.path()).string());
+            if (entry.is_symlink()) {
+                std::string fdStr = entry.path().filename().string();
+                if (Utils::isInteger(fdStr)) {
+                    int fd = std::stoi(fdStr);
+                    try {
+                        openFds[fd] = fs::read_symlink(entry.path()).string();
+                    } catch (const fs::filesystem_error&) {
+                        openFds[fd] = "[unreadable]";
+                    }
+                }
+            }
         }
     } catch (const fs::filesystem_error& e) {
-        // Catch permission denied or other filesystem errors
-        throw std::runtime_error("Failed to read open files for PID " + std::to_string(pid) + ": " + e.what());
+        // According to contract, throw on permissions issues for the directory itself.
+        throw std::runtime_error("Failed to read open files directory for PID " + std::to_string(pid) + ": " + e.what());
     }
-    return openFiles;
+    return openFds;
 }
+
 
 std::optional<ProcessCpuUsage> ProcessAnalyzer::getProcessCpuUsage(int pid, std::chrono::milliseconds durationMs) const {
     auto initialDetails = getProcessDetails(pid);

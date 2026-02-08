@@ -44,6 +44,34 @@ struct ProcessCpuUsage {
                           // Note: This is an instantaneous/delta percentage between two calls.
 };
 
+// --- New Structs for Iteration 7 ---
+struct SystemMemoryInfo {
+    unsigned long memTotal = 0;       // In kB
+    unsigned long memFree = 0;        // In kB
+    unsigned long memAvailable = 0;   // In kB
+    unsigned long buffers = 0;        // In kB
+    unsigned long cached = 0;         // In kB
+    unsigned long swapTotal = 0;      // In kB
+    unsigned long swapFree = 0;       // In kB
+};
+
+struct SystemLoadAverage {
+    double oneMin = 0.0;
+    double fiveMin = 0.0;
+    double fifteenMin = 0.0;
+};
+
+struct SystemCpuStats {
+    unsigned long long user = 0;
+    unsigned long long nice = 0;
+    unsigned long long system = 0;
+    unsigned long long idle = 0;
+    unsigned long long iowait = 0;
+    unsigned long long irq = 0;
+    unsigned long long softirq = 0;
+    unsigned long long steal = 0;
+};
+
 // New structures and enums for Iteration 3 filtering and sorting
 struct ProcessFilter {
     std::optional<std::string> nameContains; // For name filter
@@ -62,27 +90,32 @@ struct ProcessFilter {
     std::optional<uint32_t> uidFilter;             // Filter by exact UID
     std::optional<int> minPriority;                // Minimum nice value
     std::optional<int> maxPriority;                // Maximum nice value
+
+    // --- New Fields for Iteration 7 ---
+    std::optional<pid_t> ppidFilter;
 };
 
 enum class ProcessSortField {
     PID,
-    PPID, // Though not directly sortable from command line yet, useful internally
+    PPID,
+    RSS,
+    VMSIZE,
+    START_TIME,
+    CPU_TIME, // New for Iteration 7
+    NAME,
+    EXECUTABLE_PATH,
+    CMDLINE,
     UID,
     USER,
-    NAME,
     STATE,
-    RSS,
     VM,
     THREADS,
-    // --- New Fields for Iteration 5 ---
-    START_TIME,      // Sort by process start time
-    EXECUTABLE_PATH, // Sort by executable path
-    CWD,             // Sort by current working directory
-    CPU_USER_TIME,   // Sort by user mode CPU time
-    CPU_KERNEL_TIME, // Sort by kernel mode CPU time
-    IO_READ_BYTES,   // Sort by total bytes read
-    IO_WRITE_BYTES,  // Sort by total bytes written
-    PRIORITY         // Sort by process priority (nice value)
+    CWD,
+    CPU_USER_TIME,
+    CPU_KERNEL_TIME,
+    IO_READ_BYTES,
+    IO_WRITE_BYTES,
+    PRIORITY
 };
 
 enum class SortOrder {
@@ -101,6 +134,11 @@ public:
     std::vector<int> getPids() const;
     std::optional<ProcessInfo> getProcessDetails(int pid) const;
     std::vector<ProcessInfo> snapshot() const;
+
+    // --- New System-wide Statistics API for Iteration 7 ---
+    std::optional<SystemMemoryInfo> getSystemMemoryInfo() const;
+    std::optional<SystemLoadAverage> getSystemLoadAverage() const;
+    std::optional<SystemCpuStats> getSystemCpuStats() const;
 
     // Filtering API
     std::vector<ProcessInfo> findProcesses(const ProcessPredicate& predicate) const;
@@ -121,12 +159,6 @@ public:
     //           Returns empty vector if no children or PID not found.
     // Throws: std::runtime_error for permissions issues.
     std::vector<ProcessInfo> getChildProcesses(int pid) const;
-
-    // New method to get open files for a process
-    // Contract: Returns a vector of strings, each representing an open file path.
-    //           Returns empty vector if no files or PID not found/inaccessible.
-    // Throws: std::runtime_error for permissions issues.
-    std::vector<std::string> getProcessOpenFiles(int pid) const;
 
     // New: Get the system's clock tick frequency (HZ)
     // Contract: Returns the system clock ticks per second.
@@ -171,6 +203,12 @@ public:
     //           Returns empty vector if no environment variables are found or inaccessible.
     // Throws: std::runtime_error for permissions issues.
     std::vector<std::string> getProcessEnvironment(int pid) const;
+
+    // New for Iteration 7: Get open file descriptors for a process
+    // Contract: Returns a map of file descriptors to their target paths.
+    //           Returns an empty map if the process does not exist or has no FDs.
+    // Throws: std::runtime_error for permissions issues reading the /proc/[pid]/fd directory.
+    std::map<int, std::string> getOpenFileDescriptors(pid_t pid) const;
 
 private:
     std::string procPath;

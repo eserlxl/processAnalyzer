@@ -145,6 +145,18 @@ public:
     }
 
     /**
+     * @brief Creates a symbolic link for a single file descriptor.
+     * @param pid The process ID.
+     * @param fd The file descriptor number.
+     * @param target The target path of the symlink.
+     */
+    void createProcFdLink(int pid, int fd, const std::string& target) {
+        fs::path fdPath = root / std::to_string(pid) / "fd";
+        fs::create_directories(fdPath); // Ensure the fd directory exists
+        fs::create_symlink(target, fdPath / std::to_string(fd));
+    }
+
+    /**
      * @brief Adds a basic mock process, creating its PID directory and minimal status/cmdline files.
      * @param pid The process ID.
      * @param name The name of the process.

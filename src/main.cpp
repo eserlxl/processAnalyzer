@@ -225,11 +225,11 @@ int main(int argc, char* argv[]) {
             }
             if (args.showOpenFiles) {
                 try {
-                    auto files = analyzer.getProcessOpenFiles(targetPid);
-                    if (!files.empty()) {
+                    auto fds = analyzer.getOpenFileDescriptors(targetPid);
+                    if (!fds.empty()) {
                         std::cout << "\nOpen Files:\n";
-                        for (const auto& file : files) {
-                            std::cout << "  " << file << "\n";
+                        for (const auto& [fd, path] : fds) {
+                            std::cout << "  fd " << std::setw(3) << fd << ": " << path << "\n";
                         }
                     } else {
                         std::cout << "\nNo open files found.\n";
