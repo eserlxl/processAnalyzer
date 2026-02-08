@@ -19,7 +19,7 @@ constexpr int kFlagsWidth = 8;
 constexpr int kAddressPartWidth = 8;
 
 MockProc::MockProc(const std::string& basePath) : root(basePath) {
-    fs::create_directory(root);
+    fs::create_directories(root);
 }
 
 MockProc::~MockProc() {

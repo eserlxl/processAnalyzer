@@ -32,12 +32,49 @@ Unit tests are a crucial part of `processAnalyzer` and are located in the `tests
 
 When writing tests for components that interact with the `/proc` filesystem, you should use the `MockProc` utility class found in `tests/TestUtils.h`. This class provides a convenient way to create a mock `/proc` directory structure for your tests, ensuring they are hermetic and repeatable.
 
-The `MockProc` class offers several helpful methods for setting up your test environment, including:
-*   `addProcess(pid, name, ...)`: Quickly creates a directory and basic files for a mock process.
+### Using the `MockProc` Utility
+
+The `MockProc` class provides two main ways to create mock processes and system files: direct creation methods and a fluent "builder" API.
+
+#### Fluent Process Builder (Preferred)
+
+The most convenient way to create a complex mock process is with the `buildProcess(pid)` method, which returns a builder object. This allows you to chain calls to configure the process.
+
+**Example:**
+```cpp
+mockProc->buildProcess(300)
+    .withName("fluent_proc")
+    .withParent(50)
+    .withCmdline({"/bin/fluent", "--mode=fast"})
+    .withMap({.addressRange="1000-2000", .perms="r-xp", .pathname="/lib/libc.so"})
+    .create();
+```
+
+#### High-Level `addProcess`
+
+For simpler cases, you can use the `addProcess(pid, options)` method. It takes an `AddProcessOptions` struct that allows you to specify various attributes.
+
+**Example:**
+```cpp
+MockProc::AddProcessOptions options;
+options.name = "my_app";
+options.exePath = "/usr/bin/my_app";
+options.environVars = {{"USER", "test"}};
+mockProc->addProcess(205, options);
+```
+
+#### Low-Level Creation Methods
+
+`MockProc` also offers several low-level methods for creating specific files and directories in your mock `/proc` filesystem:
 *   `createStatus(pid, data)`: Creates a mock `/proc/<pid>/status` file.
-*   `createCmdline(pid, args)`: Creates a mock `/proc/<pid>/cmdline` file with null-separated arguments.
+*   `createCmdline(pid, args)`: Creates a mock `/proc/<pid>/cmdline` file.
 *   `createEnviron(pid, env_vars)`: Creates a mock `/proc/<pid>/environ` file.
-*   `createFdDir(pid, fds)`: Creates a mock `/proc/<pid>/fd` directory with symlinked file descriptors.
+*   `createFdDir(pid, fds)`: Creates a mock `/proc/<pid>/fd` directory.
+*   `createMaps(pid, entries)`: Creates a mock `/proc/<pid>/maps` file.
+*   `createIo(pid, stats)`: Creates a mock `/proc/<pid>/io` file.
+*   `createStat(pid, data)`: Creates a mock `/proc/<pid>/stat` file.
+*   `createSystemStat(data)`: Creates a mock `/proc/stat` file.
+*   `createMeminfo(data)`: Creates a mock `/proc/meminfo` file.
 
 Using these utilities is highly encouraged to simplify test creation and maintain consistency across the test suite.
 
