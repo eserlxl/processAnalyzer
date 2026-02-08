@@ -362,7 +362,9 @@ TEST(UtilsTest, GetEnv) {
 
     auto value = Utils::getEnv("TEST_VAR");
     ASSERT_TRUE(value.has_value());
-    EXPECT_EQ(value.value(), "test_value");
+    if (value) { // Redundant check for static analyzer
+        EXPECT_EQ(*value, "test_value");
+    }
 
     auto nonExistent = Utils::getEnv("NON_EXISTENT_VAR_XYZ_123");
     EXPECT_FALSE(nonExistent.has_value());

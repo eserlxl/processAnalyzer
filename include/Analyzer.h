@@ -61,7 +61,7 @@ public:
     std::vector<ProcessInfo> snapshot() const;
 
     // Filtering API
-    std::vector<ProcessInfo> findProcesses(ProcessPredicate predicate) const;
+    std::vector<ProcessInfo> findProcesses(const ProcessPredicate& predicate) const;
     std::vector<ProcessInfo> getProcessesByName(std::string_view name) const;
     std::vector<ProcessInfo> getProcessesByUser(std::string_view username) const;
 

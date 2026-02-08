@@ -16,11 +16,11 @@ namespace Utils {
 
 class UtilsErrorCategory : public std::error_category {
 public:
-    const char* name() const noexcept override {
+    [[nodiscard]] const char* name() const noexcept override {
         return "UtilsError";
     }
 
-    std::string message(int ev) const override {
+    [[nodiscard]] std::string message(int ev) const override {
         switch (static_cast<UtilsError>(ev)) {
             case UtilsError::None: return "Success";
             case UtilsError::FileNotFound: return "File not found";
@@ -33,13 +33,13 @@ public:
     }
 };
 
-const UtilsErrorCategory& utils_category() {
+const UtilsErrorCategory& utilsCategory() {
     static UtilsErrorCategory instance;
     return instance;
 }
 
 std::error_code make_error_code(UtilsError e) {
-    return {static_cast<int>(e), utils_category()};
+    return {static_cast<int>(e), utilsCategory()};
 }
 
 // --- Filesystem Operations ---
@@ -74,7 +74,7 @@ Result<void> writeTextFile(const std::filesystem::path& path, std::string_view c
     if (!file.is_open()) {
         return std::unexpected(make_error_code(UtilsError::PermissionDenied));
     }
-    if (file.write(content.data(), content.size())) {
+    if (file.write(content.data(), static_cast<std::streamsize>(content.size()))) {
         return {};
     }
     return std::unexpected(make_error_code(UtilsError::IOError));
@@ -85,7 +85,7 @@ Result<void> appendToFile(const std::filesystem::path& path, std::string_view co
     if (!file.is_open()) {
         return std::unexpected(make_error_code(UtilsError::PermissionDenied));
     }
-    if (file.write(content.data(), content.size())) {
+    if (file.write(content.data(), static_cast<std::streamsize>(content.size()))) {
         return {};
     }
     return std::unexpected(make_error_code(UtilsError::IOError));
@@ -215,14 +215,14 @@ bool contains(std::string_view s, std::string_view substring) {
 
 std::string toLower(std::string_view s) {
     std::string result(s.length(), ' ');
-    std::transform(s.begin(), s.end(), result.begin(),
+    std::ranges::transform(s, result.begin(),
                    [](unsigned char c){ return static_cast<char>(std::tolower(c)); });
     return result;
 }
 
 std::string toUpper(std::string_view s) {
     std::string result(s.length(), ' ');
-    std::transform(s.begin(), s.end(), result.begin(),
+    std::ranges::transform(s, result.begin(),
                    [](unsigned char c){ return static_cast<char>(std::toupper(c)); });
     return result;
 }
@@ -253,12 +253,12 @@ std::string join(const std::vector<std::string>& parts, std::string_view delimit
 
     std::string result;
     // Calculate approximate size to reserve memory
-    size_t total_length = 0;
+    size_t totalLength = 0;
     for (const auto& part : parts) {
-        total_length += part.length();
+        totalLength += part.length();
     }
-    total_length += (parts.size() - 1) * delimiter.length();
-    result.reserve(total_length);
+    totalLength += (parts.size() - 1) * delimiter.length();
+    result.reserve(totalLength);
 
     auto it = parts.begin();
     result.append(*it);
@@ -338,15 +338,15 @@ bool isFloatingPoint(std::string_view s) {
 
 std::optional<long> toLong(std::string_view s) {
     long val;
-    std::string_view sub_s = s;
+    std::string_view subS = s;
     if (!s.empty() && s[0] == '+') {
-        sub_s = s.substr(1);
+        subS = s.substr(1);
     }
     
-    if (sub_s.empty()) return std::nullopt;
+    if (subS.empty()) return std::nullopt;
 
-    auto res = std::from_chars(sub_s.data(), sub_s.data() + sub_s.size(), val);
-    if (res.ec == std::errc() && res.ptr == sub_s.data() + sub_s.size()) {
+    auto res = std::from_chars(subS.data(), subS.data() + subS.size(), val);
+    if (res.ec == std::errc() && res.ptr == subS.data() + subS.size()) {
         return val;
     }
     return std::nullopt;
@@ -354,15 +354,15 @@ std::optional<long> toLong(std::string_view s) {
 
 std::optional<double> toDouble(std::string_view s) {
     double val;
-    std::string_view sub_s = s;
+    std::string_view subS = s;
     if (!s.empty() && s[0] == '+') {
-        sub_s = s.substr(1);
+        subS = s.substr(1);
     }
     
-    if (sub_s.empty()) return std::nullopt;
+    if (subS.empty()) return std::nullopt;
 
-    auto res = std::from_chars(sub_s.data(), sub_s.data() + sub_s.size(), val);
-    if (res.ec == std::errc() && res.ptr == sub_s.data() + sub_s.size()) {
+    auto res = std::from_chars(subS.data(), subS.data() + subS.size(), val);
+    if (res.ec == std::errc() && res.ptr == subS.data() + subS.size()) {
         return val;
     }
     return std::nullopt;

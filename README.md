@@ -5,6 +5,7 @@
 
 ## Table of Contents
 * [Features](#features)
+* [Getting Started](#getting-started)
 * [Quick Start](#quick-start)
   * [Prerequisites](#prerequisites)
   * [Building from Source](#building-from-source)
@@ -16,7 +17,7 @@
 * [License](#license)
 * [Copyright](#copyright)
 
-A powerful and lightweight C++ command-line tool designed for in-depth analysis of running processes on your system. `processAnalyzer` provides a robust interface to inspect process details, offering insights into system resource usage and process behavior.
+`processAnalyzer` is a high-performance, lightweight C++ command-line utility designed for the real-time inspection and monitoring of system processes. It provides a robust interface to deliver detailed resource usage metrics and execution statistics, facilitating efficient system diagnostics and performance optimization. Offering in-depth analysis of running processes, `processAnalyzer` helps you gain insights into system resource consumption and process behavior.
 
 ## Features
 
@@ -27,11 +28,26 @@ A powerful and lightweight C++ command-line tool designed for in-depth analysis 
 *   **Customizable Output**: Choose which columns to display and output results in different formats (table, CSV, JSON).
 *   **Utility Library**: Leverages a robust C++ utility library for common tasks like file system operations, string manipulation, and system interaction.
 
+## Getting Started
+
+To get `processAnalyzer` up and running quickly, follow these brief steps:
+
+1.  **Build**:
+    ```bash
+    mkdir build && cd build
+    cmake ..
+    make
+    ```
+2.  **Run**:
+    ```bash
+    ./processAnalyzer list
+    ```
+
 ## Quick Start
 
 Follow these steps to quickly build and run `processAnalyzer` on your system.
 
-### System Requirements
+### Prerequisites
 
 *   **Operating System**: Linux (relies on `/proc` filesystem)
 *   A C++ compiler (e.g., GCC, Clang) supporting C++23

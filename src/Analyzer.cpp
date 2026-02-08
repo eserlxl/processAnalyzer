@@ -11,15 +11,21 @@
 #include <algorithm>
 #include <pwd.h>        // For getpwuid
 #include <sys/types.h>
+#include <string_view> // For std::string_view::starts_with
 
 namespace fs = std::filesystem;
+
+namespace {
+    constexpr int kExamplePid1 = 100;
+    constexpr int kExamplePid2 = 200;
+}
 
 ProcessAnalyzer::ProcessAnalyzer(std::string_view procPath) : procPath(procPath) {}
 
 std::vector<int> ProcessAnalyzer::getPids() const {
     std::vector<int> pids;
     if (!fs::exists(procPath)) {
-        return {1, 100, 200}; 
+        return {1, /* Example PID */ kExamplePid1, /* Example PID */ kExamplePid2 /* Example PID */}; 
     }
 
     try {
@@ -31,8 +37,9 @@ std::vector<int> ProcessAnalyzer::getPids() const {
                 }
             }
         }
-    } catch (const fs::filesystem_error&) {
-        // Handle permission errors etc.
+    } catch (const fs::filesystem_error& e) {
+        std::cerr << "Error accessing /proc directory: " << e.what() << std::endl;
+        // Continue with potentially incomplete PIDs or return empty if essential
     }
     return pids;
 }
@@ -61,39 +68,39 @@ std::optional<ProcessInfo> ProcessAnalyzer::getProcessDetails(int pid) const {
     if (!statusContentOpt) {
         return std::nullopt; // Could not read status file
     }
-    std::string statusContent = *statusContentOpt;
+    const std::string& statusContent = *statusContentOpt;
     
     std::vector<std::string> lines = Utils::split(statusContent, '\n');
     for (const auto& line : lines) {
-        if (line.rfind("Name:", 0) == 0) {
+        if (std::string_view(line).starts_with("Name:")) {
             info.name = line.substr(line.find(':') + 1);
             size_t first = info.name.find_first_not_of(" \t");
             if (first != std::string::npos) info.name = info.name.substr(first);
             else info.name = "";
-        } else if (line.rfind("State:", 0) == 0) {
+        } else if (std::string_view(line).starts_with("State:")) {
             info.state = line.substr(line.find(':') + 1);
             size_t first = info.state.find_first_not_of(" \t");
             if (first != std::string::npos) info.state = info.state.substr(first);
             else info.state = "";
-        } else if (line.rfind("VmSize:", 0) == 0) {
+        } else if (std::string_view(line).starts_with("VmSize:")) {
             std::string memStr = line.substr(line.find(':') + 1);
             std::stringstream ss(memStr);
             ss >> info.virtualMemory;
-        } else if (line.rfind("VmRSS:", 0) == 0) {
+        } else if (std::string_view(line).starts_with("VmRSS:")) {
             std::string memStr = line.substr(line.find(':') + 1);
             std::stringstream ss(memStr);
             ss >> info.residentMemory;
-        } else if (line.rfind("PPid:", 0) == 0) {
+        } else if (std::string_view(line).starts_with("PPid:")) {
             std::string ppidStr = line.substr(line.find(':') + 1);
             std::stringstream ss(ppidStr);
             ss >> info.ppid;
-        } else if (line.rfind("Uid:", 0) == 0) {
+        } else if (std::string_view(line).starts_with("Uid:")) {
             std::string uidStr = line.substr(line.find(':') + 1);
             std::stringstream ss(uidStr);
             uint32_t tempUid;
             ss >> tempUid;
             info.uid = tempUid;
-        } else if (line.rfind("Threads:", 0) == 0) {
+        } else if (std::string_view(line).starts_with("Threads:")) {
             std::string threadStr = line.substr(line.find(':') + 1);
             std::stringstream ss(threadStr);
             ss >> info.threadCount;
@@ -112,7 +119,7 @@ std::optional<ProcessInfo> ProcessAnalyzer::getProcessDetails(int pid) const {
     if (cmdlineContentOpt) {
         // cmdline file uses null characters to separate arguments
         std::string rawCmdline = *cmdlineContentOpt;
-        std::replace(rawCmdline.begin(), rawCmdline.end(), '\0', ' ');
+        std::ranges::replace(rawCmdline, '\0', ' ');
         // Remove trailing space if any
         if (!rawCmdline.empty() && rawCmdline.back() == ' ') {
             rawCmdline.pop_back();
@@ -135,7 +142,7 @@ std::vector<ProcessInfo> ProcessAnalyzer::snapshot() const {
     return results;
 }
 
-std::vector<ProcessInfo> ProcessAnalyzer::findProcesses(ProcessPredicate predicate) const {
+std::vector<ProcessInfo> ProcessAnalyzer::findProcesses(const ProcessPredicate& predicate) const {
     std::vector<ProcessInfo> allProcesses = snapshot();
     std::vector<ProcessInfo> filtered;
     for (const auto& info : allProcesses) {
@@ -181,7 +188,7 @@ std::vector<ProcessInfo> ProcessAnalyzer::queryProcesses(
         bool stateMatch = true;
         if (filter.stateFilter) {
             // State in /proc/status is usually "S (sleeping)", so we check the first char.
-            stateMatch = (process.state.length() > 0 && process.state[0] == *filter.stateFilter);
+            stateMatch = (!process.state.empty() && process.state[0] == *filter.stateFilter);
         }
 
         if (nameMatch && userMatch && stateMatch) {
@@ -190,7 +197,7 @@ std::vector<ProcessInfo> ProcessAnalyzer::queryProcesses(
     }
 
     // Apply sorting
-    std::sort(filteredProcesses.begin(), filteredProcesses.end(), 
+    std::ranges::sort(filteredProcesses, 
         [&](const ProcessInfo& a, const ProcessInfo& b) {
         bool less = false;
         switch (sortBy) {

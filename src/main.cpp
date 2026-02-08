@@ -40,21 +40,25 @@ void printVerticalProcessDetails(const ProcessInfo& info);
 
 // Helper to convert string to ProcessSortField
 std::optional<ProcessSortField> stringToProcessSortField(const std::string& s) {
-    std::string lower_s = Utils::toLower(s);
-    if (lower_s == "pid") return ProcessSortField::PID;
-    if (lower_s == "ppid") return ProcessSortField::PPID;
-    if (lower_s == "uid") return ProcessSortField::UID;
-    if (lower_s == "user") return ProcessSortField::USER;
-    if (lower_s == "name") return ProcessSortField::NAME;
-    if (lower_s == "state") return ProcessSortField::STATE;
-    if (lower_s == "rss") return ProcessSortField::RSS;
-    if (lower_s == "vm") return ProcessSortField::VM;
-    if (lower_s == "threads") return ProcessSortField::THREADS;
+    std::string lowerS = Utils::toLower(s);
+    if (lowerS == "pid") return ProcessSortField::PID;
+    if (lowerS == "ppid") return ProcessSortField::PPID;
+    if (lowerS == "uid") return ProcessSortField::UID;
+    if (lowerS == "user") return ProcessSortField::USER;
+    if (lowerS == "name") return ProcessSortField::NAME;
+    if (lowerS == "state") return ProcessSortField::STATE;
+    if (lowerS == "rss") return ProcessSortField::RSS;
+    if (lowerS == "vm") return ProcessSortField::VM;
+    if (lowerS == "threads") return ProcessSortField::THREADS;
     return std::nullopt;
 }
 
 // Parses command line arguments.
-std::optional<ParsedArguments> parseCommandLine(int argc, char* argv[]) {
+#include <string_view> // Required for std::span
+
+// ... other includes ...
+
+std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const> argv) {
     ParsedArguments args;
     if (argc <= 1) {
         args.showHelp = true;
@@ -63,7 +67,7 @@ std::optional<ParsedArguments> parseCommandLine(int argc, char* argv[]) {
 
     std::vector<std::string> cliArgs;
     for (int i = 1; i < argc; ++i) {
-        cliArgs.push_back(argv[i]);
+        cliArgs.emplace_back(argv[i]);
     }
 
     // First argument is usually the command, unless it's a flag.
@@ -88,23 +92,27 @@ std::optional<ParsedArguments> parseCommandLine(int argc, char* argv[]) {
             args.showHelp = true;
             return args;
         } else if (arg == "--state") {
-            if (i + 1 >= cliArgs.size()) { std::cerr << "Error: --state requires an argument.\n"; return std::nullopt; }
-            std::string stateStr = cliArgs[++i];
-            if (stateStr.length() == 1 && std::isalpha(stateStr[0])) {
-                args.stateFilter = std::toupper(stateStr[0]);
-            } else {
+            if (i + 1 >= cliArgs.size()) { 
+                std::cerr << "Error: --state requires an argument.\n"; 
+                return std::nullopt; 
+            }
+            const std::string& stateStr = cliArgs[++i];
+            if (!(stateStr.length() == 1 && std::isalpha(stateStr[0]))) { // Invert condition
                 std::cerr << "Error: --state requires a single character (e.g., 'R', 'S').\n";
                 return std::nullopt;
             }
+            args.stateFilter = std::toupper(stateStr[0]);
         } else if (arg == "--sort-by") {
-            if (i + 1 >= cliArgs.size()) { std::cerr << "Error: --sort-by requires an argument.\n"; return std::nullopt; }
+            if (i + 1 >= cliArgs.size()) { 
+                std::cerr << "Error: --sort-by requires an argument.\n"; 
+                return std::nullopt; 
+            }
             auto field = stringToProcessSortField(cliArgs[++i]);
-            if (field) {
-                args.sortBy = *field;
-            } else {
+            if (!field) {
                 std::cerr << "Error: Invalid sort field '" << cliArgs[i] << "'.\n";
                 return std::nullopt;
             }
+            args.sortBy = field;
         } else if (arg == "--desc") {
             args.sortOrder = SortOrder::DESC;
         } else if (arg == "--brief") {
@@ -162,7 +170,7 @@ std::optional<ParsedArguments> parseCommandLine(int argc, char* argv[]) {
 }
 
 int main(int argc, char* argv[]) {
-    auto argsOpt = parseCommandLine(argc, argv);
+    auto argsOpt = parseCommandLine(argc, std::span(argv, argc));
     if (!argsOpt) {
         return 1;
     }
@@ -180,14 +188,26 @@ int main(int argc, char* argv[]) {
     // Populate filter from args
     if (args.name) filter.nameContains = *args.name;
     if (args.user) filter.userFilter = *args.user;
-    if (args.stateFilter) filter.stateFilter = *args.stateFilter;
+    filter.stateFilter = args.stateFilter;
 
     if (args.command == "list" || args.command == "name" || args.command == "user") {
         processesToDisplay = analyzer.queryProcesses(filter, args.sortBy.value_or(ProcessSortField::PID), args.sortOrder);
     } else if (args.command == "pid") {
-        auto infoOpt = analyzer.getProcessDetails(*args.pid);
+        if (!args.pid.has_value()) {
+            std::cerr << "Internal error: PID expected.\n";
+            return 1;
+        }
+        int targetPid = 0;
+        if (args.pid.has_value()) {
+             targetPid = args.pid.value();
+        } else {
+             // Should never happen due to check above
+             return 1;
+        }
+
+        auto infoOpt = analyzer.getProcessDetails(targetPid);
         if (!infoOpt) {
-            std::cerr << "Error: Process with PID " << *args.pid << " not found.\n";
+            std::cerr << "Error: Process with PID " << targetPid << " not found.\n";
             return 1;
         }
         
@@ -195,7 +215,7 @@ int main(int argc, char* argv[]) {
         if (args.selectedColumns.empty() && !args.outputFormat) {
             printVerticalProcessDetails(*infoOpt);
             if (args.showChildren) {
-                auto children = analyzer.getChildProcesses(*args.pid);
+                auto children = analyzer.getChildProcesses(targetPid);
                 if (!children.empty()) {
                     std::cout << "\nChildren:\n";
                     printProcessTable(children, getDefaultColumnsForTable(false), args.noTruncateCmdline);
@@ -205,7 +225,7 @@ int main(int argc, char* argv[]) {
             }
             if (args.showOpenFiles) {
                 try {
-                    auto files = analyzer.getProcessOpenFiles(*args.pid);
+                    auto files = analyzer.getProcessOpenFiles(targetPid);
                     if (!files.empty()) {
                         std::cout << "\nOpen Files:\n";
                         for (const auto& file : files) {
@@ -299,22 +319,25 @@ void printProcessTable(const std::vector<ProcessInfo>& processes, const std::vec
     if (processes.empty()) return;
 
     // Define column widths
-    std::map<std::string, int> widths;
-    widths["pid"] = 8;
-    widths["ppid"] = 8;
-    widths["uid"] = 8;
-    widths["user"] = 15;
-    widths["name"] = 25;
-    widths["state"] = 12;
-    widths["rss"] = 10;
-    widths["vm"] = 10;
-    widths["threads"] = 8;
-    widths["cmdline"] = 40;
+    static const std::map<std::string, int> kDefaultColumnWidths = {
+        {"pid", 8},
+        {"ppid", 8},
+        {"uid", 8},
+        {"user", 15},
+        {"name", 25},
+        {"state", 12},
+        {"rss", 10},
+        {"vm", 10},
+        {"threads", 8},
+        {"cmdline", 40}
+    };
+    std::map<std::string, int> widths = kDefaultColumnWidths; // Use a mutable copy if needed to adjust widths dynamically later
 
     // Print header
     for (const auto& col : columns) {
         std::string header = col;
-        std::transform(header.begin(), header.end(), header.begin(), ::toupper);
+        // Use std::ranges::transform for modernization
+        std::ranges::transform(header, header.begin(), ::toupper); 
         if (col == "rss" || col == "vm") header += "(KB)";
         std::cout << std::left << std::setw(widths[col]) << header;
     }

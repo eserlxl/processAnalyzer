@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 #include <unistd.h> // For getpid(), getuid()
 #include <pwd.h>    // For getpwuid()
+#include <ranges>
 
 // Helper to get current username
 std::string getCurrentUsername() {
@@ -14,6 +15,11 @@ std::string getCurrentUsername() {
         return pw->pw_name;
     }
     return "unknown";
+}
+
+namespace { // Anonymous namespace for local constants
+    const int kInvalidPid = -999;
+    const int kNonExistentPid = 9999999;
 }
 
 TEST(ProcessAnalyzerTest, ConstructorWithDefaultPath) {
@@ -34,8 +40,8 @@ TEST(ProcessAnalyzerTest, GetPidsReturnsNonEmptyList) {
     std::vector<int> pids = analyzer.getPids();
     ASSERT_FALSE(pids.empty());
     // Check for some common PIDs
-    ASSERT_TRUE(std::find(pids.begin(), pids.end(), 1) != pids.end()); // init/systemd
-    ASSERT_TRUE(std::find(pids.begin(), pids.end(), getpid()) != pids.end()); // self
+    ASSERT_TRUE(std::ranges::find(pids, 1) != pids.end()); // init/systemd
+    ASSERT_TRUE(std::ranges::find(pids, getpid()) != pids.end()); // self
 }
 
 TEST(ProcessAnalyzerTest, GetProcessDetailsForSelf) {
@@ -44,25 +50,27 @@ TEST(ProcessAnalyzerTest, GetProcessDetailsForSelf) {
     std::optional<ProcessInfo> infoOpt = analyzer.getProcessDetails(selfPid);
 
     ASSERT_TRUE(infoOpt.has_value());
-    ProcessInfo info = *infoOpt;
+    if (infoOpt) {
+        const ProcessInfo& info = *infoOpt;
 
-    EXPECT_EQ(info.pid, selfPid);
-    EXPECT_FALSE(info.name.empty());
-    EXPECT_FALSE(info.state.empty());
-    EXPECT_GT(info.residentMemory, 0); // Test process should have some memory
-    EXPECT_GT(info.virtualMemory, 0);
-    EXPECT_EQ(info.uid, getuid());
-    EXPECT_EQ(info.username, getCurrentUsername());
-    EXPECT_GT(info.threadCount, 0);
-    EXPECT_FALSE(info.cmdline.empty());
+        EXPECT_EQ(info.pid, selfPid);
+        EXPECT_FALSE(info.name.empty());
+        EXPECT_FALSE(info.state.empty());
+        EXPECT_GT(info.residentMemory, 0); // Test process should have some memory
+        EXPECT_GT(info.virtualMemory, 0);
+        EXPECT_EQ(info.uid, getuid());
+        EXPECT_EQ(info.username, getCurrentUsername());
+        EXPECT_GT(info.threadCount, 0);
+        EXPECT_FALSE(info.cmdline.empty());
+    } // Added closing brace
 }
 
 TEST(ProcessAnalyzerTest, GetProcessDetailsForNonExistentPidReturnsNullOpt) {
     ProcessAnalyzer analyzer;
-    std::optional<ProcessInfo> infoOpt = analyzer.getProcessDetails(-999); // Invalid PID
+    std::optional<ProcessInfo> infoOpt = analyzer.getProcessDetails(kInvalidPid); // Invalid PID
     ASSERT_FALSE(infoOpt.has_value());
 
-    infoOpt = analyzer.getProcessDetails(9999999); // Hopefully non-existent PID
+    infoOpt = analyzer.getProcessDetails(kNonExistentPid); // Hopefully non-existent PID
     ASSERT_FALSE(infoOpt.has_value());
 }
 

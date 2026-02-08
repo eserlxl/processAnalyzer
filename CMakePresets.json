@@ -14,5 +14,12 @@
       "name": "default",
       "configurePreset": "default"
     }
+  ],
+  "testPresets": [
+    {
+      "name": "default",
+      "configurePreset": "default",
+      "displayName": "Default Test"
+    }
   ]
 }
