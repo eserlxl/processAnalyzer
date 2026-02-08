@@ -8,10 +8,34 @@
 #include <string>
 #include <string_view>
 #include <vector>
-// #include <span> // Removed as not used
 #include <format> // For std::format_string and std::vformat
+#include <charconv> // For std::from_chars
 
 namespace utils {
+
+/**
+ * @brief Safely parses a string view and updates the output variable on success.
+ *
+ * This function attempts to parse the string view `s` into a value of type `T`.
+ * If parsing is successful, the `out` variable is updated with the parsed value.
+ * If parsing fails, `out` remains unchanged. This function is useful for parsing
+ * multiple values from a string without complex error handling for each one.
+ * It uses `std::from_chars` for locale-independent parsing.
+ *
+ * @tparam T The numeric type to parse into (e.g., int, long, double).
+ * @param s The string view to parse.
+ * @param out A reference to the variable that will receive the parsed value.
+ */
+template<typename T>
+inline bool tryParse(std::string_view s, T& out) {
+    T temp_val{};
+    auto [ptr, ec] = std::from_chars(s.data(), s.data() + s.size(), temp_val);
+    if (ec == std::errc{} && ptr == s.data() + s.size()) {
+        out = temp_val;
+        return true;
+    }
+    return false;
+}
 
 inline constexpr int default_radix = 10;
 

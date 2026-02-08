@@ -39,12 +39,12 @@ namespace {
 class ProcessAnalyzerTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        mockProc = new MockProc("mock_proc_test");
+        mockProc = std::make_unique<MockProc>("mock_proc_test");
         setupMockProcFiles();
     }
 
     void TearDown() override {
-        delete mockProc;
+        // No longer needed, unique_ptr handles it.
     }
 
     void setupMockProcFiles() {
@@ -96,7 +96,7 @@ protected:
         mockProc->createFile("net/dev", "Inter-|   Receive                                                |  Transmit\n face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed\n  eth0: 100000      100    0    0    0     0          0         0   200000      200    0    0    0     0       0          0\n");
     }
 
-    MockProc* mockProc;
+    std::unique_ptr<MockProc> mockProc;
 };
 
 TEST_F(ProcessAnalyzerTest, GetPidsWithMock) {

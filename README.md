@@ -19,46 +19,47 @@ It is designed to be **Comprehensive**, **Efficient** (C++23), **User-Friendly**
 
 `processAnalyzer` provides a comprehensive suite of features for process monitoring and system diagnostics.
 
--   **Process Enumeration and Filtering**: Filter by name, user, state, resources, etc.
--   **In-Depth Process Details**: Memory maps, open files, network connections, child processes.
--   **System-Wide Metrics**: CPU load, memory usage, network stats.
--   **Flexible Output**: Table, CSV, JSON.
+-   **Process Enumeration and Filtering**: List and filter processes by name, user, state, PPID, memory, CPU, and more.
+-   **In-Depth Process Details**: Get detailed information for a process, including memory maps, open files, network connections (IPv4/IPv6), resource limits, cgroups, and process hierarchy.
+-   **System-Wide Metrics**: Monitor key system stats like CPU usage (total and per-core), memory usage, load average, disk I/O, network interface stats, and overall system activity.
+-   **Flexible Output**: Customize output with selectable columns and formats like table, CSV, and JSON.
 
 See [docs/features.md](docs/features.md) for a complete feature list.
 
 ## Installation
 
-**Prerequisites:** Linux OS, C++23 Compiler, CMake 3.17+, git.
+**Prerequisites:** Linux OS, C++23 Compiler (GCC 12+ / Clang 16+), CMake 3.17+, git.
 
 ```bash
 git clone https://github.com/eserlxl/processAnalyzer.git
 cd processAnalyzer
 mkdir build && cd build
-cmake .. && make
+cmake ..
+make
 ```
+
+The executable will be located at `build/processAnalyzer`.
 
 See [docs/build.md](docs/build.md) for detailed build and install instructions.
 
 ## Quick Start
 
-The binary is located at `build/bin/processAnalyzer`.
-
 ```bash
 # List all running processes
-./build/bin/processAnalyzer list
+./build/processAnalyzer list
 
 # Show help
-./build/bin/processAnalyzer --help
+./build/processAnalyzer --help
 ```
 
 ## Usage Examples
 
 ```bash
 # Filter by name and output as JSON
-./build/bin/processAnalyzer list --name sshd --output json
+./build/processAnalyzer list --name sshd --output json
 
 # Show full details for a specific PID (children, files, network)
-./build/bin/processAnalyzer show --pid 1234 --children --open-files --network
+./build/processAnalyzer show --pid 1234 --children --open-files --network
 ```
 
 See [docs/usage.md](docs/usage.md) for more examples and full command reference.
@@ -68,7 +69,7 @@ See [docs/usage.md](docs/usage.md) for more examples and full command reference.
 *   **[API Reference](docs/api-reference.md)**: C++ API documentation for developers.
 *   **[Project Structure](docs/project-structure.md)**: Overview of the codebase organization.
 *   **[Utility Library](docs/UTILS.md)**: Documentation for the `utils` namespace.
-*   **[Build & Testing](docs/build.md)**: detailed build instructions and how to run tests.
+*   **[Build & Testing](docs/build.md)**: Detailed build instructions and how to run tests.
 *   **[Configuration](docs/configuration.md)**: Configuration options details.
 *   **[Changelog](docs/changelog.md)**: History of changes.
 

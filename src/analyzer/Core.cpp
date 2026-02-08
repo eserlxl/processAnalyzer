@@ -376,26 +376,34 @@ utils::Result<ProcessInfo> ProcessAnalyzer::getProcessDetails(pid_t pid) const {
     if (auto statusContentOpt = utils::readTextFile(statusPath.string())) {
         ::std::vector<::std::string> lines = utils::split(*statusContentOpt, '\n');
         for (const auto& line : lines) {
-            if (line.starts_with("Name:")) {
-                info.name = line.substr(line.find(':') + 1);
-                info.name.erase(0, info.name.find_first_not_of(" \t"));
-            } else if (line.starts_with("State:")) {
-                info.state = line.substr(line.find(':') + 1);
-                info.state.erase(0, info.state.find_first_not_of(" \t"));
-            } else if (line.starts_with("VmSize:")) {
-                ::std::stringstream(line.substr(line.find(':') + 1)) >> info.virtualMemory;
-            } else if (line.starts_with("VmRSS:")) {
-                ::std::stringstream(line.substr(line.find(':') + 1)) >> info.residentMemory;
-            } else if (line.starts_with("PPid:")) {
-                ::std::stringstream(line.substr(line.find(':') + 1)) >> info.ppid;
-            } else if (line.starts_with("Uid:")) {
-                ::std::stringstream(line.substr(line.find(':') + 1)) >> info.uid;
-            }
-            else if (line.starts_with("Threads:")) {
-                ::std::stringstream(line.substr(line.find(':') + 1)) >> info.threadCount;
+            auto colonPos = line.find(':');
+            if (colonPos == std::string::npos) continue;
+
+            std::string key = utils::trim(line.substr(0, colonPos));
+            std::string value = utils::trim(line.substr(colonPos + 1));
+
+            if (key == "Name") {
+                info.name = value;
+            } else if (key == "State") {
+                info.state = value;
+            } else if (key == "VmSize") {
+                utils::tryParse(value, info.virtualMemory);
+            } else if (key == "VmRSS") {
+                utils::tryParse(value, info.residentMemory);
+            } else if (key == "PPid") {
+                utils::tryParse(value, info.ppid);
+            } else if (key == "Uid") {
+                // Uid line can have multiple values, we only need the first one (real UID)
+                auto firstField = utils::split(value, ' ', true);
+                if (!firstField.empty()) {
+                    utils::tryParse(firstField[0], info.uid);
+                }
+            } else if (key == "Threads") {
+                utils::tryParse(value, info.threadCount);
             }
         }
     } else {
+        // If status file can't be read, it's a critical error.
         return ::std::unexpected(utils::make_error_code(utils::UtilsError::fileNotFound));
     }
 
@@ -405,41 +413,45 @@ utils::Result<ProcessInfo> ProcessAnalyzer::getProcessDetails(pid_t pid) const {
         size_t lastRParen = content.rfind(')');
         
         if (lastRParen != ::std::string::npos) {
-            // Parse PID
-            try {
-                size_t firstLParen = content.find('(');
-                if (firstLParen != ::std::string::npos) {
-                     info.pid = std::stoi(content.substr(0, firstLParen));
+            auto firstParen = content.find('(');
+            auto lastParen = content.rfind(')');
+
+            if (firstParen != std::string::npos && lastParen != std::string::npos && lastParen > firstParen) {
+                // The fields after the command name.
+                std::string fields_part = utils::trim(content.substr(lastParen + 1));
+                std::vector<std::string> stat_fields = utils::split(fields_part, ' ', true); // Skip empty parts
+
+                // stat_fields indices (0-based from state):
+                // 1: ppid
+                // 11: utime
+                // 12: stime
+                // 16: nice
+                // 19: starttime
+
+                if (stat_fields.size() > 1) { // ppid
+                    utils::tryParse(stat_fields[1], info.ppid);
                 }
-            } catch (...) {
-                // Ignore parsing error for PID, relying on passed PID or status
+                
+                unsigned long utime = 0, stime = 0;
+                if (stat_fields.size() > 12) {
+                    utils::tryParse(stat_fields[11], utime);
+                    utils::tryParse(stat_fields[12], stime);
+                    info.cpuUserTimeTicks = utime;
+                    info.cpuKernelTimeTicks = stime;
+                }
+
+                if (stat_fields.size() > 16) { // nice
+                    long nice_val = 0;
+                    utils::tryParse(stat_fields[16], nice_val);
+                    info.priority = static_cast<int>(nice_val);
+                }
+
+                if (stat_fields.size() > 19) { // starttime
+                    long long starttime_val = 0;
+                    utils::tryParse(stat_fields[19], starttime_val);
+                    info.startTimeTicks = starttime_val;
+                }
             }
-
-            // Parse remaining fields after the last ')'
-            ::std::stringstream ss(content.substr(lastRParen + 1));
-
-            char stateChar;
-            long ppid_stat, pgrp, session, tty_nr, tpgid;
-            unsigned long flags, minflt, cminflt, majflt, cmajflt;
-            long utime, stime, cutime, cstime;
-            long priority_stat, nice_stat;
-            long num_threads;
-            long itrealvalue;
-            long long starttime_stat;
-
-            ss >> stateChar >> ppid_stat >> pgrp >> session >> tty_nr >> tpgid
-               >> flags >> minflt >> cminflt >> majflt >> cmajflt
-               >> utime >> stime >> cutime >> cstime
-               >> priority_stat >> nice_stat
-               >> num_threads >> itrealvalue
-               >> starttime_stat;
-            
-            // Update relevant info fields from stat
-            info.ppid = ppid_stat;
-            info.cpuUserTimeTicks = utime + cutime;
-            info.cpuKernelTimeTicks = stime + cstime;
-            info.priority = static_cast<int>(nice_stat);
-            info.startTimeTicks = starttime_stat;
         }
     }
 
@@ -584,11 +596,13 @@ utils::Result<SystemMemoryInfo> ProcessAnalyzer::getSystemMemoryInfo() const {
     ::std::string line;
     while (::std::getline(ss, line)) {
         ::std::string key;
-        unsigned long value;
+        unsigned long value = 0;
         ::std::stringstream lineSs(line);
         lineSs >> key >> value;
         if(key.empty()) continue;
-        key.pop_back(); 
+        if (key.back() == ':') {
+            key.pop_back();
+        }
 
         if (key == "MemTotal") memInfo.memTotal = value;
         else if (key == "MemFree") memInfo.memFree = value;
@@ -830,25 +844,23 @@ utils::Result<::std::vector<ThreadInfo>> ProcessAnalyzer::getProcessThreads(pid_
 
                     ::std::filesystem::path statPath = entry.path() / "stat";
                     if (auto statContentOpt = utils::readTextFile(statPath.string())) {
-                        ::std::string content = *statContentOpt;
-                        size_t lastRParen = content.rfind(')');
-                        
-                        if (lastRParen != ::std::string::npos) {
-                            // Parse fields after the last ')'
-                            ::std::stringstream ss(content.substr(lastRParen + 1));
+                        std::string content = *statContentOpt;
+                        auto lastParen = content.rfind(')');
+                        if (lastParen != std::string::npos) {
+                            std::string fields_part = utils::trim(content.substr(lastParen + 1));
+                            std::vector<std::string> stat_fields = utils::split(fields_part, ' ', true);
 
-                            char stateChar;
-                            long ppid_stat, pgrp, session, tty_nr, tpgid;
-                            unsigned long flags, minflt, cminflt, majflt, cmajflt;
-                            long utime, stime, cutime, cstime;
+                            if (!stat_fields.empty()) {
+                                thread.state = stat_fields[0][0];
+                            }
 
-                            ss >> stateChar >> ppid_stat >> pgrp >> session >> tty_nr >> tpgid
-                               >> flags >> minflt >> cminflt >> majflt >> cmajflt
-                               >> utime >> stime >> cutime >> cstime;
-
-                            thread.state = stateChar;
-                            thread.cpuUserTimeTicks = utime + cutime;
-                            thread.cpuKernelTimeTicks = stime + cstime;
+                            unsigned long utime = 0, stime = 0;
+                            if (stat_fields.size() > 12) {
+                                utils::tryParse(stat_fields[11], utime);
+                                utils::tryParse(stat_fields[12], stime);
+                                thread.cpuUserTimeTicks = utime;
+                                thread.cpuKernelTimeTicks = stime;
+                            }
                         }
                     }
                     threads.push_back(thread);
