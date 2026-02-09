@@ -420,6 +420,15 @@ Result<::std::vector<::std::filesystem::path>> listDirectory(const ::std::filesy
 }
 
 Result<void> copyFile(const ::std::filesystem::path& source, const ::std::filesystem::path& destination) {
+    ::std::error_code ec;
+    const bool regularSource = ::std::filesystem::is_regular_file(source, ec);
+    if (ec) {
+        return ::std::unexpected(ec);
+    }
+    if (!regularSource) {
+        return ::std::unexpected(make_error_code(UtilsError::invalidArgument));
+    }
+
     auto parentPath = destination.parent_path();
     if (!parentPath.empty()) {
         auto createDirResult = createDirectories(parentPath);
@@ -427,8 +436,7 @@ Result<void> copyFile(const ::std::filesystem::path& source, const ::std::filesy
             return createDirResult; // Propagate error from createDirectories
         }
     }
-    ::std::error_code ec;
-    ::std::filesystem::copy(source, destination, ::std::filesystem::copy_options::overwrite_existing, ec);
+    ::std::filesystem::copy_file(source, destination, ::std::filesystem::copy_options::overwrite_existing, ec);
     if (ec) {
         return ::std::unexpected(ec);
     }

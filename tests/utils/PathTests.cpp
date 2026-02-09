@@ -265,6 +265,18 @@ TEST_F(UtilsNewApiTest, CopyFileParentDirectoryCreation) {
     // Restore permissions for cleanup
     fs::permissions(restrictedParent, fs::perms::owner_read | fs::perms::owner_write | fs::perms::owner_exec, fs::perm_options::replace);
 }
+
+TEST_F(UtilsNewApiTest, CopyFileRejectsDirectorySource) {
+    auto sourceDir = testDir / "source_dir";
+    fs::create_directories(sourceDir / "child");
+    std::ofstream(sourceDir / "child" / "file.txt") << "data";
+
+    auto destinationFile = testDir / "copied.txt";
+    auto result = utils::copyFile(sourceDir, destinationFile);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), utils::make_error_code(utils::UtilsError::invalidArgument));
+    EXPECT_FALSE(fs::exists(destinationFile));
+}
         
 // --------------------------------------------------------------------------
 // New Tests for Missing Implementations (Path Specific)
