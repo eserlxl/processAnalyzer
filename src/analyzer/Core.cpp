@@ -512,11 +512,21 @@ utils::Result<ProcessInfo> ProcessAnalyzer::getProcessDetails(pid_t pid) const {
 
     ::std::filesystem::path ioPath = pidPath / "io";
     if (auto ioContentOpt = utils::readTextFile(ioPath.string())) {
+        bool hasReadBytes = false;
+        bool hasWriteBytes = false;
         ::std::vector<::std::string> lines = utils::split(*ioContentOpt, '\n');
         for (const auto& line : lines) {
-            if (line.starts_with("rchar:")) {
+            if (line.starts_with("read_bytes:")) {
                 ::std::stringstream(line.substr(line.find(':') + 1)) >> info.ioReadBytes;
-            } else if (line.starts_with("wchar:")) {
+                hasReadBytes = true;
+            } else if (line.starts_with("write_bytes:")) {
+                ::std::stringstream(line.substr(line.find(':') + 1)) >> info.ioWriteBytes;
+                hasWriteBytes = true;
+            } else if (!hasReadBytes && line.starts_with("rchar:")) {
+                // Fallback for limited/mock proc data that omits read_bytes.
+                ::std::stringstream(line.substr(line.find(':') + 1)) >> info.ioReadBytes;
+            } else if (!hasWriteBytes && line.starts_with("wchar:")) {
+                // Fallback for limited/mock proc data that omits write_bytes.
                 ::std::stringstream(line.substr(line.find(':') + 1)) >> info.ioWriteBytes;
             }
         }

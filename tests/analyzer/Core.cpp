@@ -455,6 +455,39 @@ TEST_F(ProcessAnalyzerTest, GetProcessCpuUsage) {
     EXPECT_NEAR(usageOpt.value().cpuPercentage, expectedUsage, 1.0); 
 }
 
+TEST_F(ProcessAnalyzerTest, GetProcessDiskIoUsageUsesReadBytesAndWriteBytesCounters) {
+    ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
+
+    mockProc->createProcFile(
+        myAppPid,
+        "io",
+        "rchar: 1000\n"
+        "wchar: 2000\n"
+        "read_bytes: 500\n"
+        "write_bytes: 1500\n");
+
+    std::thread t([&]() {
+        std::this_thread::sleep_for(std::chrono::milliseconds(updateFileDelayMs));
+        mockProc->createProcFile(
+            myAppPid,
+            "io",
+            "rchar: 9000\n"
+            "wchar: 12000\n"
+            "read_bytes: 650\n"
+            "write_bytes: 1800\n");
+    });
+
+    auto usageResult = analyzer.getProcessDiskIoUsage(myAppPid, std::chrono::milliseconds(cpuUsageSampleTimeMs));
+    t.join();
+
+    ASSERT_TRUE(usageResult.has_value());
+    EXPECT_GT(usageResult->readBytesPerSecond, 0.0);
+    EXPECT_GT(usageResult->writeBytesPerSecond, 0.0);
+    // The implementation must use read_bytes/write_bytes deltas (150, 300), not rchar/wchar deltas.
+    EXPECT_LT(usageResult->readBytesPerSecond, 10000.0);
+    EXPECT_LT(usageResult->writeBytesPerSecond, 10000.0);
+}
+
 // --- New Tests for Iteration 14 ---
 
 TEST_F(ProcessAnalyzerTest, GetProcessMemoryMaps) {

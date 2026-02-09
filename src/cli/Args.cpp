@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <vector>
 #include <array>
+#include <limits>
 
 namespace {
     constexpr std::array<std::string_view, 16> validColumns = {
@@ -36,6 +37,18 @@ namespace {
         if (lowerS == "mem-perc" || lowerS == "mem") return ProcessSortField::memoryPercentage;
         return std::nullopt;
     }
+
+    std::optional<int> parseIntWithinRange(std::string_view value) {
+        constexpr int base10 = 10;
+        const auto parsed = utils::toLong(value, base10);
+        if (!parsed) {
+            return std::nullopt;
+        }
+        if (*parsed < std::numeric_limits<int>::min() || *parsed > std::numeric_limits<int>::max()) {
+            return std::nullopt;
+        }
+        return static_cast<int>(*parsed);
+    }
 }
 
 std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const> argv) {
@@ -59,9 +72,8 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
                         std::cerr << "Error: 'pid' command requires a PID value.\n";
                         return std::nullopt;
                     }
-                    constexpr int base10 = 10;
-                    if (auto pid = utils::toLong(cliArgs.front(), base10)) {
-                        args.pid = static_cast<int>(*pid);
+                    if (auto pid = parseIntWithinRange(cliArgs.front())) {
+                        args.pid = *pid;
                         cliArgs.erase(cliArgs.begin());
                     } else {
                         std::cerr << "Error: Invalid PID '" << cliArgs.front() << "'.\n";
@@ -112,9 +124,8 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
                 std::cerr << "Error: --pid requires an argument.\n";
                 return std::nullopt;
             }
-            constexpr int base10 = 10;
-            if (auto pid = utils::toLong(cliArgs[++i], base10)) {
-                args.pid = (int)*pid;
+            if (auto pid = parseIntWithinRange(cliArgs[++i])) {
+                args.pid = *pid;
             } else {
                 std::cerr << "Error: Invalid PID '" << cliArgs[i] << "'.\n";
                 return std::nullopt;
@@ -207,9 +218,8 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
                 std::cerr << "Error: --ppid requires an argument.\n";
                 return std::nullopt;
             }
-            constexpr int base10 = 10;
-            if (auto ppid = utils::toLong(cliArgs[++i], base10)) {
-                args.ppidFilter = (int)*ppid;
+            if (auto ppid = parseIntWithinRange(cliArgs[++i])) {
+                args.ppidFilter = *ppid;
             } else {
                 std::cerr << "Error: Invalid PPID '" << cliArgs[i] << "'.\n";
                 return std::nullopt;

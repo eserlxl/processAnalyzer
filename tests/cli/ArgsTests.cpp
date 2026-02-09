@@ -419,3 +419,27 @@ TEST(ArgsTests, ParseCommandLinePidCommandRejectsPpidFilter) {
 
     ASSERT_FALSE(parsedArgs.has_value());
 }
+
+TEST(ArgsTests, ParseCommandLineRejectsOutOfRangeLongPid) {
+    std::vector<std::string> args = {"processAnalyzer", "show", "--pid", "999999999999999999999"};
+    std::vector<char*> argv = makeArgv(args);
+    std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
+
+    ASSERT_FALSE(parsedArgs.has_value());
+}
+
+TEST(ArgsTests, ParseCommandLineRejectsOutOfRangePositionalPid) {
+    std::vector<std::string> args = {"processAnalyzer", "pid", "999999999999999999999"};
+    std::vector<char*> argv = makeArgv(args);
+    std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
+
+    ASSERT_FALSE(parsedArgs.has_value());
+}
+
+TEST(ArgsTests, ParseCommandLineRejectsOutOfRangePpid) {
+    std::vector<std::string> args = {"processAnalyzer", "list", "--ppid", "-999999999999999999999"};
+    std::vector<char*> argv = makeArgv(args);
+    std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
+
+    ASSERT_FALSE(parsedArgs.has_value());
+}
