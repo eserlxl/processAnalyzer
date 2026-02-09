@@ -110,6 +110,13 @@ TEST(SystemExecuteCommandTest, emptyCommand) {
     EXPECT_EQ(result.error(), utils::make_error_code(utils::UtilsError::invalidArgument));
 }
 
+TEST(SystemExecuteCommandTest, commandWithEmbeddedNull) {
+    const std::string commandWithNull("echo ok\0echo bad", 16);
+    auto result = utils::executeCommand(commandWithNull);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), utils::make_error_code(utils::UtilsError::invalidArgument));
+}
+
 TEST_F(SystemEnvTest, invalidEnvVariableName) {
     auto getResult = utils::getEnv("");
     ASSERT_FALSE(getResult.has_value());

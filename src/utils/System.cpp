@@ -32,7 +32,7 @@ Result<::std::string> getEnv(::std::string_view name) {
 }
 
 Result<CommandOutput> executeCommand(::std::string_view command) {
-    if (command.empty()) {
+    if (command.empty() || command.find('\0') != ::std::string_view::npos) {
         return ::std::unexpected(make_error_code(UtilsError::invalidArgument));
     }
 
