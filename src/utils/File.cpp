@@ -436,6 +436,14 @@ Result<void> copyFile(const ::std::filesystem::path& source, const ::std::filesy
 }
 
 Result<void> moveFile(const ::std::filesystem::path& source, const ::std::filesystem::path& destination) {
+    auto parentPath = destination.parent_path();
+    if (!parentPath.empty()) {
+        auto createDirResult = createDirectories(parentPath);
+        if (!createDirResult) {
+            return createDirResult;
+        }
+    }
+
     ::std::error_code ec;
     ::std::filesystem::rename(source, destination, ec);
     if (ec) {

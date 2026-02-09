@@ -192,6 +192,26 @@ TEST(UtilsTest, MoveFile) {
     std::filesystem::remove(destPath);
 }
 
+TEST(UtilsTest, MoveFileCreatesDestinationParentDirectories) {
+    std::string content = "move into nested destination";
+    auto srcPath = createTempFile(content);
+    auto destPath = std::filesystem::temp_directory_path() / "pa_move_parent_test" / "nested" / "dest.txt";
+
+    std::error_code ec;
+    std::filesystem::remove_all(destPath.parent_path().parent_path(), ec);
+
+    auto result = utils::moveFile(srcPath, destPath);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_FALSE(std::filesystem::exists(srcPath));
+    EXPECT_TRUE(std::filesystem::exists(destPath));
+
+    auto readResult = utils::readTextFile(destPath);
+    ASSERT_TRUE(readResult.has_value());
+    EXPECT_EQ(readResult.value(), content);
+
+    std::filesystem::remove_all(destPath.parent_path().parent_path(), ec);
+}
+
 
 
 TEST(UtilsTest, Exists) {
