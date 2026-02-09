@@ -6,6 +6,9 @@
 #include <vector>
 #include <iterator>
 #include <random>
+#include <cerrno>
+#include <fcntl.h>
+#include <unistd.h>
 
 namespace utils {
 
@@ -143,7 +146,7 @@ Result<::std::filesystem::path> createTemporaryFile(::std::string_view prefix, :
     }
     ::std::filesystem::path tempPath;
     
-    // Try a few times to generate a unique name
+    // Try a few times to generate a unique name and create atomically.
     for (size_t i = 0; i < tempCreationRetries; ++i) {
         ::std::string name;
         name.reserve(prefix.size() + randomNameLen + suffix.size());
@@ -151,24 +154,18 @@ Result<::std::filesystem::path> createTemporaryFile(::std::string_view prefix, :
         name.append(generateRandomString(randomNameLen));
         name.append(suffix);
         tempPath = tempDir / name;
-            // Check if `tempPath` already exists.
-            // If exists() fails and sets ec, we return that error.
-            bool pathExists = ::std::filesystem::exists(tempPath, ec);
-            if (ec) {
-                return ::std::unexpected(ec);
-            }
 
-            if (!pathExists) {
-                // Path does not exist, attempt to create it.
-                ::std::ofstream file(tempPath);
-                if (file.is_open()) {
-                    return tempPath; // Successfully created and opened.
-                }                     // File could not be opened (e.g., permissions, disk full).
-                    // Return an I/O error and stop retrying for this more fundamental problem.
-                    return ::std::unexpected(make_error_code(UtilsError::ioError));
-               
-            }
-            // If path_exists is true and no error, loop continues to try another name.
+        const int fd = ::open(tempPath.c_str(), O_CREAT | O_EXCL | O_WRONLY, 0600);
+        if (fd >= 0) {
+            ::close(fd);
+            return tempPath;
+        }
+
+        if (errno == EEXIST) {
+            continue;
+        }
+
+        return ::std::unexpected(::std::error_code(errno, ::std::generic_category()));
     }
     return ::std::unexpected(make_error_code(UtilsError::ioError));
 }

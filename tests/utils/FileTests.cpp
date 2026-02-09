@@ -307,6 +307,10 @@ TEST_F(UtilsNewApiTest, TemporaryFiles) {
     ASSERT_TRUE(tempFile.has_value());
     EXPECT_TRUE(fs::exists(tempFile.value()));
     EXPECT_TRUE(fs::is_regular_file(tempFile.value()));
+
+    auto tempFile2 = utils::createTemporaryFile("test_prefix_", ".tmp");
+    ASSERT_TRUE(tempFile2.has_value());
+    EXPECT_NE(tempFile.value(), tempFile2.value());
     
     std::string filename = tempFile.value().filename().string();
     EXPECT_TRUE(filename.find("test_prefix_") == 0);
@@ -322,5 +326,6 @@ TEST_F(UtilsNewApiTest, TemporaryFiles) {
 
     // Cleanup
     fs::remove(tempFile.value());
+    fs::remove(tempFile2.value());
     fs::remove_all(tempDir.value());
 }
