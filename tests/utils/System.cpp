@@ -140,7 +140,10 @@ TEST(SystemStubTest, getCurrentWorkingDirectory) {
 }
 
 TEST(SystemStubTest, setCurrentWorkingDirectory) {
-    auto result = utils::setCurrentWorkingDirectory("/tmp");
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), utils::make_error_code(utils::UtilsError::unsupportedOperation));
+    const auto original = std::filesystem::current_path();
+    const auto target = std::filesystem::temp_directory_path();
+    auto result = utils::setCurrentWorkingDirectory(target);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(std::filesystem::current_path(), target);
+    std::filesystem::current_path(original);
 }

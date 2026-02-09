@@ -134,8 +134,15 @@ Result<::std::filesystem::path> getCurrentWorkingDirectory() {
 // setCurrentWorkingDirectory: Changes the application's current working directory.
 // Not yet implemented. Returns `unsupportedOperation`.
 Result<void> setCurrentWorkingDirectory(const ::std::filesystem::path& path) {
-    (void)path;
-    return ::std::unexpected(make_error_code(UtilsError::unsupportedOperation));
+    if (path.empty()) {
+        return ::std::unexpected(make_error_code(UtilsError::invalidArgument));
+    }
+    ::std::error_code ec;
+    ::std::filesystem::current_path(path, ec);
+    if (ec) {
+        return ::std::unexpected(ec);
+    }
+    return {};
 }
 
 } // namespace utils
