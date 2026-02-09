@@ -123,7 +123,12 @@ Result<void> unsetEnv(::std::string_view name) {
 // getCurrentWorkingDirectory: Retrieves the application's current working directory.
 // Not yet implemented. Returns `unsupportedOperation`.
 Result<::std::filesystem::path> getCurrentWorkingDirectory() {
-    return ::std::unexpected(make_error_code(UtilsError::unsupportedOperation));
+    ::std::error_code ec;
+    auto cwd = ::std::filesystem::current_path(ec);
+    if (ec) {
+        return ::std::unexpected(ec);
+    }
+    return cwd;
 }
 
 // setCurrentWorkingDirectory: Changes the application's current working directory.

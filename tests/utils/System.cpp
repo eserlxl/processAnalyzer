@@ -134,8 +134,9 @@ TEST(SystemStubTest, unsetEnv) {
 
 TEST(SystemStubTest, getCurrentWorkingDirectory) {
     auto result = utils::getCurrentWorkingDirectory();
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), utils::make_error_code(utils::UtilsError::unsupportedOperation));
+    ASSERT_TRUE(result.has_value());
+    EXPECT_FALSE(result->empty());
+    EXPECT_TRUE(std::filesystem::exists(*result));
 }
 
 TEST(SystemStubTest, setCurrentWorkingDirectory) {
