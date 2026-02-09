@@ -277,3 +277,51 @@ TEST_F(ProcessAnalyzerAdditionalTest, GetNetworkConnections_IgnoresOutOfRangeSoc
     ASSERT_TRUE(connectionsResult.has_value());
     EXPECT_TRUE(connectionsResult->empty());
 }
+
+TEST_F(ProcessAnalyzerAdditionalTest, GetProcessThreads_MissingTaskDirectoryReturnsEmpty) {
+    ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
+
+    mockProc->createPidDir(noStatPid);
+    mockProc->createProcFile(noStatPid, "status", "Name:\tno-task\nPPid:\t1\nUid:\t1000\n");
+    auto threadsResult = analyzer.getProcessThreads(noStatPid);
+
+    ASSERT_TRUE(threadsResult.has_value());
+    EXPECT_TRUE(threadsResult->empty());
+}
+
+TEST_F(ProcessAnalyzerAdditionalTest, GetProcessThreads_MalformedThreadStatDefaultsToZeroCpuTicks) {
+    ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
+
+    mockProc->createDirectoryAt(fs::path(std::to_string(myAppPid)) / "task" / "101");
+    mockProc->createProcFile(myAppPid, "task/101/comm", "worker\n");
+    mockProc->createProcFile(myAppPid, "task/101/stat", "101 (worker) R");
+
+    auto threadsResult = analyzer.getProcessThreads(myAppPid);
+    ASSERT_TRUE(threadsResult.has_value());
+
+    auto it = std::ranges::find_if(*threadsResult, [](const ThreadInfo& thread) {
+        return thread.tid == 101;
+    });
+    ASSERT_NE(it, threadsResult->end());
+    EXPECT_EQ(it->name, "worker");
+    EXPECT_EQ(it->state, "R");
+    EXPECT_EQ(it->cpuUserTimeTicks, 0);
+    EXPECT_EQ(it->cpuKernelTimeTicks, 0);
+}
+
+TEST_F(ProcessAnalyzerAdditionalTest, GetProcessDiskIoUsage_ClampsNegativeRatesToZero) {
+    ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
+
+    mockProc->createProcFile(myAppPid, "io", "read_bytes: 500\nwrite_bytes: 700\n");
+    std::thread t([&]() {
+        std::this_thread::sleep_for(std::chrono::milliseconds(updateFileDelayMs));
+        mockProc->createProcFile(myAppPid, "io", "read_bytes: 100\nwrite_bytes: 200\n");
+    });
+
+    auto usageResult = analyzer.getProcessDiskIoUsage(myAppPid, std::chrono::milliseconds(cpuUsageSampleTimeMs));
+    t.join();
+
+    ASSERT_TRUE(usageResult.has_value());
+    EXPECT_DOUBLE_EQ(usageResult->readBytesPerSecond, 0.0);
+    EXPECT_DOUBLE_EQ(usageResult->writeBytesPerSecond, 0.0);
+}

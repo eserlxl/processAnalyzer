@@ -777,6 +777,9 @@ utils::Result<ProcessCpuUsage> ProcessAnalyzer::getProcessCpuUsage(pid_t pid, ::
     long long finalTotalSystemTicks = *finalTotalSystemTicksResult;
 
     long long processCpuTicksDelta = (finalDetails.cpuUserTimeTicks + finalDetails.cpuKernelTimeTicks) - (initialDetails.cpuUserTimeTicks + initialDetails.cpuKernelTimeTicks);
+    if (processCpuTicksDelta < 0) {
+        processCpuTicksDelta = 0;
+    }
     long long totalSystemTicksDelta = finalTotalSystemTicks - initialTotalSystemTicks;
 
     ProcessCpuUsage usage;
@@ -874,7 +877,8 @@ utils::Result<::std::vector<ThreadInfo>> ProcessAnalyzer::getProcessThreads(pid_
     ::std::filesystem::path taskPath = procPath / ::std::to_string(pid) / "task";
 
     if (!fs::exists(taskPath) || !fs::is_directory(taskPath)) {
-        return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerPermissionDenied));
+        // Defunct processes can legitimately have no task directory.
+        return threads;
     }
 
     try {
@@ -903,7 +907,7 @@ utils::Result<::std::vector<ThreadInfo>> ProcessAnalyzer::getProcessThreads(pid_
                             std::string fields_part = utils::trim(content.substr(lastParen + 1));
                             std::vector<std::string> stat_fields = utils::split(fields_part, ' ', true);
 
-                            if (!stat_fields.empty()) {
+                            if (!stat_fields.empty() && !stat_fields[0].empty()) {
                                 thread.state = stat_fields[0][0];
                             }
 
@@ -987,6 +991,12 @@ utils::Result<ProcessDiskIoUsage> ProcessAnalyzer::getProcessDiskIoUsage(pid_t p
 
     auto readDelta = static_cast<double>(finalDetails.ioReadBytes - initialDetails.ioReadBytes);
     auto writeDelta = static_cast<double>(finalDetails.ioWriteBytes - initialDetails.ioWriteBytes);
+    if (readDelta < 0.0) {
+        readDelta = 0.0;
+    }
+    if (writeDelta < 0.0) {
+        writeDelta = 0.0;
+    }
     double durationSec = static_cast<double>(actualDuration.count()) / msInSecond;
 
     return ProcessDiskIoUsage {
@@ -1028,6 +1038,12 @@ utils::Result<::std::vector<ProcessDiskIoUsage>> ProcessAnalyzer::getAllProcesse
             const auto& finalInfo = it->second;
             auto readDelta = static_cast<double>(finalInfo.ioReadBytes - initialInfo.ioReadBytes);
             auto writeDelta = static_cast<double>(finalInfo.ioWriteBytes - initialInfo.ioWriteBytes);
+            if (readDelta < 0.0) {
+                readDelta = 0.0;
+            }
+            if (writeDelta < 0.0) {
+                writeDelta = 0.0;
+            }
             results.push_back({
                 .pid = finalInfo.pid,
                 .name = finalInfo.name,

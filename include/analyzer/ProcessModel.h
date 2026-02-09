@@ -66,28 +66,28 @@ struct ProcessCpuUsage {
 struct ProcessDiskIoUsage {
     pid_t pid = 0;
     std::string name = "";
-    double readBytesPerSecond;  // Disk read rate in bytes per second
-    double writeBytesPerSecond; // Disk write rate in bytes per second
+    double readBytesPerSecond = 0.0;  // Disk read rate in bytes per second
+    double writeBytesPerSecond = 0.0; // Disk write rate in bytes per second
 };
 
 // New for Iteration 9: Process Threads Details
 struct ThreadInfo {
     pid_t tid = 0;                // Thread ID (which is also the PID of the kernel's representation of the thread)
-    std::string name;       // Thread name (from /proc/[pid]/task/[tid]/comm)
-    std::string state;      // Thread state (from /proc/[pid]/task/[tid]/stat)
-    long long cpuUserTimeTicks;    // User mode CPU time in clock ticks for this thread
-    long long cpuKernelTimeTicks;  // Kernel mode CPU time in clock ticks for this thread
+    std::string name = "";       // Thread name (from /proc/[pid]/task/[tid]/comm)
+    std::string state = "?";      // Thread state (from /proc/[pid]/task/[tid]/stat)
+    long long cpuUserTimeTicks = 0;    // User mode CPU time in clock ticks for this thread
+    long long cpuKernelTimeTicks = 0;  // Kernel mode CPU time in clock ticks for this thread
     // ... potentially add more details like priority, context switches if needed
 };
 
 // New for Iteration 14: Memory Maps
 struct MemoryMapInfo {
-    uint64_t startAddress;
-    uint64_t endAddress;
+    uint64_t startAddress = 0;
+    uint64_t endAddress = 0;
     std::string permissions; // e.g., "r-xp"
-    uint64_t offset;
+    uint64_t offset = 0;
     std::string device;      // e.g., "08:01"
-    uint64_t inode;
+    uint64_t inode = 0;
     std::string pathname;    // e.g., "/usr/bin/ls" or "[stack]"
 };
 
@@ -105,7 +105,7 @@ struct ResourceLimitInfo {
 
 // New for Iteration 14: Cgroup Information
 struct CgroupEntry {
-    int id;
+    int id = 0;
     std::string controllers; // Comma-separated list, e.g., "cpu,cpuacct"
     std::string path;        // Path within the cgroup hierarchy
 };
@@ -126,9 +126,9 @@ enum class OpenFileType {
 };
 
 struct OpenFileDescriptorInfo {
-    int fd;
+    int fd = -1;
     std::string path; // Target path of the symlink (e.g., filename, socket:[inode])
-    OpenFileType type; // Categorized type (File, Socket, Pipe, etc.)
+    OpenFileType type = OpenFileType::Unknown; // Categorized type (File, Socket, Pipe, etc.)
     // Additional info for sockets could be added here later if needed,
     // e.g., referencing NetworkConnection details via inode.
 };
