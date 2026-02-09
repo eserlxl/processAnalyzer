@@ -168,6 +168,13 @@ int main(int argc, char* argv[]) {
             printProcessCsv(processesToDisplay, columns);
         } else if (args.outputFormat == "json") {
             printProcessJson(processesToDisplay, columns);
+        } else if (args.outputFormat == "vertical") {
+            for (size_t i = 0; i < processesToDisplay.size(); ++i) {
+                printVerticalProcessDetails(processesToDisplay[i]);
+                if (i + 1 < processesToDisplay.size()) {
+                    std::cout << "\n";
+                }
+            }
         } else {
             printProcessTable(processesToDisplay, columns, args.noTruncateCmdline);
         }

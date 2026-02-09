@@ -138,6 +138,17 @@ TEST(ArgsTests, ParseCommandLineWithOutput) {
     EXPECT_EQ(parsedArgs->outputFormat.value(), "json");
 }
 
+TEST(ArgsTests, ParseCommandLineWithVerticalOutput) {
+    std::vector<std::string> args = {"processAnalyzer", "show", "--pid", "1234", "--output", "vertical"};
+    std::vector<char*> argv = makeArgv(args);
+    std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
+
+    ASSERT_TRUE(parsedArgs.has_value());
+    EXPECT_EQ(parsedArgs->command, "show");
+    ASSERT_TRUE(parsedArgs->outputFormat.has_value());
+    EXPECT_EQ(parsedArgs->outputFormat.value(), "vertical");
+}
+
 TEST(ArgsTests, ParseCommandLineWithStateFilter) {
     std::vector<std::string> args = {"processAnalyzer", "list", "--state", "R"};
     std::vector<char*> argv = makeArgv(args);
