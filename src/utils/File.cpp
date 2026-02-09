@@ -11,9 +11,9 @@ namespace utils {
 
 // Helper to generate random string for temp files
 namespace {
-    constexpr size_t kTempFileSuffixLen = 6;
-    constexpr size_t kTempCreationRetries = 10;
-    constexpr size_t kRandomNameLen = 16;
+    constexpr size_t tempFileSuffixLen = 6;
+    constexpr size_t tempCreationRetries = 10;
+    constexpr size_t randomNameLen = 16;
 }
 
 static ::std::string generateRandomString(size_t length) {
@@ -90,7 +90,7 @@ Result<void> doAtomicWrite(const ::std::filesystem::path& path, Writer writer) {
         return ::std::unexpected(make_error_code(UtilsError::notADirectory));
     }
 
-    auto tempPath = parent / (path.filename().string() + "." + generateRandomString(kTempFileSuffixLen) + ".tmp");
+    auto tempPath = parent / (path.filename().string() + "." + generateRandomString(tempFileSuffixLen) + ".tmp");
 
     auto writeResult = writer(tempPath);
     if (!writeResult) {
@@ -144,11 +144,11 @@ Result<::std::filesystem::path> createTemporaryFile(::std::string_view prefix, :
     ::std::filesystem::path tempPath;
     
     // Try a few times to generate a unique name
-    for (size_t i = 0; i < kTempCreationRetries; ++i) {
+    for (size_t i = 0; i < tempCreationRetries; ++i) {
         ::std::string name;
-        name.reserve(prefix.size() + kRandomNameLen + suffix.size());
+        name.reserve(prefix.size() + randomNameLen + suffix.size());
         name.append(prefix);
-        name.append(generateRandomString(kRandomNameLen));
+        name.append(generateRandomString(randomNameLen));
         name.append(suffix);
         tempPath = tempDir / name;
             // Check if `tempPath` already exists.
@@ -185,11 +185,11 @@ Result<::std::filesystem::path> createTemporaryDirectory(::std::string_view pref
     }
     ::std::filesystem::path path;
     
-    for (size_t i = 0; i < kTempCreationRetries; ++i) {
+    for (size_t i = 0; i < tempCreationRetries; ++i) {
         ::std::string name;
-        name.reserve(prefix.size() + kRandomNameLen);
+        name.reserve(prefix.size() + randomNameLen);
         name.append(prefix);
-        name.append(generateRandomString(kRandomNameLen));
+        name.append(generateRandomString(randomNameLen));
         path = tempDir / name;
         if (::std::filesystem::create_directory(path, ec)) {
             return path;

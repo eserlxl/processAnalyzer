@@ -22,9 +22,7 @@ Result<::std::string> getEnv(::std::string_view name) {
     if (value) {
         return ::std::string(value);
     }
-    // When std::getenv fails (variable not found), return `UtilsError::invalidArgument`.
-    // This semantic choice treats a request for a non-existent variable as an invalid argument.
-    return ::std::unexpected(make_error_code(UtilsError::invalidArgument));
+    return ::std::unexpected(make_error_code(UtilsError::envVarNotFound));
 }
 
 Result<CommandOutput> executeCommand(::std::string_view command) {

@@ -101,16 +101,16 @@ int main(int argc, char* argv[]) {
                             if (!conns.empty()) {
                                 std::cout << "\nNetwork Connections:\n";
                                 // Header
-                                constexpr int kColWidthProto = 8;
-                                constexpr int kColWidthAddress = 28;
-                                constexpr int kSeparatorWidth = 78;
-                                std::cout << "  " << std::left << std::setw(kColWidthProto) << "Proto" << std::setw(kColWidthAddress) << "Local Address" << std::setw(kColWidthAddress) << "Remote Address" << "State\n";
-                                std::cout << "  " << std::string(kSeparatorWidth, '-') << "\n";
+                                constexpr int colWidthProto = 8;
+                                constexpr int colWidthAddress = 28;
+                                constexpr int separatorWidth = 78;
+                                std::cout << "  " << std::left << std::setw(colWidthProto) << "Proto" << std::setw(colWidthAddress) << "Local Address" << std::setw(colWidthAddress) << "Remote Address" << "State\n";
+                                std::cout << "  " << std::string(separatorWidth, '-') << "\n";
                                 for (const auto& conn : conns) {
                                     std::cout << "  " << std::left 
-                                              << std::setw(kColWidthProto) << conn.protocol
-                                              << std::setw(kColWidthAddress) << conn.localAddress
-                                              << std::setw(kColWidthAddress) << conn.remoteAddress
+                                              << std::setw(colWidthProto) << conn.protocol
+                                              << std::setw(colWidthAddress) << conn.localAddress
+                                              << std::setw(colWidthAddress) << conn.remoteAddress
                                               << conn.state << "\n";
                                 }
                             } else {
@@ -130,12 +130,12 @@ int main(int argc, char* argv[]) {
                          if (!threads.empty()) {
                              std::cout << "\nThreads:\n";
                              // Header and Loop
-                             constexpr int kTidColumnWidth = 8;
-                             constexpr int kThreadSeparatorWidth = 30;
-                             std::cout << "  " << std::left << std::setw(kTidColumnWidth) << "TID" << "Name\n";
-                             std::cout << "  " << std::string(kThreadSeparatorWidth, '-') << "\n";
+                             constexpr int tidColumnWidth = 8;
+                             constexpr int threadSeparatorWidth = 30;
+                             std::cout << "  " << std::left << std::setw(tidColumnWidth) << "TID" << "Name\n";
+                             std::cout << "  " << std::string(threadSeparatorWidth, '-') << "\n";
                              for(const auto& thread : threads) {
-                                 std::cout << "  " << std::left << std::setw(kTidColumnWidth) << thread.tid << thread.name << "\n";
+                                 std::cout << "  " << std::left << std::setw(tidColumnWidth) << thread.tid << thread.name << "\n";
                              }
                          } else {
                              std::cout << "\nNo threads found.\n";

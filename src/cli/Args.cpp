@@ -6,8 +6,19 @@
 #include <iostream>
 #include <algorithm>
 #include <vector>
+#include <array>
 
 namespace {
+    constexpr std::array<std::string_view, 16> validColumns = {
+        "pid", "ppid", "uid", "user", "name", "state", "rss", "vm",
+        "threads", "cmdline", "cpu", "start-time", "elapsed-time",
+        "mem-perc", "exec-path", "nice"
+    };
+
+    bool isValidColumn(std::string_view column) {
+        return std::ranges::find(validColumns, column) != validColumns.end();
+    }
+
     // Helper to convert string to ProcessSortField
     std::optional<ProcessSortField> stringToProcessSortField(const std::string& s) {
         std::string lowerS = utils::toLower(s);
@@ -48,8 +59,8 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
                         std::cerr << "Error: 'pid' command requires a PID value.\n";
                         return std::nullopt;
                     }
-                    constexpr int kBase10 = 10;
-                    if (auto pid = utils::toLong(cliArgs.front(), kBase10)) {
+                    constexpr int base10 = 10;
+                    if (auto pid = utils::toLong(cliArgs.front(), base10)) {
                         args.pid = static_cast<int>(*pid);
                         cliArgs.erase(cliArgs.begin());
                     } else {
@@ -101,8 +112,8 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
                 std::cerr << "Error: --pid requires an argument.\n";
                 return std::nullopt;
             }
-            constexpr int kBase10 = 10;
-            if (auto pid = utils::toLong(cliArgs[++i], kBase10)) {
+            constexpr int base10 = 10;
+            if (auto pid = utils::toLong(cliArgs[++i], base10)) {
                 args.pid = (int)*pid;
             } else {
                 std::cerr << "Error: Invalid PID '" << cliArgs[i] << "'.\n";
@@ -164,6 +175,13 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
                 return std::nullopt;
             }
             args.selectedColumns = utils::split(cliArgs[++i], ',');
+            for (auto& column : args.selectedColumns) {
+                column = utils::toLower(utils::trim(column));
+                if (!isValidColumn(column)) {
+                    std::cerr << "Error: Invalid column '" << column << "'.\n";
+                    return std::nullopt;
+                }
+            }
         } else if (arg == "--no-truncate-cmdline") {
             args.noTruncateCmdline = true;
         } else if (arg == "--output" || arg == "-o") { // Renamed from --format to --output
@@ -189,8 +207,8 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
                 std::cerr << "Error: --ppid requires an argument.\n";
                 return std::nullopt;
             }
-            constexpr int kBase10 = 10;
-            if (auto ppid = utils::toLong(cliArgs[++i], kBase10)) {
+            constexpr int base10 = 10;
+            if (auto ppid = utils::toLong(cliArgs[++i], base10)) {
                 args.ppidFilter = (int)*ppid;
             } else {
                 std::cerr << "Error: Invalid PPID '" << cliArgs[i] << "'.\n";

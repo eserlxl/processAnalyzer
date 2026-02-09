@@ -12,16 +12,16 @@ namespace utils {
 ::std::string formatElapsedTime(long long seconds) {
     if (seconds < 0) return "N/A";
 
-    constexpr long long kSecondsPerMinute = 60;
-    constexpr long long kSecondsPerHour = 3600;
-    constexpr long long kSecondsPerDay = 24LL * 3600LL;
+    constexpr long long secondsPerMinute = 60;
+    constexpr long long secondsPerHour = 3600;
+    constexpr long long secondsPerDay = 24LL * 3600LL;
 
-    long long days = seconds / kSecondsPerDay;
-    seconds %= kSecondsPerDay;
-    long long hours = seconds / kSecondsPerHour;
-    seconds %= kSecondsPerHour;
-    long long minutes = seconds / kSecondsPerMinute;
-    seconds %= kSecondsPerMinute;
+    long long days = seconds / secondsPerDay;
+    seconds %= secondsPerDay;
+    long long hours = seconds / secondsPerHour;
+    seconds %= secondsPerHour;
+    long long minutes = seconds / secondsPerMinute;
+    seconds %= secondsPerMinute;
 
     ::std::string result;
     if (days > 0) {
@@ -69,8 +69,8 @@ namespace utils {
         return "N/A"; // Explicitly return N/A on failure
     }
 
-    constexpr size_t kBufferSize = 64;
-    ::std::array<char, kBufferSize> buffer{};
+    constexpr size_t bufferSize = 64;
+    ::std::array<char, bufferSize> buffer{};
     if (::std::strftime(buffer.data(), buffer.size(), "%Y-%m-%d %H:%M:%S", &tmBuf)) {
         return {buffer.data()};
     }

@@ -48,8 +48,8 @@ namespace {
     // Count: 3 fields (from 19th to 21st, 1-based indexing)
     constexpr int statFieldsToSkipBeforeStarttime = 3;
     constexpr int statFieldsToSkipBeforeThreadUtime = 10;
-    constexpr double kMSInSecond = 1000.0;
-    constexpr long kDefaultSystemClockTicks = 100;
+    constexpr double msInSecond = 1000.0;
+    constexpr long defaultSystemClockTicks = 100;
 
 
     utils::Result<long long> getTotalSystemCpuTimeTicks(const ::std::filesystem::path& procPath) {
@@ -75,29 +75,29 @@ namespace {
     };
 
     enum class TcpState : std::uint8_t {
-        kEstablished = 1,
-        kSynSent,
-        kSynRecv,
-        kFinWait1,
-        kFinWait2,
-        kTimeWait,
-        kClose,
-        kCloseWait,
-        kLastAck,
-        kListen,
-        kClosing,
-        kUnknown
+        established = 1,
+        synSent,
+        synRecv,
+        finWait1,
+        finWait2,
+        timeWait,
+        close,
+        closeWait,
+        lastAck,
+        listen,
+        closing,
+        unknown
     };
-    constexpr int kIpv6LineDummyCount = 5;
+    constexpr int ipv6LineDummyCount = 5;
 
     // IPv6 parsing constants
-    constexpr int kIPv6HexBase = 16;
-    constexpr size_t kIPv6AddrHexLength = 32;
-    constexpr size_t kIPv6AddrPartHexLength = 8;
-    constexpr size_t kIPv6AddrPartOffset0 = 0;
-    constexpr size_t kIPv6AddrPartOffset1 = 8;
-    constexpr size_t kIPv6AddrPartOffset2 = 16;
-    constexpr size_t kIPv6AddrPartOffset3 = 24;
+    constexpr int ipv6HexBase = 16;
+    constexpr size_t ipv6AddrHexLength = 32;
+    constexpr size_t ipv6AddrPartHexLength = 8;
+    constexpr size_t ipv6AddrPartOffset0 = 0;
+    constexpr size_t ipv6AddrPartOffset1 = 8;
+    constexpr size_t ipv6AddrPartOffset2 = 16;
+    constexpr size_t ipv6AddrPartOffset3 = 24;
 
     ::std::vector<InternalNetworkConnection> parseNetFileHelper(const ::std::filesystem::path& filePath, ::std::string_view protocolPrefix) {
         ::std::vector<InternalNetworkConnection> internalConnections;
@@ -132,17 +132,17 @@ namespace {
             } catch (...) {}
             
             switch (static_cast<TcpState>(stateInt)) {
-                case TcpState::kEstablished: internalConn.baseConn.state = "ESTABLISHED"; break;
-                case TcpState::kSynSent: internalConn.baseConn.state = "SYN_SENT"; break;
-                case TcpState::kSynRecv: internalConn.baseConn.state = "SYN_RECV"; break;
-                case TcpState::kFinWait1: internalConn.baseConn.state = "FIN_WAIT1"; break;
-                case TcpState::kFinWait2: internalConn.baseConn.state = "FIN_WAIT2"; break;
-                case TcpState::kTimeWait: internalConn.baseConn.state = "TIME_WAIT"; break;
-                case TcpState::kClose: internalConn.baseConn.state = "CLOSE"; break;
-                case TcpState::kCloseWait: internalConn.baseConn.state = "CLOSE_WAIT"; break;
-                case TcpState::kLastAck: internalConn.baseConn.state = "LAST_ACK"; break;
-                case TcpState::kListen: internalConn.baseConn.state = "LISTEN"; break;
-                case TcpState::kClosing: internalConn.baseConn.state = "CLOSING"; break;
+                case TcpState::established: internalConn.baseConn.state = "ESTABLISHED"; break;
+                case TcpState::synSent: internalConn.baseConn.state = "SYN_SENT"; break;
+                case TcpState::synRecv: internalConn.baseConn.state = "SYN_RECV"; break;
+                case TcpState::finWait1: internalConn.baseConn.state = "FIN_WAIT1"; break;
+                case TcpState::finWait2: internalConn.baseConn.state = "FIN_WAIT2"; break;
+                case TcpState::timeWait: internalConn.baseConn.state = "TIME_WAIT"; break;
+                case TcpState::close: internalConn.baseConn.state = "CLOSE"; break;
+                case TcpState::closeWait: internalConn.baseConn.state = "CLOSE_WAIT"; break;
+                case TcpState::lastAck: internalConn.baseConn.state = "LAST_ACK"; break;
+                case TcpState::listen: internalConn.baseConn.state = "LISTEN"; break;
+                case TcpState::closing: internalConn.baseConn.state = "CLOSING"; break;
                 default: internalConn.baseConn.state = "UNKNOWN"; break;
             }
 
@@ -159,20 +159,17 @@ namespace {
                 } catch (...) {}
                 
                 if (ipHex.length() == 8) { // IPv4
-                    unsigned int ip;
+                    unsigned int ipValue;
                     try {
-                        ip = std::stoul(ipHex, nullptr, 16);
+                        ipValue = std::stoul(ipHex, nullptr, 16);
                     } catch(...) { return addrStr; }
-                    // IPv4 is in little-endian in /proc/net/tcp usually? No, it's host byte order string representation of network byte order?
-                    // Actually usually it's little-endian integer printed as hex.
-                    // e.g. 0100007F -> 127.0.0.1
-                    // 01 = 1, 00 = 0, 00 = 0, 7F = 127.
-                    struct in_addr in;
-                    in.s_addr = ip;
-                    char buf[INET_ADDRSTRLEN];
-                    if (inet_ntop(AF_INET, &in, buf, sizeof(buf))) {
-                        return std::string(buf) + ":" + std::to_string(port);
-                    }
+                    const unsigned octet1 = ipValue & 0xFFU;
+                    const unsigned octet2 = (ipValue >> 8U) & 0xFFU;
+                    const unsigned octet3 = (ipValue >> 16U) & 0xFFU;
+                    const unsigned octet4 = (ipValue >> 24U) & 0xFFU;
+                    return std::to_string(octet1) + "." + std::to_string(octet2) + "." +
+                           std::to_string(octet3) + "." + std::to_string(octet4) + ":" +
+                           std::to_string(port);
                 } else if (ipHex.length() == 32) { // IPv6
                     // IPv6 is 4 32-bit integers.
                     struct in6_addr in6;
@@ -283,34 +280,44 @@ namespace {
 
     // Generic lambda for sorting processes to reduce code duplication
     auto processSortPredicate = [](const ProcessInfo& a, const ProcessInfo& b, ProcessSortField sortBy, SortOrder sortOrder) {
-        bool less = false; 
-        switch (sortBy) {
-            case ProcessSortField::pid: less = a.pid < b.pid; break;
-            case ProcessSortField::ppid: less = a.ppid < b.ppid; break;
-            case ProcessSortField::uid: less = a.uid < b.uid; break;
-            case ProcessSortField::user: less = a.username < b.username; break;
-            case ProcessSortField::name: less = a.name < b.name; break;
-            case ProcessSortField::state: less = a.state < b.state; break;
-            case ProcessSortField::rss: less = a.residentMemory < b.residentMemory; break;
-            case ProcessSortField::vmsize: less = a.virtualMemory < b.virtualMemory; break;
-            case ProcessSortField::threads: less = a.threadCount < b.threadCount; break;
-            case ProcessSortField::startTime: less = a.startTimeTicks < b.startTimeTicks; break;
-            case ProcessSortField::executablePath: less = a.executablePath < b.executablePath; break;
-            case ProcessSortField::cmdline: less = a.cmdline < b.cmdline; break;
-            case ProcessSortField::cpuTime:
-                less = (a.cpuUserTimeTicks + a.cpuKernelTimeTicks) < (b.cpuUserTimeTicks + b.cpuKernelTimeTicks);
-                break;
-            case ProcessSortField::cwd: less = a.currentWorkingDirectory < b.currentWorkingDirectory; break;
-            case ProcessSortField::cpuUserTime: less = a.cpuUserTimeTicks < b.cpuUserTimeTicks; break;
-            case ProcessSortField::cpuKernelTime: less = a.cpuKernelTimeTicks < b.cpuKernelTimeTicks; break;
-            case ProcessSortField::ioReadBytes: less = a.ioReadBytes < b.ioReadBytes; break;
-            case ProcessSortField::ioWriteBytes: less = a.ioWriteBytes < b.ioWriteBytes; break;
-            case ProcessSortField::priority: less = a.priority < b.priority; break;
-            case ProcessSortField::cpuUsage: less = a.cpuUsage < b.cpuUsage; break;          
-            case ProcessSortField::memoryPercentage: less = a.memoryPercentage < b.memoryPercentage; break;
-            default: less = a.pid < b.pid; break; // Default sort by PID
+        auto keyLess = [&](const ProcessInfo& lhs, const ProcessInfo& rhs) {
+            switch (sortBy) {
+                case ProcessSortField::pid: return lhs.pid < rhs.pid;
+                case ProcessSortField::ppid: return lhs.ppid < rhs.ppid;
+                case ProcessSortField::uid: return lhs.uid < rhs.uid;
+                case ProcessSortField::user: return lhs.username < rhs.username;
+                case ProcessSortField::name: return lhs.name < rhs.name;
+                case ProcessSortField::state: return lhs.state < rhs.state;
+                case ProcessSortField::rss: return lhs.residentMemory < rhs.residentMemory;
+                case ProcessSortField::vmsize: return lhs.virtualMemory < rhs.virtualMemory;
+                case ProcessSortField::threads: return lhs.threadCount < rhs.threadCount;
+                case ProcessSortField::startTime: return lhs.startTimeTicks < rhs.startTimeTicks;
+                case ProcessSortField::executablePath: return lhs.executablePath < rhs.executablePath;
+                case ProcessSortField::cmdline: return lhs.cmdline < rhs.cmdline;
+                case ProcessSortField::cpuTime:
+                    return (lhs.cpuUserTimeTicks + lhs.cpuKernelTimeTicks) < (rhs.cpuUserTimeTicks + rhs.cpuKernelTimeTicks);
+                case ProcessSortField::cwd: return lhs.currentWorkingDirectory < rhs.currentWorkingDirectory;
+                case ProcessSortField::cpuUserTime: return lhs.cpuUserTimeTicks < rhs.cpuUserTimeTicks;
+                case ProcessSortField::cpuKernelTime: return lhs.cpuKernelTimeTicks < rhs.cpuKernelTimeTicks;
+                case ProcessSortField::ioReadBytes: return lhs.ioReadBytes < rhs.ioReadBytes;
+                case ProcessSortField::ioWriteBytes: return lhs.ioWriteBytes < rhs.ioWriteBytes;
+                case ProcessSortField::priority: return lhs.priority < rhs.priority;
+                case ProcessSortField::cpuUsage: return lhs.cpuUsage < rhs.cpuUsage;
+                case ProcessSortField::memoryPercentage: return lhs.memoryPercentage < rhs.memoryPercentage;
+                default: return lhs.pid < rhs.pid;
+            }
+        };
+
+        const bool less = keyLess(a, b);
+        const bool greater = keyLess(b, a);
+        if (sortOrder == SortOrder::asc) {
+            if (less) return true;
+            if (greater) return false;
+        } else {
+            if (greater) return true;
+            if (less) return false;
         }
-        return (sortOrder == SortOrder::asc) ? less : !less;
+        return a.pid < b.pid;
     };
 } // Anonymous namespace ends
 
@@ -467,7 +474,7 @@ utils::Result<ProcessInfo> ProcessAnalyzer::getProcessDetails(pid_t pid) const {
     long long systemBootTimeUnix = *systemBootTimeUnixResult;
 
     if (systemBootTimeUnix != 0) { // Check for valid boot time
-        long systemClockTicks = getSystemClockTicksPerSecond().value_or(kDefaultSystemClockTicks); 
+        long systemClockTicks = getSystemClockTicksPerSecond().value_or(defaultSystemClockTicks);
         if (systemClockTicks > 0) {
             long long processStartTimeSec = info.startTimeTicks / systemClockTicks;
             info.startTimeUnix = systemBootTimeUnix + processStartTimeSec;
@@ -938,7 +945,7 @@ utils::Result<ProcessDiskIoUsage> ProcessAnalyzer::getProcessDiskIoUsage(pid_t p
 
     auto readDelta = static_cast<double>(finalDetails.ioReadBytes - initialDetails.ioReadBytes);
     auto writeDelta = static_cast<double>(finalDetails.ioWriteBytes - initialDetails.ioWriteBytes);
-    double durationSec = static_cast<double>(actualDuration.count()) / kMSInSecond;
+    double durationSec = static_cast<double>(actualDuration.count()) / msInSecond;
 
     return ProcessDiskIoUsage {
         .pid = pid,
@@ -970,7 +977,7 @@ utils::Result<::std::vector<ProcessDiskIoUsage>> ProcessAnalyzer::getAllProcesse
     }
 
     ::std::vector<ProcessDiskIoUsage> results;
-    double durationSec = static_cast<double>(actualDuration.count()) / kMSInSecond;
+    double durationSec = static_cast<double>(actualDuration.count()) / msInSecond;
     if (durationSec <= 0) return results;
 
     for(const auto& initialInfo : initialSnapshot) {
@@ -1064,13 +1071,13 @@ utils::Result<::std::vector<NetworkConnection>> ProcessAnalyzer::getNetworkConne
     }
 
     ::std::set<int> socketInodes;
-    constexpr int kSocketInodePrefixLen = 8; // "socket:["
-    constexpr int kSocketInodeSuffixLen = 1; // "]"
+    constexpr int socketInodePrefixLen = 8; // "socket:["
+    constexpr int socketInodeSuffixLen = 1; // "]"
 
     for (const auto& fdInfo : *fdsResult) {
         if (fdInfo.type == OpenFileType::Socket) {
             if (fdInfo.path.starts_with("socket:[")) {
-                ::std::string inodeStr = fdInfo.path.substr(kSocketInodePrefixLen, fdInfo.path.length() - kSocketInodePrefixLen - kSocketInodeSuffixLen);
+                ::std::string inodeStr = fdInfo.path.substr(socketInodePrefixLen, fdInfo.path.length() - socketInodePrefixLen - socketInodeSuffixLen);
                 if(utils::isInteger(inodeStr)){
                     socketInodes.insert(::std::stoi(inodeStr));
                 }
@@ -1454,4 +1461,3 @@ utils::Result<SystemActivityStats> ProcessAnalyzer::getSystemActivityStats() con
     }
     return stats;
 }
-

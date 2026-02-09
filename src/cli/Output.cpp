@@ -104,7 +104,7 @@ void printProcessTable(const std::vector<ProcessInfo>& processes, const std::vec
     if (processes.empty()) return;
 
     // Define column widths
-    static const std::map<std::string, int> kDefaultColumnWidths = {
+    static const std::map<std::string, int> defaultColumnWidths = {
         {"pid", 8},
         {"ppid", 8},
         {"uid", 8},
@@ -122,7 +122,7 @@ void printProcessTable(const std::vector<ProcessInfo>& processes, const std::vec
         {"exec-path", 30},
         {"nice", 6}
     };
-    std::map<std::string, int> widths = kDefaultColumnWidths; // Use a mutable copy if needed to adjust widths dynamically later
+    std::map<std::string, int> widths = defaultColumnWidths; // Use a mutable copy if needed to adjust widths dynamically later
 
     // Print header
     for (const auto& col : columns) {

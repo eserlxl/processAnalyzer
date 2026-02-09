@@ -31,7 +31,7 @@ TEST_F(SystemEnvTest, getEnvDefined) {
 TEST_F(SystemEnvTest, getEnvUndefined) {
     auto result = utils::getEnv("PROCESS_ANALYZER_NON_EXISTENT_VAR");
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), utils::make_error_code(utils::UtilsError::invalidArgument));
+    EXPECT_EQ(result.error(), utils::make_error_code(utils::UtilsError::envVarNotFound));
 }
 
 TEST_F(SystemEnvTest, getEnvEmpty) {

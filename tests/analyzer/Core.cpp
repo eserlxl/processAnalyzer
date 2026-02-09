@@ -341,6 +341,21 @@ TEST_F(ProcessAnalyzerTest, QueryProcessesSorting) {
     EXPECT_EQ(results[1].pid, kKthreaddPid);
     EXPECT_EQ(results[2].pid, kMyAppPid);
     EXPECT_EQ(results[3].pid, kZombiePid);
+
+    // Sort by state descending and verify tie-break behavior for equal state values ("S (sleeping)").
+    resultsResult = analyzer.queryProcesses({}, ProcessSortField::state, SortOrder::desc);
+    ASSERT_TRUE(resultsResult.has_value());
+    results = *resultsResult;
+    ASSERT_EQ(results.size(), 4);
+    auto initIt = std::ranges::find_if(results, [](const ProcessInfo& process) {
+        return process.pid == kInitPid;
+    });
+    auto kthreaddIt = std::ranges::find_if(results, [](const ProcessInfo& process) {
+        return process.pid == kKthreaddPid;
+    });
+    ASSERT_NE(initIt, results.end());
+    ASSERT_NE(kthreaddIt, results.end());
+    EXPECT_LT(std::distance(results.begin(), initIt), std::distance(results.begin(), kthreaddIt));
 }
 
 TEST_F(ProcessAnalyzerTest, GetProcessOpenFileDetails) {
@@ -565,4 +580,21 @@ TEST_F(ProcessAnalyzerTest, GetNetworkConnectionsIPv6) {
     EXPECT_EQ(connections[0].localAddress, "::ffff:172.16.1.1:80");
     EXPECT_EQ(connections[0].remoteAddress, "*");
     EXPECT_EQ(connections[0].state, "LISTEN");
+}
+
+TEST_F(ProcessAnalyzerTest, GetNetworkConnectionsIPv4) {
+    ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
+
+    mockProc->createFile("net/tcp",
+        "  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode\n"
+        "   1: 0100007F:13AD 00000000:0000 0A 00000000:00000000 00:00000000 00000000   1000        0 12345 1 0000000000000000 100 0 0 10 0\n");
+    mockProc->createProcFdLink(kMyAppPid, kSocketFd, "socket:[12345]");
+
+    auto connectionsResult = analyzer.getNetworkConnections(kMyAppPid);
+    ASSERT_TRUE(connectionsResult.has_value());
+    ASSERT_EQ(connectionsResult->size(), 1);
+    EXPECT_EQ(connectionsResult->at(0).protocol, "TCP");
+    EXPECT_EQ(connectionsResult->at(0).localAddress, "127.0.0.1:5037");
+    EXPECT_EQ(connectionsResult->at(0).remoteAddress, "*");
+    EXPECT_EQ(connectionsResult->at(0).state, "LISTEN");
 }

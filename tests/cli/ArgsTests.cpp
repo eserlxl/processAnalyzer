@@ -319,7 +319,7 @@ TEST(ArgsTests, ParseCommandLineMultipleOptions) {
         "-u", "user1",
         "-s", "S",
         "--sort-by", "mem", "--sort-order", "desc",
-        "--columns", "pid,name,cmd",
+        "--columns", "pid,name,cmdline",
         "--brief",
         "--no-truncate-cmdline",
         "--output", "csv",
@@ -343,7 +343,7 @@ TEST(ArgsTests, ParseCommandLineMultipleOptions) {
     ASSERT_EQ(parsedArgs->selectedColumns.size(), 3);
     EXPECT_EQ(parsedArgs->selectedColumns[0], "pid");
     EXPECT_EQ(parsedArgs->selectedColumns[1], "name");
-    EXPECT_EQ(parsedArgs->selectedColumns[2], "cmd");
+    EXPECT_EQ(parsedArgs->selectedColumns[2], "cmdline");
     EXPECT_TRUE(parsedArgs->briefMode);
     EXPECT_TRUE(parsedArgs->noTruncateCmdline);
     ASSERT_TRUE(parsedArgs->outputFormat.has_value());
@@ -352,6 +352,14 @@ TEST(ArgsTests, ParseCommandLineMultipleOptions) {
     EXPECT_EQ(parsedArgs->ppidFilter.value(), 1000);
     ASSERT_TRUE(parsedArgs->configFilePath.has_value());
     EXPECT_EQ(parsedArgs->configFilePath.value(), "my_config.ini");
+}
+
+TEST(ArgsTests, ParseCommandLineRejectsInvalidColumns) {
+    std::vector<std::string> args = {"processAnalyzer", "list", "--columns", "pid,name,not-a-column"};
+    std::vector<char*> argv = makeArgv(args);
+    std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
+
+    ASSERT_FALSE(parsedArgs.has_value());
 }
 
 TEST(ArgsTests, ParseCommandLinePositionalPidCommand) {
