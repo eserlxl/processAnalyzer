@@ -6,6 +6,7 @@
 // C system headers
 #include <cstdio>
 #include <cstdlib>
+#include <cerrno>
 #include <sys/wait.h> // for WEXITSTATUS
 #include <unistd.h>   // for unlink, close
 
@@ -90,9 +91,18 @@ Result<CommandOutput> executeCommand(::std::string_view command) {
 // setEnv: Sets or modifies an environment variable.
 // Not yet implemented. Returns `unsupportedOperation`.
 Result<void> setEnv(::std::string_view name, ::std::string_view value) {
-    (void)name;
-    (void)value;
-    return ::std::unexpected(make_error_code(UtilsError::unsupportedOperation));
+    if (name.empty() || name.find('=') != ::std::string_view::npos ||
+        name.find('\0') != ::std::string_view::npos ||
+        value.find('\0') != ::std::string_view::npos) {
+        return ::std::unexpected(make_error_code(UtilsError::invalidArgument));
+    }
+
+    const ::std::string nameStr(name);
+    const ::std::string valueStr(value);
+    if (::setenv(nameStr.c_str(), valueStr.c_str(), 1) != 0) {
+        return ::std::unexpected(::std::error_code(errno, ::std::generic_category()));
+    }
+    return {};
 }
 
 // unsetEnv: Unsets or removes an environment variable.

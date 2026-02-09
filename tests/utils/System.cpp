@@ -114,9 +114,13 @@ TEST(SystemExecuteCommandTest, emptyCommand) {
 // --- Stub Function Tests ---
 
 TEST(SystemStubTest, setEnv) {
-    auto result = utils::setEnv("VAR", "VALUE");
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), utils::make_error_code(utils::UtilsError::unsupportedOperation));
+    unsetenv("PROCESS_ANALYZER_SETENV_VAR");
+    auto result = utils::setEnv("PROCESS_ANALYZER_SETENV_VAR", "VALUE");
+    ASSERT_TRUE(result.has_value());
+    auto readBack = utils::getEnv("PROCESS_ANALYZER_SETENV_VAR");
+    ASSERT_TRUE(readBack.has_value());
+    EXPECT_EQ(*readBack, "VALUE");
+    unsetenv("PROCESS_ANALYZER_SETENV_VAR");
 }
 
 TEST(SystemStubTest, unsetEnv) {
