@@ -9,31 +9,31 @@
 #include <filesystem> // Added for std::filesystem::path
 
 namespace {
-    constexpr int kSocketFd = 10;
+    constexpr int socketFd = 10;
     // PIDs
-    constexpr int kInitPid = 1;
-    constexpr int kKthreaddPid = 2;
-    constexpr int kMyAppPid = 3;
-    constexpr int kZombiePid = 4;
-    constexpr int kNoStatPid = 5;
-    constexpr int kNonExistentPid = 9999;
+    constexpr int initPid = 1;
+    constexpr int kthreaddPid = 2;
+    constexpr int myAppPid = 3;
+    constexpr int zombiePid = 4;
+    constexpr int noStatPid = 5;
+    constexpr int nonExistentPid = 9999;
     
     // UIDs
-    constexpr int kRootUid = 0;
-    constexpr int kTestUserUid = 1000;
+    constexpr int rootUid = 0;
+    constexpr int testUserUid = 1000;
 
     // String literal lengths
-    constexpr int kSystemdCmdlineSize = 8;
-    constexpr int kInitEnvSize = 22;
-    constexpr int kMyAppCmdlineSize = 42;
-    constexpr int kMyAppEnvSize = 28;
+    constexpr int systemdCmdlineSize = 8;
+    constexpr int initEnvSize = 22;
+    constexpr int myAppCmdlineSize = 42;
+    constexpr int myAppEnvSize = 28;
 
     // Durations
-    constexpr int kUpdateFileDelayMs = 25;
-    constexpr int kCpuUsageSampleTimeMs = 50;
+    constexpr int updateFileDelayMs = 25;
+    constexpr int cpuUsageSampleTimeMs = 50;
 
     // Memory
-    constexpr unsigned long kMinResidentMemoryKB = 40000;
+    constexpr unsigned long minResidentMemoryKb = 40000;
 }
 
 class ProcessAnalyzerTest : public ::testing::Test {
@@ -49,37 +49,37 @@ protected:
 
     void setupMockProcFiles() {
         // PID 1: init-like process
-        mockProc->createProcFile(kInitPid, "status", "Name:\tinit\nState:\tS (sleeping)\nPPid:\t0\nUid:\t0\t0\t0\t0\nThreads:\t1\nVmRSS:\t1000 kB\nVmSize:\t4000 kB\n");
-        mockProc->createProcFile(kInitPid, "stat", "1 (init) S 0 1 1 0 -1 4202752 239 0 0 0 10 20 0 0 20 0 1 0 12345 4096000 1000 18446744073709551615 1 1 0 0 0 0 0 4096 0 0 0 0 17 0 0 0 0 0 0 0 0 0 0 0 0 0 0");
-        mockProc->createProcFile(kInitPid, "cmdline", std::string("systemd\0", kSystemdCmdlineSize));
-        mockProc->createProcFile(kInitPid, "io", "rchar: 100\nwchar: 200\n");
-        mockProc->createSymlink(kInitPid, "exe", "/sbin/init");
-        mockProc->createSymlink(kInitPid, "cwd", "/");
-        mockProc->createProcFile(kInitPid, "environ", std::string("PATH=/bin:/sbin\0HOME=/\0", kInitEnvSize));
-        mockProc->createProcFile(kInitPid, "maps", "00400000-00452000 r-xp 00000000 08:01 12345 /sbin/init\n");
-        mockProc->createProcFile(kInitPid, "limits", "Limit                     Soft Limit           Hard Limit           Units     \nMax cpu time              unlimited            unlimited            seconds   \n");
-        mockProc->createProcFile(kInitPid, "cgroup", "1:cpu,cpuacct:/\n");
+        mockProc->createProcFile(initPid, "status", "Name:\tinit\nState:\tS (sleeping)\nPPid:\t0\nUid:\t0\t0\t0\t0\nThreads:\t1\nVmRSS:\t1000 kB\nVmSize:\t4000 kB\n");
+        mockProc->createProcFile(initPid, "stat", "1 (init) S 0 1 1 0 -1 4202752 239 0 0 0 10 20 0 0 20 0 1 0 12345 4096000 1000 18446744073709551615 1 1 0 0 0 0 0 4096 0 0 0 0 17 0 0 0 0 0 0 0 0 0 0 0 0 0 0");
+        mockProc->createProcFile(initPid, "cmdline", std::string("systemd\0", systemdCmdlineSize));
+        mockProc->createProcFile(initPid, "io", "rchar: 100\nwchar: 200\n");
+        mockProc->createSymlink(initPid, "exe", "/sbin/init");
+        mockProc->createSymlink(initPid, "cwd", "/");
+        mockProc->createProcFile(initPid, "environ", std::string("PATH=/bin:/sbin\0HOME=/\0", initEnvSize));
+        mockProc->createProcFile(initPid, "maps", "00400000-00452000 r-xp 00000000 08:01 12345 /sbin/init\n");
+        mockProc->createProcFile(initPid, "limits", "Limit                     Soft Limit           Hard Limit           Units     \nMax cpu time              unlimited            unlimited            seconds   \n");
+        mockProc->createProcFile(initPid, "cgroup", "1:cpu,cpuacct:/\n");
 
         // PID 2: a child of PID 1
-        mockProc->createProcFile(kKthreaddPid, "status", "Name:\tkthreadd\nState:\tS (sleeping)\nPPid:\t1\nUid:\t0\t0\t0\t0\nThreads:\t5\nVmRSS:\t0 kB\nVmSize:\t0 kB\n");
-        mockProc->createProcFile(kKthreaddPid, "stat", "2 (kthreadd) S 1 2 2 0 -1 8388608 0 0 0 0 100 200 0 0 18 0 1 0 54321 0 0 18446744073709551615 1 1 0 0 0 0 0 4096 0 0 0 0 17 0 0 0 0 0 0 0 0 0 0 0 0 0 0");
-        mockProc->createProcFile(kKthreaddPid, "cmdline", "");
-        mockProc->createSymlink(kKthreaddPid, "exe", "/usr/bin/kthreadd");
-        mockProc->createProcFile(kKthreaddPid, "io", "rchar: 1234\nwchar: 5678\n");
-        mockProc->createProcFile(kKthreaddPid, "environ", "");
+        mockProc->createProcFile(kthreaddPid, "status", "Name:\tkthreadd\nState:\tS (sleeping)\nPPid:\t1\nUid:\t0\t0\t0\t0\nThreads:\t5\nVmRSS:\t0 kB\nVmSize:\t0 kB\n");
+        mockProc->createProcFile(kthreaddPid, "stat", "2 (kthreadd) S 1 2 2 0 -1 8388608 0 0 0 0 100 200 0 0 18 0 1 0 54321 0 0 18446744073709551615 1 1 0 0 0 0 0 4096 0 0 0 0 17 0 0 0 0 0 0 0 0 0 0 0 0 0 0");
+        mockProc->createProcFile(kthreaddPid, "cmdline", "");
+        mockProc->createSymlink(kthreaddPid, "exe", "/usr/bin/kthreadd");
+        mockProc->createProcFile(kthreaddPid, "io", "rchar: 1234\nwchar: 5678\n");
+        mockProc->createProcFile(kthreaddPid, "environ", "");
 
 
         // PID 3: another process, child of PID 1, running state
-        mockProc->createProcFile(kMyAppPid, "status", "Name:\tmy-app\nState:\tR (running)\nPPid:\t1\nUid:\t1000\t1000\t1000\t1000\nThreads:\t10\nVmRSS:\t50000 kB\nVmSize:\t100000 kB\n");
-        mockProc->createProcFile(kMyAppPid, "stat", "3 (my-app) R 1 3 3 0 -1 4202752 239 0 0 0 15 25 0 0 20 15 1 0 23456 102400000 50000 18446744073709551615 1 1 0 0 0 0 0 4096 0 0 0 0 17 0 0 0 0 0 0 0 0 0 0 0 0 0 0");
-        mockProc->createProcFile(kMyAppPid, "cmdline", std::string("/usr/bin/my-app\0--config\0/etc/my-app.conf", kMyAppCmdlineSize));
-        mockProc->createProcFile(kMyAppPid, "environ", std::string("PATH=/usr/bin\0USER=testuser\0", kMyAppEnvSize));
-        mockProc->createSymlink(kMyAppPid, "exe", "/usr/bin/my-app");
-        mockProc->createSymlink(kMyAppPid, "cwd", "/home/testuser");
+        mockProc->createProcFile(myAppPid, "status", "Name:\tmy-app\nState:\tR (running)\nPPid:\t1\nUid:\t1000\t1000\t1000\t1000\nThreads:\t10\nVmRSS:\t50000 kB\nVmSize:\t100000 kB\n");
+        mockProc->createProcFile(myAppPid, "stat", "3 (my-app) R 1 3 3 0 -1 4202752 239 0 0 0 15 25 0 0 20 15 1 0 23456 102400000 50000 18446744073709551615 1 1 0 0 0 0 0 4096 0 0 0 0 17 0 0 0 0 0 0 0 0 0 0 0 0 0 0");
+        mockProc->createProcFile(myAppPid, "cmdline", std::string("/usr/bin/my-app\0--config\0/etc/my-app.conf", myAppCmdlineSize));
+        mockProc->createProcFile(myAppPid, "environ", std::string("PATH=/usr/bin\0USER=testuser\0", myAppEnvSize));
+        mockProc->createSymlink(myAppPid, "exe", "/usr/bin/my-app");
+        mockProc->createSymlink(myAppPid, "cwd", "/home/testuser");
 
         // PID 4: a zombie process, child of PID 3
-        mockProc->createProcFile(kZombiePid, "status", "Name:\tdefunct\nState:\tZ (zombie)\nPPid:\t3\nUid:\t1000\t1000\t1000\t1000\nThreads:\t0\nVmRSS:\t0 kB\nVmSize:\t0 kB\n");
-        mockProc->createProcFile(kZombiePid, "stat", "4 (defunct) Z 3 4 4 0 -1 4202752 0 0 0 0 0 0 0 0 0 0 1 0 98765 0 0 18446744073709551615 1 1 0 0 0 0 0 4096 0 0 0 0 17 0 0 0 0 0 0 0 0 0 0 0 0 0 0");
+        mockProc->createProcFile(zombiePid, "status", "Name:\tdefunct\nState:\tZ (zombie)\nPPid:\t3\nUid:\t1000\t1000\t1000\t1000\nThreads:\t0\nVmRSS:\t0 kB\nVmSize:\t0 kB\n");
+        mockProc->createProcFile(zombiePid, "stat", "4 (defunct) Z 3 4 4 0 -1 4202752 0 0 0 0 0 0 0 0 0 0 1 0 98765 0 0 18446744073709551615 1 1 0 0 0 0 0 4096 0 0 0 0 17 0 0 0 0 0 0 0 0 0 0 0 0 0 0");
 
         // Stat file for CPU usage tests
         mockProc->createFile("stat", "cpu  1000 200 800 5000 100 0 50 0\ncpu0 500 100 400 2500 50 0 25 0\nintr 12345\nctxt 6789\nprocesses 10000\n");
@@ -105,22 +105,22 @@ TEST_F(ProcessAnalyzerTest, GetPidsWithMock) {
     ASSERT_TRUE(pidsResult.has_value());
     auto pids = *pidsResult;
     ASSERT_EQ(pids.size(), 4);
-    ASSERT_NE(std::ranges::find(pids, kInitPid), pids.end());
-    ASSERT_NE(std::ranges::find(pids, kKthreaddPid), pids.end());
-    ASSERT_NE(std::ranges::find(pids, kMyAppPid), pids.end());
-    ASSERT_NE(std::ranges::find(pids, kZombiePid), pids.end());
+    ASSERT_NE(std::ranges::find(pids, initPid), pids.end());
+    ASSERT_NE(std::ranges::find(pids, kthreaddPid), pids.end());
+    ASSERT_NE(std::ranges::find(pids, myAppPid), pids.end());
+    ASSERT_NE(std::ranges::find(pids, zombiePid), pids.end());
 }
 
 TEST_F(ProcessAnalyzerTest, GetProcessDetailsWithMock) {
     ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
-    auto infoOpt = analyzer.getProcessDetails(kMyAppPid);
+    auto infoOpt = analyzer.getProcessDetails(myAppPid);
     ASSERT_TRUE(infoOpt.has_value());
     const auto& info = infoOpt.value(); 
-    EXPECT_EQ(info.pid, kMyAppPid);
-    EXPECT_EQ(info.ppid, kInitPid);
+    EXPECT_EQ(info.pid, myAppPid);
+    EXPECT_EQ(info.ppid, initPid);
     EXPECT_EQ(info.name, "my-app");
     EXPECT_EQ(info.state.substr(0,1), "R");
-    EXPECT_EQ(info.uid, kTestUserUid);
+    EXPECT_EQ(info.uid, testUserUid);
     EXPECT_EQ(info.threadCount, 10);
     EXPECT_EQ(info.residentMemory, 50000);
     EXPECT_EQ(info.virtualMemory, 100000);
@@ -138,18 +138,18 @@ TEST_F(ProcessAnalyzerTest, GetProcessDetailsWithMock) {
 
 TEST_F(ProcessAnalyzerTest, GetProcessDetailsForNonExistentPid) {
     ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
-    auto infoOpt = analyzer.getProcessDetails(kNonExistentPid);
+    auto infoOpt = analyzer.getProcessDetails(nonExistentPid);
     ASSERT_FALSE(infoOpt.has_value());
     EXPECT_EQ(infoOpt.error(), utils::make_error_code(utils::UtilsError::analyzerProcessNotFound));
 }
 
 TEST_F(ProcessAnalyzerTest, GetProcessDetailsForZombieProcess) {
     ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
-    auto infoOpt = analyzer.getProcessDetails(kZombiePid);
+    auto infoOpt = analyzer.getProcessDetails(zombiePid);
     ASSERT_TRUE(infoOpt.has_value());
     const auto& info = infoOpt.value();
-    EXPECT_EQ(info.pid, kZombiePid);
-    EXPECT_EQ(info.ppid, kMyAppPid);
+    EXPECT_EQ(info.pid, zombiePid);
+    EXPECT_EQ(info.ppid, myAppPid);
     EXPECT_EQ(info.name, "defunct");
     EXPECT_EQ(info.state.substr(0,1), "Z");
     EXPECT_EQ(info.residentMemory, 0);
@@ -160,10 +160,10 @@ TEST_F(ProcessAnalyzerTest, GetProcessDetailsForZombieProcess) {
 }
 
 TEST_F(ProcessAnalyzerTest, GetProcessDetailsHandlesIOAndStatMissingGracefully) {
-    mockProc->createPidDir(kNoStatPid);
-    mockProc->createProcFile(kNoStatPid, "status", "Name:\tno-stat-io\nPPid:\t1\nUid:\t1000\n");
+    mockProc->createPidDir(noStatPid);
+    mockProc->createProcFile(noStatPid, "status", "Name:\tno-stat-io\nPPid:\t1\nUid:\t1000\n");
     ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
-    auto infoOpt = analyzer.getProcessDetails(kNoStatPid);
+    auto infoOpt = analyzer.getProcessDetails(noStatPid);
     ASSERT_TRUE(infoOpt.has_value());
     EXPECT_EQ(infoOpt.value().ioReadBytes, 0); 
     EXPECT_EQ(infoOpt.value().cpuUserTimeTicks, 0); 
@@ -238,16 +238,16 @@ TEST_F(ProcessAnalyzerTest, QueryProcessesFiltering) {
     ASSERT_TRUE(resultsResult.has_value());
     auto results = *resultsResult;
     ASSERT_EQ(results.size(), 1);
-    EXPECT_EQ(results[0].pid, kKthreaddPid);
+    EXPECT_EQ(results[0].pid, kthreaddPid);
 
     // Filter by parent PID (new in Iteration 7)
     filter = ProcessFilter{};
-    filter.ppidFilter = kInitPid;
+    filter.ppidFilter = initPid;
     resultsResult = analyzer.queryProcesses(filter);
     ASSERT_TRUE(resultsResult.has_value());
     results = *resultsResult;
     ASSERT_EQ(results.size(), 2);
-    EXPECT_TRUE((results[0].pid == kKthreaddPid && results[1].pid == kMyAppPid) || (results[0].pid == kMyAppPid && results[1].pid == kKthreaddPid));
+    EXPECT_TRUE((results[0].pid == kthreaddPid && results[1].pid == myAppPid) || (results[0].pid == myAppPid && results[1].pid == kthreaddPid));
 
     // Filter by state
     filter = ProcessFilter{};
@@ -256,11 +256,11 @@ TEST_F(ProcessAnalyzerTest, QueryProcessesFiltering) {
     ASSERT_TRUE(resultsResult.has_value());
     results = *resultsResult;
     ASSERT_EQ(results.size(), 1);
-    EXPECT_EQ(results[0].pid, kZombiePid);
+    EXPECT_EQ(results[0].pid, zombiePid);
 
     // Filter by UID
     filter = ProcessFilter{};
-    filter.uidFilter = kTestUserUid;
+    filter.uidFilter = testUserUid;
     resultsResult = analyzer.queryProcesses(filter);
     ASSERT_TRUE(resultsResult.has_value());
     results = *resultsResult;
@@ -268,12 +268,12 @@ TEST_F(ProcessAnalyzerTest, QueryProcessesFiltering) {
 
     // Filter by resident memory
     filter = ProcessFilter{};
-    filter.minResidentMemoryKB = kMinResidentMemoryKB;
+    filter.minResidentMemoryKB = minResidentMemoryKb;
     resultsResult = analyzer.queryProcesses(filter);
     ASSERT_TRUE(resultsResult.has_value());
     results = *resultsResult;
     ASSERT_EQ(results.size(), 1);
-    EXPECT_EQ(results[0].pid, kMyAppPid);
+    EXPECT_EQ(results[0].pid, myAppPid);
 
     // Filter by executable path
     filter = ProcessFilter{};
@@ -282,7 +282,7 @@ TEST_F(ProcessAnalyzerTest, QueryProcessesFiltering) {
     ASSERT_TRUE(resultsResult.has_value());
     results = *resultsResult;
     ASSERT_EQ(results.size(), 1);
-    EXPECT_EQ(results[0].pid, kKthreaddPid);
+    EXPECT_EQ(results[0].pid, kthreaddPid);
 
     // Filter by cmdline
     filter = ProcessFilter{};
@@ -291,7 +291,7 @@ TEST_F(ProcessAnalyzerTest, QueryProcessesFiltering) {
     ASSERT_TRUE(resultsResult.has_value());
     results = *resultsResult;
     ASSERT_EQ(results.size(), 1);
-    EXPECT_EQ(results[0].pid, kMyAppPid);
+    EXPECT_EQ(results[0].pid, myAppPid);
 }
 
 TEST_F(ProcessAnalyzerTest, QueryProcessesSorting) {
@@ -302,8 +302,8 @@ TEST_F(ProcessAnalyzerTest, QueryProcessesSorting) {
     ASSERT_TRUE(resultsResult.has_value());
     auto results = *resultsResult;
     ASSERT_EQ(results.size(), 4);
-    EXPECT_EQ(results[0].pid, kZombiePid);
-    EXPECT_EQ(results[3].pid, kInitPid);
+    EXPECT_EQ(results[0].pid, zombiePid);
+    EXPECT_EQ(results[3].pid, initPid);
 
     // Sort by RSS ascending
     resultsResult = analyzer.queryProcesses({}, ProcessSortField::rss, SortOrder::asc);
@@ -311,7 +311,7 @@ TEST_F(ProcessAnalyzerTest, QueryProcessesSorting) {
     results = *resultsResult;
     ASSERT_EQ(results.size(), 4);
     EXPECT_EQ(results[0].residentMemory, 0); // pid 2 or 4
-    EXPECT_EQ(results[3].pid, kMyAppPid); // pid 3 has most RSS
+    EXPECT_EQ(results[3].pid, myAppPid); // pid 3 has most RSS
 
     // Sort by total CPU Time ascending (new in Iteration 7)
     // PID 4: 0, PID 1: 30, PID 3: 40, PID 2: 300
@@ -319,28 +319,28 @@ TEST_F(ProcessAnalyzerTest, QueryProcessesSorting) {
     ASSERT_TRUE(resultsResult.has_value());
     results = *resultsResult;
     ASSERT_EQ(results.size(), 4);
-    EXPECT_EQ(results[0].pid, kZombiePid);
-    EXPECT_EQ(results[1].pid, kInitPid);
-    EXPECT_EQ(results[2].pid, kMyAppPid);
-    EXPECT_EQ(results[3].pid, kKthreaddPid);
+    EXPECT_EQ(results[0].pid, zombiePid);
+    EXPECT_EQ(results[1].pid, initPid);
+    EXPECT_EQ(results[2].pid, myAppPid);
+    EXPECT_EQ(results[3].pid, kthreaddPid);
 
     // Sort by start time descending
     resultsResult = analyzer.queryProcesses({}, ProcessSortField::startTime, SortOrder::desc);
     ASSERT_TRUE(resultsResult.has_value());
     results = *resultsResult;
     ASSERT_EQ(results.size(), 4);
-    EXPECT_EQ(results[0].pid, kZombiePid); // pid 4 has largest start time
-    EXPECT_EQ(results[3].pid, kInitPid);
+    EXPECT_EQ(results[0].pid, zombiePid); // pid 4 has largest start time
+    EXPECT_EQ(results[3].pid, initPid);
 
     // Sort by executable path ascending
     resultsResult = analyzer.queryProcesses({}, ProcessSortField::executablePath, SortOrder::asc);
     ASSERT_TRUE(resultsResult.has_value());
     results = *resultsResult;
     ASSERT_EQ(results.size(), 4);
-    EXPECT_EQ(results[0].pid, kInitPid);
-    EXPECT_EQ(results[1].pid, kKthreaddPid);
-    EXPECT_EQ(results[2].pid, kMyAppPid);
-    EXPECT_EQ(results[3].pid, kZombiePid);
+    EXPECT_EQ(results[0].pid, initPid);
+    EXPECT_EQ(results[1].pid, kthreaddPid);
+    EXPECT_EQ(results[2].pid, myAppPid);
+    EXPECT_EQ(results[3].pid, zombiePid);
 
     // Sort by state descending and verify tie-break behavior for equal state values ("S (sleeping)").
     resultsResult = analyzer.queryProcesses({}, ProcessSortField::state, SortOrder::desc);
@@ -348,10 +348,10 @@ TEST_F(ProcessAnalyzerTest, QueryProcessesSorting) {
     results = *resultsResult;
     ASSERT_EQ(results.size(), 4);
     auto initIt = std::ranges::find_if(results, [](const ProcessInfo& process) {
-        return process.pid == kInitPid;
+        return process.pid == initPid;
     });
     auto kthreaddIt = std::ranges::find_if(results, [](const ProcessInfo& process) {
-        return process.pid == kKthreaddPid;
+        return process.pid == kthreaddPid;
     });
     ASSERT_NE(initIt, results.end());
     ASSERT_NE(kthreaddIt, results.end());
@@ -362,13 +362,13 @@ TEST_F(ProcessAnalyzerTest, GetProcessOpenFileDetails) {
     ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
 
     // Setup file descriptors for PID 3
-    constexpr int kLogFd = 15;
-    mockProc->createProcFdLink(kMyAppPid, 0, "/dev/stdin");
-    mockProc->createProcFdLink(kMyAppPid, 1, "/dev/stdout");
-    mockProc->createProcFdLink(kMyAppPid, 2, "/dev/stderr");
-    mockProc->createProcFdLink(kMyAppPid, kLogFd, "/var/log/my-app.log");
+    constexpr int logFd = 15;
+    mockProc->createProcFdLink(myAppPid, 0, "/dev/stdin");
+    mockProc->createProcFdLink(myAppPid, 1, "/dev/stdout");
+    mockProc->createProcFdLink(myAppPid, 2, "/dev/stderr");
+    mockProc->createProcFdLink(myAppPid, logFd, "/var/log/my-app.log");
 
-    auto fdsResult = analyzer.getProcessOpenFileDetails(kMyAppPid);
+    auto fdsResult = analyzer.getProcessOpenFileDetails(myAppPid);
     ASSERT_TRUE(fdsResult.has_value());
     const auto& fds = *fdsResult;
     ASSERT_EQ(fds.size(), 4);
@@ -379,14 +379,14 @@ TEST_F(ProcessAnalyzerTest, GetProcessOpenFileDetails) {
 
     // Test for a process with no FDs (other than the directory itself)
     mockProc->createDirectoryAt(fs::path("2") / "fd");
-    auto fds2Result = analyzer.getProcessOpenFileDetails(kKthreaddPid);
+    auto fds2Result = analyzer.getProcessOpenFileDetails(kthreaddPid);
     ASSERT_TRUE(fds2Result.has_value());
     EXPECT_TRUE(fds2Result->empty());
 }
 
 TEST_F(ProcessAnalyzerTest, GetProcessOpenFileDetailsForProcessWithNoAccess) {
     ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
-    auto fdsResult = analyzer.getProcessOpenFileDetails(kNonExistentPid);
+    auto fdsResult = analyzer.getProcessOpenFileDetails(nonExistentPid);
     ASSERT_FALSE(fdsResult.has_value());
 }
 
@@ -399,24 +399,24 @@ TEST_F(ProcessAnalyzerTest, GetSystemClockTicks) {
 
 TEST_F(ProcessAnalyzerTest, GetParentProcess) {
     ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
-    auto parentOpt = analyzer.getParentProcess(kMyAppPid);
+    auto parentOpt = analyzer.getParentProcess(myAppPid);
     ASSERT_TRUE(parentOpt.has_value());
-    EXPECT_EQ(parentOpt.value().pid, kInitPid); 
+    EXPECT_EQ(parentOpt.value().pid, initPid); 
 
     // Test for pid 1 (parent is 0)
-    parentOpt = analyzer.getParentProcess(kInitPid);
+    parentOpt = analyzer.getParentProcess(initPid);
     ASSERT_FALSE(parentOpt.has_value());
 }
 
 TEST_F(ProcessAnalyzerTest, GetAllDescendantProcesses) {
     ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
-    auto descendantsResult = analyzer.getAllDescendantProcesses(kInitPid);
+    auto descendantsResult = analyzer.getAllDescendantProcesses(initPid);
     ASSERT_TRUE(descendantsResult.has_value());
     auto descendants = *descendantsResult;
     ASSERT_EQ(descendants.size(), 3); // pids 2, 3, 4
 
     // Find a leaf node
-    descendantsResult = analyzer.getAllDescendantProcesses(kZombiePid);
+    descendantsResult = analyzer.getAllDescendantProcesses(zombiePid);
     ASSERT_TRUE(descendantsResult.has_value());
     descendants = *descendantsResult;
     ASSERT_TRUE(descendants.empty());
@@ -424,7 +424,7 @@ TEST_F(ProcessAnalyzerTest, GetAllDescendantProcesses) {
 
 TEST_F(ProcessAnalyzerTest, GetProcessEnvironment) {
     ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
-    auto envResult = analyzer.getProcessEnvironment(kMyAppPid);
+    auto envResult = analyzer.getProcessEnvironment(myAppPid);
     ASSERT_TRUE(envResult.has_value());
     const auto& env = *envResult;
     ASSERT_EQ(env.size(), 2);
@@ -432,7 +432,7 @@ TEST_F(ProcessAnalyzerTest, GetProcessEnvironment) {
     EXPECT_EQ(env[1], "USER=testuser");
 
     // Process with no environment
-    auto env2Result = analyzer.getProcessEnvironment(kKthreaddPid);
+    auto env2Result = analyzer.getProcessEnvironment(kthreaddPid);
     ASSERT_TRUE(env2Result.has_value());
     ASSERT_TRUE(env2Result->empty());
 }
@@ -442,12 +442,12 @@ TEST_F(ProcessAnalyzerTest, GetProcessCpuUsage) {
 
     // Update files to simulate work
     std::thread t([&]() {
-        std::this_thread::sleep_for(std::chrono::milliseconds(kUpdateFileDelayMs));
-        mockProc->createProcFile(kMyAppPid, "stat", "3 (my-app) R 1 3 3 0 -1 4202752 239 0 0 0 35 45 0 0 15 0 1 0 23456 102400000 50000 18446744073709551615 1 1 0 0 0 0 0 4096 0 0 0 0 17 0 0 0 0 0 0 0 0 0 0 0 0 0 0");
+        std::this_thread::sleep_for(std::chrono::milliseconds(updateFileDelayMs));
+        mockProc->createProcFile(myAppPid, "stat", "3 (my-app) R 1 3 3 0 -1 4202752 239 0 0 0 35 45 0 0 15 0 1 0 23456 102400000 50000 18446744073709551615 1 1 0 0 0 0 0 4096 0 0 0 0 17 0 0 0 0 0 0 0 0 0 0 0 0 0 0");
         mockProc->createFile("stat", "cpu  1050 200 850 5000 100 0 100 0 0 0\n");
     });
 
-    auto usageOpt = analyzer.getProcessCpuUsage(kMyAppPid, std::chrono::milliseconds(kCpuUsageSampleTimeMs));
+    auto usageOpt = analyzer.getProcessCpuUsage(myAppPid, std::chrono::milliseconds(cpuUsageSampleTimeMs));
     t.join();
 
     ASSERT_TRUE(usageOpt.has_value());
@@ -459,7 +459,7 @@ TEST_F(ProcessAnalyzerTest, GetProcessCpuUsage) {
 
 TEST_F(ProcessAnalyzerTest, GetProcessMemoryMaps) {
     ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
-    auto mapsResult = analyzer.getProcessMemoryMaps(kInitPid);
+    auto mapsResult = analyzer.getProcessMemoryMaps(initPid);
     ASSERT_TRUE(mapsResult.has_value());
     const auto& maps = *mapsResult;
     ASSERT_EQ(maps.size(), 1);
@@ -471,7 +471,7 @@ TEST_F(ProcessAnalyzerTest, GetProcessMemoryMaps) {
 
 TEST_F(ProcessAnalyzerTest, GetProcessResourceLimits) {
     ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
-    auto limitsResult = analyzer.getProcessResourceLimits(kInitPid);
+    auto limitsResult = analyzer.getProcessResourceLimits(initPid);
     ASSERT_TRUE(limitsResult.has_value());
     const auto& info = *limitsResult;
     ASSERT_EQ(info.limits.size(), 1);
@@ -481,7 +481,7 @@ TEST_F(ProcessAnalyzerTest, GetProcessResourceLimits) {
 
 TEST_F(ProcessAnalyzerTest, GetProcessCgroupInfo) {
     ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
-    auto cgroupResult = analyzer.getProcessCgroupInfo(kInitPid);
+    auto cgroupResult = analyzer.getProcessCgroupInfo(initPid);
     ASSERT_TRUE(cgroupResult.has_value());
     const auto& info = *cgroupResult;
     ASSERT_EQ(info.entries.size(), 1);
@@ -528,7 +528,7 @@ TEST_F(ProcessAnalyzerTest, GetPerCpuUsage) {
      // Given getPerCpuUsage sleeps, we'd need a separate thread to update the file during the sleep.
      
      std::thread t([&]() {
-        std::this_thread::sleep_for(std::chrono::milliseconds(kUpdateFileDelayMs));
+        std::this_thread::sleep_for(std::chrono::milliseconds(updateFileDelayMs));
         // Update to show some usage
         // Initial: cpu  1000 200 800 5000 100 0 50 0 (Total: 7150, Idle: 5000)
         //          cpu0 500 100 400 2500 50 0 25 0
@@ -538,7 +538,7 @@ TEST_F(ProcessAnalyzerTest, GetPerCpuUsage) {
         mockProc->createFile("stat", "cpu  1050 200 850 5000 100 0 100 0\ncpu0 525 100 425 2500 50 0 50 0\n");
     });
 
-    auto usageResult = analyzer.getPerCpuUsage(std::chrono::milliseconds(kCpuUsageSampleTimeMs));
+    auto usageResult = analyzer.getPerCpuUsage(std::chrono::milliseconds(cpuUsageSampleTimeMs));
     t.join();
 
     ASSERT_TRUE(usageResult.has_value());
@@ -569,9 +569,9 @@ TEST_F(ProcessAnalyzerTest, GetNetworkConnectionsIPv6) {
     );
 
     // Setup file descriptors for a mock process to link to the socket inode.
-    mockProc->createProcFdLink(kMyAppPid, kSocketFd, "socket:[54321]");
+    mockProc->createProcFdLink(myAppPid, socketFd, "socket:[54321]");
 
-    auto connectionsResult = analyzer.getNetworkConnections(kMyAppPid);
+    auto connectionsResult = analyzer.getNetworkConnections(myAppPid);
     ASSERT_TRUE(connectionsResult.has_value());
     const auto& connections = *connectionsResult;
 
@@ -588,9 +588,9 @@ TEST_F(ProcessAnalyzerTest, GetNetworkConnectionsIPv4) {
     mockProc->createFile("net/tcp",
         "  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode\n"
         "   1: 0100007F:13AD 00000000:0000 0A 00000000:00000000 00:00000000 00000000   1000        0 12345 1 0000000000000000 100 0 0 10 0\n");
-    mockProc->createProcFdLink(kMyAppPid, kSocketFd, "socket:[12345]");
+    mockProc->createProcFdLink(myAppPid, socketFd, "socket:[12345]");
 
-    auto connectionsResult = analyzer.getNetworkConnections(kMyAppPid);
+    auto connectionsResult = analyzer.getNetworkConnections(myAppPid);
     ASSERT_TRUE(connectionsResult.has_value());
     ASSERT_EQ(connectionsResult->size(), 1);
     EXPECT_EQ(connectionsResult->at(0).protocol, "TCP");

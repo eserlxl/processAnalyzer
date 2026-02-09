@@ -27,13 +27,13 @@ inline std::string generateRandomString(size_t length) {
     return randomString;
 }
 
-constexpr size_t kRandomNameLen = 10;
+constexpr size_t randomNameLen = 10;
 
 namespace {
-    constexpr int kCleanupRetryCount = 3;
-    constexpr int kCleanupRetryDelayMs = 50;
-    const std::vector<std::byte> kTestData = {std::byte{0xDE}, std::byte{0xAD}, std::byte{0xBE}, std::byte{0xEF}};
-    const std::vector<std::byte> kAppendData = {std::byte{0x00}, std::byte{0xFF}};
+    constexpr int cleanupRetryCount = 3;
+    constexpr int cleanupRetryDelayMs = 50;
+    const std::vector<std::byte> testData = {std::byte{0xDE}, std::byte{0xAD}, std::byte{0xBE}, std::byte{0xEF}};
+    const std::vector<std::byte> appendData = {std::byte{0x00}, std::byte{0xFF}};
 }
 
 // Base fixture for tests requiring a temporary directory
@@ -59,8 +59,8 @@ protected:
             fs::remove_all(testDir, ec);
             if (ec) {
                 // Retry a few times if cleanup failed (e.g. Windows file locking)
-                for (int i = 0; i < kCleanupRetryCount; ++i) {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(kCleanupRetryDelayMs));
+                for (int i = 0; i < cleanupRetryCount; ++i) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(cleanupRetryDelayMs));
                     fs::remove_all(testDir, ec);
                     if (!ec) break;
                 }
@@ -148,7 +148,7 @@ TEST_F(UtilsNewApiTest, DoAtomicWriteParentPathChecks) {
 TEST_F(UtilsNewApiTest, CreateTemporaryDirectoryValidation) {
     // Test createTemporaryFile when a race condition creates a file with the same name before it tries
     // This is hard to perfectly simulate a race, but we can pre-create it.
-    auto preExistingTempFile = fs::temp_directory_path() / ("test_prefix_" + generateRandomString(kRandomNameLen) + ".tmp");
+    auto preExistingTempFile = fs::temp_directory_path() / ("test_prefix_" + generateRandomString(randomNameLen) + ".tmp");
     std::ofstream(preExistingTempFile) << "pre-existing";
 
     auto tempFileResult = utils::createTemporaryFile("test_prefix_", ".tmp");
@@ -256,7 +256,7 @@ TEST_F(UtilsNewApiTest, DoAtomicWriteFailureEnsuresOriginalUntouched) {
 
 TEST_F(UtilsNewApiTest, ReadWriteBinaryFile) {
     auto binaryFile = testDir / "binary.dat";
-    std::vector<std::byte> data = kTestData;
+    std::vector<std::byte> data = testData;
 
     // Write
     auto writeResult = utils::writeBinaryFile(binaryFile, data);
@@ -270,7 +270,7 @@ TEST_F(UtilsNewApiTest, ReadWriteBinaryFile) {
     EXPECT_EQ(readResult.value(), data);
 
     // Append
-    std::vector<std::byte> moreData = kAppendData;
+    std::vector<std::byte> moreData = appendData;
     auto appendResult = utils::appendToBinaryFile(binaryFile, moreData);
     ASSERT_TRUE(appendResult.has_value());
     
@@ -278,8 +278,8 @@ TEST_F(UtilsNewApiTest, ReadWriteBinaryFile) {
     auto readResult2 = utils::readBinaryFile(binaryFile);
     ASSERT_TRUE(readResult2.has_value());
     EXPECT_EQ(readResult2.value().size(), 6);
-    EXPECT_EQ(readResult2.value()[4], kAppendData[0]);
-    EXPECT_EQ(readResult2.value()[5], kAppendData[1]);
+    EXPECT_EQ(readResult2.value()[4], appendData[0]);
+    EXPECT_EQ(readResult2.value()[5], appendData[1]);
 }
 
 TEST_F(UtilsNewApiTest, WriteAtomic) {

@@ -14,9 +14,9 @@
 
 namespace fs = std::filesystem;
 
-constexpr int kAddressWidth = 16;
-constexpr int kFlagsWidth = 8;
-constexpr int kAddressPartWidth = 8;
+constexpr int addressWidth = 16;
+constexpr int flagsWidth = 8;
+constexpr int addressPartWidth = 8;
 
 MockProc::MockProc(const std::string& basePath) : root(basePath) {
     fs::create_directories(root);
@@ -158,7 +158,7 @@ std::string MockProc::ProcMapEntry::toString() const {
     std::stringstream ss;
     ss << addressRange << " "
        << perms << " "
-       << std::hex << std::setfill('0') << std::setw(kAddressPartWidth) << offset << " "
+       << std::hex << std::setfill('0') << std::setw(addressPartWidth) << offset << " "
        << dev << " "
        << std::dec << inode;
     if (!pathname.empty()) {
@@ -184,7 +184,7 @@ std::string MockProc::ProcStatData::toString() const {
     ss << pid << " (" << comm << ") "
        << state << " "
        << ppid << " " << pgrp << " " << session << " " << tty_nr << " " << tpgid << " "
-       << std::hex << std::setfill('0') << std::setw(kFlagsWidth) << flags << " "
+       << std::hex << std::setfill('0') << std::setw(flagsWidth) << flags << " "
        << std::dec << std::setfill('0')
        << minflt << " " << cminflt << " " << majflt << " " << cmajflt << " "
        << utime << " " << stime << " "

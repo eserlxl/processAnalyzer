@@ -27,11 +27,11 @@ std::string generateRandomString(size_t length) {
     return randomString;
 }
 
-constexpr size_t kRandomNameLen = 10;
+constexpr size_t randomNameLen = 10;
 
 namespace {
-    constexpr int kCleanupRetryCount = 3;
-    constexpr int kCleanupRetryDelayMs = 50;
+    constexpr int cleanupRetryCount = 3;
+    constexpr int cleanupRetryDelayMs = 50;
 }
 
 // Base fixture for tests requiring a temporary directory
@@ -60,8 +60,8 @@ protected:
             fs::remove_all(testDir, ec);
             if (ec) {
                 // Retry a few times if cleanup failed (e.g. Windows file locking)
-                for (int i = 0; i < kCleanupRetryCount; ++i) {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(kCleanupRetryDelayMs));
+                for (int i = 0; i < cleanupRetryCount; ++i) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(cleanupRetryDelayMs));
                     fs::remove_all(testDir, ec);
                     if (!ec) break;
                 }

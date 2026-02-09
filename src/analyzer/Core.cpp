@@ -3,6 +3,8 @@
 
 #include <cstdint> // For uint32_t
 #include <array>   // For std::array
+#include <charconv> // For std::from_chars
+#include <optional> // For std::optional
 #include <limits>  // For std::numeric_limits
 #include <string>  // For std::to_string
 
@@ -50,6 +52,18 @@ namespace {
     constexpr int statFieldsToSkipBeforeThreadUtime = 10;
     constexpr double msInSecond = 1000.0;
     constexpr long defaultSystemClockTicks = 100;
+
+    template <typename TInt>
+    std::optional<TInt> parseIntegerNoThrow(std::string_view text, int base = 10) {
+        TInt value{};
+        const char* begin = text.data();
+        const char* end = begin + text.size();
+        const auto [ptr, ec] = std::from_chars(begin, end, value, base);
+        if (ec != std::errc{} || ptr != end) {
+            return std::nullopt;
+        }
+        return value;
+    }
 
 
     utils::Result<long long> getTotalSystemCpuTimeTicks(const ::std::filesystem::path& procPath) {
@@ -122,14 +136,16 @@ namespace {
             internalConn.baseConn.protocol = protocolPrefix;
             internalConn.inode = 0;
             if (utils::isInteger(inodeStr)) {
-                internalConn.inode = std::stoi(inodeStr);
+                if (auto inode = parseIntegerNoThrow<int>(inodeStr)) {
+                    internalConn.inode = *inode;
+                }
             }
 
             // Parse State
             int stateInt = 0;
-            try {
-                stateInt = std::stoi(stStr, nullptr, 16);
-            } catch (...) {}
+            if (auto parsedState = parseIntegerNoThrow<int>(stStr, 16)) {
+                stateInt = *parsedState;
+            }
             
             switch (static_cast<TcpState>(stateInt)) {
                 case TcpState::established: internalConn.baseConn.state = "ESTABLISHED"; break;
@@ -154,29 +170,35 @@ namespace {
                 std::string portHex = addrStr.substr(colonPos + 1);
                 
                 long port = 0;
-                try {
-                    port = std::stol(portHex, nullptr, 16);
-                } catch (...) {}
+                if (auto parsedPort = parseIntegerNoThrow<long>(portHex, 16)) {
+                    port = *parsedPort;
+                }
                 
                 if (ipHex.length() == 8) { // IPv4
-                    unsigned int ipValue;
-                    try {
-                        ipValue = std::stoul(ipHex, nullptr, 16);
-                    } catch(...) { return addrStr; }
-                    const unsigned octet1 = ipValue & 0xFFU;
-                    const unsigned octet2 = (ipValue >> 8U) & 0xFFU;
-                    const unsigned octet3 = (ipValue >> 16U) & 0xFFU;
-                    const unsigned octet4 = (ipValue >> 24U) & 0xFFU;
+                    auto ipValue = parseIntegerNoThrow<unsigned int>(ipHex, 16);
+                    if (!ipValue) {
+                        return addrStr;
+                    }
+                    const unsigned octet1 = *ipValue & 0xFFU;
+                    const unsigned octet2 = (*ipValue >> 8U) & 0xFFU;
+                    const unsigned octet3 = (*ipValue >> 16U) & 0xFFU;
+                    const unsigned octet4 = (*ipValue >> 24U) & 0xFFU;
                     return std::to_string(octet1) + "." + std::to_string(octet2) + "." +
                            std::to_string(octet3) + "." + std::to_string(octet4) + ":" +
                            std::to_string(port);
                 } else if (ipHex.length() == 32) { // IPv6
                     // IPv6 is 4 32-bit integers.
-                    struct in6_addr in6;
-                    for(int i=0; i<4; ++i) {
-                        try {
-                            in6.s6_addr32[i] = std::stoul(ipHex.substr(i*8, 8), nullptr, 16);
-                        } catch(...) {}
+                    struct in6_addr in6{};
+                    for(int i = 0; i < 4; ++i) {
+                        auto chunkValue = parseIntegerNoThrow<uint32_t>(ipHex.substr(i * 8, 8), 16);
+                        if (!chunkValue) {
+                            return addrStr;
+                        }
+                        // Linux /proc/net stores each 32-bit IPv6 word in little-endian.
+                        in6.s6_addr[(i * 4) + 0] = static_cast<unsigned char>(*chunkValue & 0xFFU);
+                        in6.s6_addr[(i * 4) + 1] = static_cast<unsigned char>((*chunkValue >> 8U) & 0xFFU);
+                        in6.s6_addr[(i * 4) + 2] = static_cast<unsigned char>((*chunkValue >> 16U) & 0xFFU);
+                        in6.s6_addr[(i * 4) + 3] = static_cast<unsigned char>((*chunkValue >> 24U) & 0xFFU);
                     }
                     char buf[INET6_ADDRSTRLEN];
                     if (inet_ntop(AF_INET6, &in6, buf, sizeof(buf))) {
@@ -359,7 +381,9 @@ utils::Result<::std::vector<int>> ProcessAnalyzer::getPids() const {
             if (entry.is_directory()) {
                 ::std::string filename = entry.path().filename().string();
                 if (utils::isInteger(filename)) {
-                    pids.push_back(::std::stoi(filename));
+                    if (auto parsedPid = parseIntegerNoThrow<int>(filename)) {
+                        pids.push_back(*parsedPid);
+                    }
                 }
             }
         }
@@ -844,7 +868,11 @@ utils::Result<::std::vector<ThreadInfo>> ProcessAnalyzer::getProcessThreads(pid_
             if (entry.is_directory()) {
                 ::std::string tidStr = entry.path().filename().string();
                 if (utils::isInteger(tidStr)) {
-                    int tid = ::std::stoi(tidStr);
+                    auto parsedTid = parseIntegerNoThrow<int>(tidStr);
+                    if (!parsedTid) {
+                        continue;
+                    }
+                    int tid = *parsedTid;
                     ThreadInfo thread;
                     thread.tid = tid;
 
@@ -1013,8 +1041,6 @@ utils::Result<::std::vector<OpenFileDescriptorInfo>> ProcessAnalyzer::getProcess
     if (!dir_ptr) {
         return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerPermissionDenied));
     }
-    int dirFd = dirfd(dir_ptr.get());
-
     try {
         for (const auto& entry : fs::directory_iterator(fdPath)) {
             if (!entry.is_symlink()) continue;
@@ -1022,7 +1048,11 @@ utils::Result<::std::vector<OpenFileDescriptorInfo>> ProcessAnalyzer::getProcess
             ::std::string fdStr = entry.path().filename().string();
             if (!utils::isInteger(fdStr)) continue;
 
-            int fd = ::std::stoi(fdStr);
+            auto parsedFd = parseIntegerNoThrow<int>(fdStr);
+            if (!parsedFd) {
+                continue;
+            }
+            int fd = *parsedFd;
             OpenFileDescriptorInfo info;
             info.fd = fd;
 
@@ -1042,20 +1072,28 @@ utils::Result<::std::vector<OpenFileDescriptorInfo>> ProcessAnalyzer::getProcess
             } else if (info.path.starts_with("anon_inode:")) {
                 info.type = OpenFileType::AnonInode;
             } else {
-                struct stat statbuf;
-                if (fstatat(dirFd, fdStr.c_str(), &statbuf, AT_SYMLINK_NOFOLLOW) == 0) {
-                    if (S_ISREG(statbuf.st_mode) || S_ISDIR(statbuf.st_mode)) info.type = OpenFileType::File;
-                    else if (S_ISCHR(statbuf.st_mode) || S_ISBLK(statbuf.st_mode)) info.type = OpenFileType::Device;
-                    else if (S_ISFIFO(statbuf.st_mode)) info.type = OpenFileType::Pipe;
-                    else if (S_ISSOCK(statbuf.st_mode)) info.type = OpenFileType::Socket;
-                    else info.type = OpenFileType::Other;
-                } else {
+                std::error_code statusEc;
+                const auto status = fs::status(entry.path(), statusEc);
+                if (statusEc) {
                     info.type = OpenFileType::Unknown;
+                } else {
+                    const auto fileType = status.type();
+                    if (fileType == fs::file_type::regular || fileType == fs::file_type::directory) {
+                        info.type = OpenFileType::File;
+                    } else if (fileType == fs::file_type::character || fileType == fs::file_type::block) {
+                        info.type = OpenFileType::Device;
+                    } else if (fileType == fs::file_type::fifo) {
+                        info.type = OpenFileType::Pipe;
+                    } else if (fileType == fs::file_type::socket) {
+                        info.type = OpenFileType::Socket;
+                    } else {
+                        info.type = OpenFileType::Other;
+                    }
                 }
             }
             openFds.push_back(info);
         }
-    } catch (const fs::filesystem_error& e) {
+    } catch (const fs::filesystem_error&) {
         // The unique_ptr will automatically call closedir here, so no manual call needed.
         return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerPermissionDenied));
     }
@@ -1079,7 +1117,9 @@ utils::Result<::std::vector<NetworkConnection>> ProcessAnalyzer::getNetworkConne
             if (fdInfo.path.starts_with("socket:[")) {
                 ::std::string inodeStr = fdInfo.path.substr(socketInodePrefixLen, fdInfo.path.length() - socketInodePrefixLen - socketInodeSuffixLen);
                 if(utils::isInteger(inodeStr)){
-                    socketInodes.insert(::std::stoi(inodeStr));
+                    if (auto parsedInode = parseIntegerNoThrow<int>(inodeStr)) {
+                        socketInodes.insert(*parsedInode);
+                    }
                 }
             }
         }
@@ -1131,7 +1171,9 @@ std::generator<int> ProcessAnalyzer::streamPids() const {
         if (entry.is_directory()) {
             ::std::string filename = entry.path().filename().string();
             if (utils::isInteger(filename)) {
-                co_yield ::std::stoi(filename);
+                if (auto parsedPid = parseIntegerNoThrow<int>(filename)) {
+                    co_yield *parsedPid;
+                }
             }
         }
     }

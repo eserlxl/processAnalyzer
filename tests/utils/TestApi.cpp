@@ -21,45 +21,45 @@ constexpr unsigned long kbInBytes = 1024;
 constexpr unsigned long mbInBytes = 1024 * kbInBytes;
 
 // Constants for test values
-constexpr unsigned long kMapOffset = 0x1000;
-constexpr unsigned long kInode = 12345;
-constexpr unsigned long kIoRchar = 1000;
-constexpr unsigned long kIoWchar = 2000;
-constexpr unsigned long kIoReadBytes = 500;
-constexpr unsigned long kIoWriteBytes = 1500;
-constexpr unsigned long kIoSmallRchar = 100;
-constexpr unsigned long kIoSmallWchar = 200;
-constexpr int kPid123 = 123;
-constexpr unsigned long kUtime100 = 100;
-constexpr unsigned long kStime50 = 50;
-constexpr unsigned long kVsize = 1234567;
-constexpr unsigned long kRss1000 = 1000;
-constexpr unsigned long kUtime10 = 10;
-constexpr unsigned long kStime20 = 20;
-constexpr unsigned long kTotalMemGB = 16;
-constexpr unsigned long kFreeMemGB = 8;
-constexpr unsigned long kCachedMemGB = 2;
-constexpr unsigned long kTotalMemMB = 1024;
-constexpr unsigned long kFreeMemMB = 512;
-constexpr float kCpuMhz = 2500.500F;
-constexpr int kFd10 = 10;
-constexpr unsigned long kIoRchar5000 = 5000;
-constexpr unsigned long kIoWriteBytes10000 = 10000;
-constexpr int kPpid10 = 10;
-constexpr unsigned long kUtime123 = 123;
-constexpr unsigned long kStime45 = 45;
+constexpr unsigned long mapOffset = 0x1000;
+constexpr unsigned long inode = 12345;
+constexpr unsigned long ioRchar = 1000;
+constexpr unsigned long ioWchar = 2000;
+constexpr unsigned long ioReadBytes = 500;
+constexpr unsigned long ioWriteBytes = 1500;
+constexpr unsigned long ioSmallRchar = 100;
+constexpr unsigned long ioSmallWchar = 200;
+constexpr int pid123 = 123;
+constexpr unsigned long utime100 = 100;
+constexpr unsigned long stime50 = 50;
+constexpr unsigned long vsize = 1234567;
+constexpr unsigned long rss1000 = 1000;
+constexpr unsigned long utime10 = 10;
+constexpr unsigned long stime20 = 20;
+constexpr unsigned long totalMemGb = 16;
+constexpr unsigned long freeMemGb = 8;
+constexpr unsigned long cachedMemGb = 2;
+constexpr unsigned long totalMemMb = 1024;
+constexpr unsigned long freeMemMb = 512;
+constexpr float cpuMhz = 2500.500F;
+constexpr int fd10 = 10;
+constexpr unsigned long ioRchar5000 = 5000;
+constexpr unsigned long ioWriteBytes10000 = 10000;
+constexpr int ppid10 = 10;
+constexpr unsigned long utime123 = 123;
+constexpr unsigned long stime45 = 45;
 
-constexpr int kPpid50 = 50;
-constexpr unsigned long long kUser100 = 100;
-constexpr unsigned long long kIdle200 = 200;
-constexpr unsigned long long kCtxt5000 = 5000;
-constexpr unsigned long long kProcesses10 = 10;
-constexpr unsigned long long kUser200 = 200;
-constexpr unsigned long long kIdle400 = 400;
-constexpr double kUptimeSec = 1234.56;
-constexpr double kIdleSec = 789.01;
-constexpr unsigned long long kRxBytes1000 = 1000;
-constexpr unsigned long long kTxBytes2000 = 2000;
+constexpr int ppid50 = 50;
+constexpr unsigned long long user100 = 100;
+constexpr unsigned long long idle200 = 200;
+constexpr unsigned long long ctxt5000 = 5000;
+constexpr unsigned long long processes10 = 10;
+constexpr unsigned long long user200 = 200;
+constexpr unsigned long long idle400 = 400;
+constexpr double uptimeSec = 1234.56;
+constexpr double idleSec = 789.01;
+constexpr unsigned long long rxBytes1000 = 1000;
+constexpr unsigned long long txBytes2000 = 2000;
 
 // Helper to read file content for verification
 std::optional<std::string> readFileContent(const fs::path& filePath) {
@@ -321,9 +321,9 @@ TEST_F(MockProcTest, ProcMapEntryToString) {
     MockProc::ProcMapEntry entry = {
         .addressRange = "7f000000-7f010000",
         .perms = "r-xp",
-        .offset = kMapOffset,
+        .offset = mapOffset,
         .dev = "08:01",
-        .inode = kInode,
+        .inode = inode,
         .pathname = "/usr/lib/mylib.so"
     };
     std::string expected = "7f000000-7f010000 r-xp 00001000 08:01 12345 /usr/lib/mylib.so";
@@ -336,9 +336,9 @@ TEST_F(MockProcTest, CreateMaps) {
         {
             .addressRange = "7f000000-7f010000",
             .perms = "r-xp",
-            .offset = kMapOffset,
+            .offset = mapOffset,
             .dev = "08:01",
-            .inode = kInode,
+            .inode = inode,
             .pathname = "/usr/lib/mylib.so"
         },
         {
@@ -361,10 +361,10 @@ TEST_F(MockProcTest, CreateMaps) {
 
 TEST_F(MockProcTest, ProcIoStatsToString) {
     MockProc::ProcIoStats stats;
-    stats.rchar = kIoRchar;
-    stats.wchar = kIoWchar;
-    stats.readBytes = kIoReadBytes;
-    stats.writeBytes = kIoWriteBytes;
+    stats.rchar = ioRchar;
+    stats.wchar = ioWchar;
+    stats.readBytes = ioReadBytes;
+    stats.writeBytes = ioWriteBytes;
     std::string expected = 
         "rchar: 1000\n"
         "wchar: 2000\n"
@@ -379,8 +379,8 @@ TEST_F(MockProcTest, ProcIoStatsToString) {
 TEST_F(MockProcTest, CreateIo) {
     const int testPid = 105;
     MockProc::ProcIoStats stats;
-    stats.rchar = kIoSmallRchar;
-    stats.wchar = kIoSmallWchar;
+    stats.rchar = ioSmallRchar;
+    stats.wchar = ioSmallWchar;
     mockProc->createIo(testPid, stats);
     fs::path ioPath = mockRootPath / std::to_string(testPid) / "io";
     ASSERT_TRUE(fs::exists(ioPath));
@@ -391,14 +391,14 @@ TEST_F(MockProcTest, CreateIo) {
 
 TEST_F(MockProcTest, ProcStatDataToString) {
     MockProc::ProcStatData data;
-    data.pid = kPid123;
+    data.pid = pid123;
     data.comm = "test_proc";
     data.state = 'S';
     data.ppid = 1;
-    data.utime = kUtime100;
-    data.stime = kStime50;
-    data.vsize = kVsize;
-    data.rss = kRss1000;
+    data.utime = utime100;
+    data.stime = stime50;
+    data.vsize = vsize;
+    data.rss = rss1000;
 
     std::string statContent = data.toString();
     
@@ -428,8 +428,8 @@ TEST_F(MockProcTest, CreateStat) {
     data.comm = "my_test";
     data.state = 'R';
     data.ppid = 1;
-    data.utime = kUtime10;
-    data.stime = kStime20;
+    data.utime = utime10;
+    data.stime = stime20;
 
     mockProc->createStat(testPid, data);
     fs::path statPath = mockRootPath / std::to_string(testPid) / "stat";
@@ -441,9 +441,9 @@ TEST_F(MockProcTest, CreateStat) {
 
 TEST_F(MockProcTest, MeminfoDataToString) {
     MockProc::MeminfoData data;
-    data.memTotalKb = static_cast<unsigned long>(kTotalMemGB) * mbInBytes; // 16GB in KB
-    data.memFreeKb = static_cast<unsigned long>(kFreeMemGB) * mbInBytes;   // 8GB in KB
-    data.cachedKb = static_cast<unsigned long>(kCachedMemGB) * mbInBytes;    // 2GB in KB
+    data.memTotalKb = static_cast<unsigned long>(totalMemGb) * mbInBytes; // 16GB in KB
+    data.memFreeKb = static_cast<unsigned long>(freeMemGb) * mbInBytes;   // 8GB in KB
+    data.cachedKb = static_cast<unsigned long>(cachedMemGb) * mbInBytes;    // 2GB in KB
     std::string expected = 
         "MemTotal:       16777216 kB\n"
         "MemFree:        8388608 kB\n"
@@ -457,8 +457,8 @@ TEST_F(MockProcTest, MeminfoDataToString) {
 
 TEST_F(MockProcTest, CreateMeminfo) {
     MockProc::MeminfoData data;
-    data.memTotalKb = kTotalMemMB * kbInBytes; // 1024MB in KB
-    data.memFreeKb = kFreeMemMB * kbInBytes;   // 512MB in KB
+    data.memTotalKb = totalMemMb * kbInBytes; // 1024MB in KB
+    data.memFreeKb = freeMemMb * kbInBytes;   // 512MB in KB
     mockProc->createMeminfo(data);
     fs::path meminfoPath = mockRootPath / "meminfo";
     ASSERT_TRUE(fs::exists(meminfoPath));
@@ -471,13 +471,13 @@ TEST_F(MockProcTest, CpuinfoDataToString) {
     MockProc::CpuinfoData core0;
     core0.processorId = 0;
     core0.modelName = "Intel Core i7";
-    core0.cpuMhz = kCpuMhz;
+    core0.cpuMhz = cpuMhz;
     core0.cpuCores = 4;
 
     MockProc::CpuinfoData core1;
     core1.processorId = 1;
     core1.modelName = "Intel Core i7";
-    core1.cpuMhz = kCpuMhz;
+    core1.cpuMhz = cpuMhz;
     core1.cpuCores = 4;
 
     std::string expected0 = 
@@ -496,13 +496,13 @@ TEST_F(MockProcTest, CreateCpuinfo) {
     MockProc::CpuinfoData core0;
     core0.processorId = 0;
     core0.modelName = "Intel Core i7";
-    core0.cpuMhz = kCpuMhz;
+    core0.cpuMhz = cpuMhz;
     cores.push_back(core0);
 
     MockProc::CpuinfoData core1;
     core1.processorId = 1;
     core1.modelName = "Intel Core i7";
-    core1.cpuMhz = kCpuMhz;
+    core1.cpuMhz = cpuMhz;
     cores.push_back(core1);
 
     mockProc->createCpuinfo(cores);
@@ -610,7 +610,7 @@ TEST_F(MockProcTest, AddProcessWithFdDir) {
     const int testPid = 205;
     MockProc::AddProcessOptions options;
     options.name = "fd_proc";
-    options.fds = {{0, "/dev/null"}, {kFd10, "/var/log/my.log"}};
+    options.fds = {{0, "/dev/null"}, {fd10, "/var/log/my.log"}};
 
     mockProc->addProcess(testPid, options);
 
@@ -627,8 +627,8 @@ TEST_F(MockProcTest, AddProcessWithIoStats) {
     const int testPid = 206;
     MockProc::AddProcessOptions options;
     options.name = "io_proc";
-    options.ioStats.rchar = kIoRchar5000;
-    options.ioStats.writeBytes = kIoWriteBytes10000;
+    options.ioStats.rchar = ioRchar5000;
+    options.ioStats.writeBytes = ioWriteBytes10000;
 
     mockProc->addProcess(testPid, options);
 
@@ -648,9 +648,9 @@ TEST_F(MockProcTest, AddProcessWithStatData) {
     options.statData.pid = testPid;
     options.statData.comm = "stat_proc_comm";
     options.statData.state = 'S';
-    options.statData.ppid = kPpid10;
-    options.statData.utime = kUtime123;
-    options.statData.stime = kStime45;
+    options.statData.ppid = ppid10;
+    options.statData.utime = utime123;
+    options.statData.stime = stime45;
 
     mockProc->addProcess(testPid, options);
 
@@ -732,7 +732,7 @@ TEST_F(MockProcTest, ProcessBuilderFluentApi) {
     const int pid = 300;
     mockProc->buildProcess(pid)
         .withName("fluent_proc")
-        .withParent(kPpid50)
+        .withParent(ppid50)
         .withCmdline({"/bin/fluent", "--mode=fast"})
         .create();
 
@@ -796,10 +796,10 @@ TEST_F(MockProcTest, AddThread) {
 
 TEST_F(MockProcTest, CreateSystemStat) {
     MockProc::SystemStatData data;
-    data.user = kUser100;
-    data.idle = kIdle200;
-    data.ctxt = kCtxt5000;
-    data.processes = kProcesses10;
+    data.user = user100;
+    data.idle = idle200;
+    data.ctxt = ctxt5000;
+    data.processes = processes10;
     
     mockProc->createSystemStat(data);
     
@@ -816,18 +816,18 @@ TEST_F(MockProcTest, CreatePerCpuStat) {
     std::vector<MockProc::SystemStatData> perCpu;
     perCpu.reserve(3);
     MockProc::SystemStatData total;
-    total.user = kUser200;
-    total.idle = kIdle400;
+    total.user = user200;
+    total.idle = idle400;
     perCpu.push_back(total);
     
     MockProc::SystemStatData core0;
-    core0.user = kUser100;
-    core0.idle = kIdle200;
+    core0.user = user100;
+    core0.idle = idle200;
     perCpu.push_back(core0);
     
     MockProc::SystemStatData core1;
-    core1.user = kUser100;
-    core1.idle = kIdle200;
+    core1.user = user100;
+    core1.idle = idle200;
     perCpu.push_back(core1);
     
     mockProc->createSystemStat(perCpu);
@@ -841,7 +841,7 @@ TEST_F(MockProcTest, CreatePerCpuStat) {
 }
 
 TEST_F(MockProcTest, CreateUptime) {
-    mockProc->createUptime(kUptimeSec, kIdleSec);
+    mockProc->createUptime(uptimeSec, idleSec);
     fs::path uptimePath = mockRootPath / "uptime";
     ASSERT_TRUE(fs::exists(uptimePath));
     auto content = readFileContent(uptimePath);
@@ -864,8 +864,8 @@ TEST_F(MockProcTest, CreateNetDev) {
     devs.reserve(1);
     MockProc::NetDevStats eth0;
     eth0.interface = "eth0";
-    eth0.rx_bytes = kRxBytes1000;
-    eth0.tx_bytes = kTxBytes2000;
+    eth0.rx_bytes = rxBytes1000;
+    eth0.tx_bytes = txBytes2000;
     devs.push_back(eth0);
     
     mockProc->createNetDev(devs);
