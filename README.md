@@ -19,7 +19,7 @@ Whether you are debugging complex microservices, analyzing memory footprints, or
 -   **Deep Process Inspection**: Analyze memory maps, open files, network connections (TCP/UDP), and thread details.
 -   **Advanced Filtering**: precise filtering by PID, user, state, memory usage, and more.
 -   **System-Wide Metrics**: Monitor global CPU load, memory utilization, and I/O statistics.
--   **Flexible Output Formats**: Export data to **JSON**, **CSV**, or formatted tables for easy integration with external tools.
+-   **Flexible Output Formats**: Export data as **table**, **vertical**, **JSON**, or **CSV** for easy integration with external tools.
 -   **Modern Architecture**: Written in C++23 for maximum performance and efficiency.
 
 For a detailed list of features, see [docs/features.md](docs/features.md).
@@ -63,6 +63,9 @@ Get started immediately with these common commands:
 
 # Show detailed info for a specific PID (including children and open files)
 ./build/processAnalyzer show --pid <PID> --children --open-files
+
+# Equivalent positional PID command
+./build/processAnalyzer pid <PID> --children --open-files
 
 # Display help menu
 ./build/processAnalyzer --help

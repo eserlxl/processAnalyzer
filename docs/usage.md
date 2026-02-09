@@ -13,6 +13,9 @@ processAnalyzer [command] [options]
 Where `[command]` is one of:
 *   `list` (default): List and filter processes.
 *   `show`: Show detailed information for a specific process.
+*   `pid <pid>`: Show detailed information for a specific process ID (alias of `show --pid <pid>`).
+*   `name <name>`: List processes filtered by name (alias of `list --name <name>`).
+*   `user <user>`: List processes filtered by user (alias of `list --user <user>`).
 *   `help`: Show help information.
 
 ## Commands
@@ -54,11 +57,24 @@ The `show` command provides in-depth details about a single process. It requires
 ./processAnalyzer show --pid 1234 --threads --network
 ```
 
+### `pid` Command
+
+The `pid` command is a positional alias for inspecting a single PID.
+
+**Examples:**
+
+```bash
+# Equivalent to: ./processAnalyzer show --pid 1234
+./processAnalyzer pid 1234
+
+# PID-specific inspection flags are also supported
+./processAnalyzer pid 1234 --children --open-files --threads --network
+```
+
 ## Options Reference
 
 ### Filtering Options (for `list`)
 
-*   `--pid <pid>`: Filter by Process ID.
 *   `--ppid <pid>`: Filter by Parent Process ID.
 *   `--name <name>`: Filter by process name (substring match).
 *   `--user <username>`: Filter by username.
@@ -76,9 +92,9 @@ The `show` command provides in-depth details about a single process. It requires
 *   `--no-truncate-cmdline`: Do not truncate the command line string.
 *   `--output <format>`: Output format. Valid values: `table` (default), `csv`, `json`, `vertical`.
 
-### Inspection Options (for `show`)
+### Inspection Options (for `show`/`pid`)
 
-These options are only valid with the `show` command.
+These options are only valid with the `show` and `pid` commands.
 
 *   `--children`: Show child processes.
 *   `--threads`: Show thread information.
@@ -88,6 +104,7 @@ These options are only valid with the `show` command.
 ### Other Options
 
 *   `--help`, `-h`: Show help message.
+*   `--pid <pid>`, `-p <pid>`: Target process ID for `show`.
 *   `--config-file <path>`: Specify a configuration file path.
 
 ## Examples
