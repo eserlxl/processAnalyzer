@@ -206,6 +206,14 @@ TEST_F(ProcessAnalyzerTest, GetSystemLoadAverage) {
     EXPECT_EQ(loadAvgFailOpt.error(), utils::make_error_code(utils::UtilsError::fileNotFound));
 }
 
+TEST_F(ProcessAnalyzerTest, GetSystemLoadAverageMalformedContent) {
+    mockProc->createFile("loadavg", "malformed content\n");
+    ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
+    auto loadAvgOpt = analyzer.getSystemLoadAverage();
+    ASSERT_FALSE(loadAvgOpt.has_value());
+    EXPECT_EQ(loadAvgOpt.error(), utils::make_error_code(utils::UtilsError::analyzerParsingError));
+}
+
 TEST_F(ProcessAnalyzerTest, GetSystemCpuStats) {
     ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
     auto cpuStatsOpt = analyzer.getSystemCpuStats();
@@ -225,6 +233,14 @@ TEST_F(ProcessAnalyzerTest, GetSystemCpuStats) {
     auto cpuStatsFailOpt = analyzerNoFile.getSystemCpuStats();
     ASSERT_FALSE(cpuStatsFailOpt.has_value());
     EXPECT_EQ(cpuStatsFailOpt.error(), utils::make_error_code(utils::UtilsError::fileNotFound));
+}
+
+TEST_F(ProcessAnalyzerTest, GetSystemCpuStatsMalformedContent) {
+    mockProc->createFile("stat", "cpu  1000 200\n");
+    ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
+    auto cpuStatsOpt = analyzer.getSystemCpuStats();
+    ASSERT_FALSE(cpuStatsOpt.has_value());
+    EXPECT_EQ(cpuStatsOpt.error(), utils::make_error_code(utils::UtilsError::analyzerParsingError));
 }
 
 TEST_F(ProcessAnalyzerTest, QueryProcessesFiltering) {
@@ -533,6 +549,14 @@ TEST_F(ProcessAnalyzerTest, GetSystemDiskIoStats) {
     EXPECT_EQ(stats[0].readsCompleted, 100);
 }
 
+TEST_F(ProcessAnalyzerTest, GetSystemDiskIoStatsMalformedContent) {
+    mockProc->createFile("diskstats", "bad line\n");
+    ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
+    auto statsResult = analyzer.getSystemDiskIoStats();
+    ASSERT_FALSE(statsResult.has_value());
+    EXPECT_EQ(statsResult.error(), utils::make_error_code(utils::UtilsError::analyzerParsingError));
+}
+
 TEST_F(ProcessAnalyzerTest, GetNetworkInterfaceStats) {
     ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
     auto statsResult = analyzer.getNetworkInterfaceStats();
@@ -542,6 +566,19 @@ TEST_F(ProcessAnalyzerTest, GetNetworkInterfaceStats) {
     EXPECT_EQ(stats[0].interfaceName, "eth0");
     EXPECT_EQ(stats[0].rxBytes, 100000);
     EXPECT_EQ(stats[0].txBytes, 200000);
+}
+
+TEST_F(ProcessAnalyzerTest, GetNetworkInterfaceStatsMalformedContent) {
+    mockProc->createFile(
+        "net/dev",
+        "Inter-|   Receive                                                |  Transmit\n"
+        " face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed\n"
+        "  eth0 invalid-data\n");
+
+    ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
+    auto statsResult = analyzer.getNetworkInterfaceStats();
+    ASSERT_FALSE(statsResult.has_value());
+    EXPECT_EQ(statsResult.error(), utils::make_error_code(utils::UtilsError::analyzerParsingError));
 }
 
 TEST_F(ProcessAnalyzerTest, GetSystemActivityStats) {

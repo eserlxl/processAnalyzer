@@ -669,7 +669,9 @@ utils::Result<SystemLoadAverage> ProcessAnalyzer::getSystemLoadAverage() const {
 
     SystemLoadAverage loadAvg;
     ::std::stringstream ss(*contentOpt);
-    ss >> loadAvg.oneMin >> loadAvg.fiveMin >> loadAvg.fifteenMin;
+    if (!(ss >> loadAvg.oneMin >> loadAvg.fiveMin >> loadAvg.fifteenMin)) {
+        return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerParsingError));
+    }
     return loadAvg;
 }
 
@@ -688,8 +690,10 @@ utils::Result<SystemCpuStats> ProcessAnalyzer::getSystemCpuStats() const {
         SystemCpuStats stats;
         ::std::stringstream lineSs(line);
         ::std::string cpuLabel;
-        lineSs >> cpuLabel >> stats.user >> stats.nice >> stats.system >> stats.idle 
-                >> stats.iowait >> stats.irq >> stats.softirq >> stats.steal;
+        if (!(lineSs >> cpuLabel >> stats.user >> stats.nice >> stats.system >> stats.idle
+                     >> stats.iowait >> stats.irq >> stats.softirq >> stats.steal)) {
+            return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerParsingError));
+        }
         return stats;
     }
 
@@ -1434,18 +1438,28 @@ utils::Result<::std::vector<DiskIoDeviceStats>> ProcessAnalyzer::getSystemDiskIo
     ::std::stringstream ss(*contentOpt);
     ::std::string line;
     while(::std::getline(ss, line)) {
+        if (utils::trim(line).empty()) {
+            continue;
+        }
         ::std::stringstream lineSs(line);
         int major;
         int minor;
         ::std::string deviceName;
-        lineSs >> major >> minor >> deviceName;
+        if (!(lineSs >> major >> minor >> deviceName)) {
+            continue;
+        }
         
         DiskIoDeviceStats stat;
         stat.deviceName = deviceName;
-        lineSs >> stat.readsCompleted >> stat.readsMerged >> stat.sectorsRead >> stat.readTimeMs
-               >> stat.writesCompleted >> stat.writesMerged >> stat.sectorsWritten >> stat.writeTimeMs
-               >> stat.ioProgressMs >> stat.ioWeightedTimeMs;
+        if (!(lineSs >> stat.readsCompleted >> stat.readsMerged >> stat.sectorsRead >> stat.readTimeMs
+                     >> stat.writesCompleted >> stat.writesMerged >> stat.sectorsWritten >> stat.writeTimeMs
+                     >> stat.ioProgressMs >> stat.ioWeightedTimeMs)) {
+            continue;
+        }
         stats.push_back(stat);
+    }
+    if (stats.empty()) {
+        return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerParsingError));
     }
     return stats;
 }
@@ -1464,20 +1478,31 @@ utils::Result<::std::vector<NetworkInterfaceStats>> ProcessAnalyzer::getNetworkI
     ::std::getline(ss, line); // header 2
 
     while(::std::getline(ss, line)) {
+        if (utils::trim(line).empty()) {
+            continue;
+        }
         ::std::stringstream lineSs(line);
         ::std::string interfaceName;
         ::std::getline(lineSs, interfaceName, ':');
+        if (interfaceName.empty()) {
+            continue;
+        }
         interfaceName = utils::trim(interfaceName);
         
         NetworkInterfaceStats stat;
         stat.interfaceName = interfaceName;
         
         unsigned long dummy1, dummy2, dummy3, dummy4; // For skipping fifo, frame, compressed, multicast
-        lineSs >> stat.rxBytes >> stat.rxPackets >> stat.rxErrors >> stat.rxDropped
-               >> dummy1 >> dummy2 >> dummy3 >> dummy4 // skipping fifo, frame, compressed, multicast
-               >> stat.txBytes >> stat.txPackets >> stat.txErrors >> stat.txDropped;
+        if (!(lineSs >> stat.rxBytes >> stat.rxPackets >> stat.rxErrors >> stat.rxDropped
+                     >> dummy1 >> dummy2 >> dummy3 >> dummy4 // skipping fifo, frame, compressed, multicast
+                     >> stat.txBytes >> stat.txPackets >> stat.txErrors >> stat.txDropped)) {
+            continue;
+        }
                
         stats.push_back(stat);
+    }
+    if (stats.empty()) {
+        return ::std::unexpected(utils::make_error_code(utils::UtilsError::analyzerParsingError));
     }
     return stats;
 }
