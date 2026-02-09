@@ -108,8 +108,16 @@ Result<void> setEnv(::std::string_view name, ::std::string_view value) {
 // unsetEnv: Unsets or removes an environment variable.
 // Not yet implemented. Returns `unsupportedOperation`.
 Result<void> unsetEnv(::std::string_view name) {
-    (void)name;
-    return ::std::unexpected(make_error_code(UtilsError::unsupportedOperation));
+    if (name.empty() || name.find('=') != ::std::string_view::npos ||
+        name.find('\0') != ::std::string_view::npos) {
+        return ::std::unexpected(make_error_code(UtilsError::invalidArgument));
+    }
+
+    const ::std::string nameStr(name);
+    if (::unsetenv(nameStr.c_str()) != 0) {
+        return ::std::unexpected(::std::error_code(errno, ::std::generic_category()));
+    }
+    return {};
 }
 
 // getCurrentWorkingDirectory: Retrieves the application's current working directory.

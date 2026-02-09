@@ -124,9 +124,12 @@ TEST(SystemStubTest, setEnv) {
 }
 
 TEST(SystemStubTest, unsetEnv) {
-    auto result = utils::unsetEnv("VAR");
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), utils::make_error_code(utils::UtilsError::unsupportedOperation));
+    setenv("PROCESS_ANALYZER_UNSETENV_VAR", "VALUE", 1);
+    auto result = utils::unsetEnv("PROCESS_ANALYZER_UNSETENV_VAR");
+    ASSERT_TRUE(result.has_value());
+    auto readBack = utils::getEnv("PROCESS_ANALYZER_UNSETENV_VAR");
+    ASSERT_FALSE(readBack.has_value());
+    EXPECT_EQ(readBack.error(), utils::make_error_code(utils::UtilsError::envVarNotFound));
 }
 
 TEST(SystemStubTest, getCurrentWorkingDirectory) {
