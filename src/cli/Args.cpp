@@ -39,9 +39,38 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
     if (!cliArgs.empty()) {
         std::string potentialCommand = cliArgs[0];
         if (!utils::startsWith(potentialCommand, "-")) { // It's a positional argument, so it could be a command
-            if (potentialCommand == "list" || potentialCommand == "show") {
+            if (potentialCommand == "list" || potentialCommand == "show" || potentialCommand == "pid" ||
+                potentialCommand == "name" || potentialCommand == "user") {
                 args.command = potentialCommand;
                 cliArgs.erase(cliArgs.begin()); // Consume the command
+                if (args.command == "pid") {
+                    if (cliArgs.empty()) {
+                        std::cerr << "Error: 'pid' command requires a PID value.\n";
+                        return std::nullopt;
+                    }
+                    constexpr int kBase10 = 10;
+                    if (auto pid = utils::toLong(cliArgs.front(), kBase10)) {
+                        args.pid = static_cast<int>(*pid);
+                        cliArgs.erase(cliArgs.begin());
+                    } else {
+                        std::cerr << "Error: Invalid PID '" << cliArgs.front() << "'.\n";
+                        return std::nullopt;
+                    }
+                } else if (args.command == "name") {
+                    if (cliArgs.empty()) {
+                        std::cerr << "Error: 'name' command requires a process name.\n";
+                        return std::nullopt;
+                    }
+                    args.name = cliArgs.front();
+                    cliArgs.erase(cliArgs.begin());
+                } else if (args.command == "user") {
+                    if (cliArgs.empty()) {
+                        std::cerr << "Error: 'user' command requires a username.\n";
+                        return std::nullopt;
+                    }
+                    args.user = cliArgs.front();
+                    cliArgs.erase(cliArgs.begin());
+                }
             } else if (potentialCommand == "help") {
                 args.showHelp = true;
                 return args;
@@ -201,16 +230,21 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
         std::cerr << "Error: 'show' command requires a PID using --pid or -p.\n";
         return std::nullopt;
     }
-
-    // --children, --open-files, --threads, --network are only valid with 'show' command
-    if ((args.showChildren || args.showOpenFiles || args.showNetworkConnections || args.showThreads) && args.command != "show") {
-        std::cerr << "Error: --children, --open-files, --threads, and --network are only valid with the 'show' command.\n";
+    if (args.command == "pid" && !args.pid.has_value()) {
+        std::cerr << "Error: 'pid' command requires a PID value.\n";
         return std::nullopt;
     }
 
-    // --ppid cannot be used with 'show' command (as show is for a single PID)
-    if (args.ppidFilter.has_value() && args.command == "show") {
-        std::cerr << "Error: --ppid cannot be used with 'show' command.\n";
+    // --children, --open-files, --threads, --network are only valid with 'show' command
+    if ((args.showChildren || args.showOpenFiles || args.showNetworkConnections || args.showThreads) &&
+        args.command != "show" && args.command != "pid") {
+        std::cerr << "Error: --children, --open-files, --threads, and --network are only valid with 'show' or 'pid' commands.\n";
+        return std::nullopt;
+    }
+
+    // --ppid cannot be used with single-PID commands.
+    if (args.ppidFilter.has_value() && (args.command == "show" || args.command == "pid")) {
+        std::cerr << "Error: --ppid cannot be used with 'show' or 'pid' command.\n";
         return std::nullopt;
     }
 

@@ -59,11 +59,11 @@ void printUsage() {
               << "  -p, --pid <pid>             Target process ID.\n"
               << "  --brief                     Show a condensed table view.\n"
               << "  --columns <c1,c2,...>       Select columns. Available: pid, ppid, uid, user, name, state, rss, vm, threads, cmdline, cpu, start-time, elapsed-time, mem-perc, exec-path, nice.\n"
-              << "  --config <path>             Path to a configuration file.\n"
-              << "  --format <csv|json>         Set output format.\n"
+              << "  --config-file <path>        Path to a configuration file.\n"
+              << "  --output <csv|json|table|vertical>  Set output format.\n"
               << "  --no-truncate-cmdline       Do not truncate the command line in table view.\n"
               << "  --sort-by <field>           Sort by field. Available: pid, ppid, name, user, rss, vm, threads, state, cpu, start-time, mem-perc.\n"
-              << "  --desc                      Sort in descending order.\n"
+              << "  --sort-order <asc|desc>     Sort in ascending or descending order.\n"
               << "  --state <char>              Filter by process state (e.g., R, S, Z, T, D).\n"
               << "  --ppid <ppid>               Filter by parent process ID.\n\n"
               << "PID Specific Options:\n"
@@ -211,4 +211,3 @@ void printProcessJson(const std::vector<ProcessInfo>& processes, const std::vect
     }
     std::cout << "]\n";
 }
-

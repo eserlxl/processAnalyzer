@@ -342,3 +342,61 @@ TEST(ArgsTests, ParseCommandLineMultipleOptions) {
     ASSERT_TRUE(parsedArgs->configFilePath.has_value());
     EXPECT_EQ(parsedArgs->configFilePath.value(), "my_config.ini");
 }
+
+TEST(ArgsTests, ParseCommandLinePositionalPidCommand) {
+    std::vector<std::string> args = {"processAnalyzer", "pid", "1234", "--threads"};
+    std::vector<char*> argv = makeArgv(args);
+    std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
+
+    ASSERT_TRUE(parsedArgs.has_value());
+    EXPECT_EQ(parsedArgs->command, "pid");
+    ASSERT_TRUE(parsedArgs->pid.has_value());
+    EXPECT_EQ(parsedArgs->pid.value(), 1234);
+    EXPECT_TRUE(parsedArgs->showThreads);
+}
+
+TEST(ArgsTests, ParseCommandLinePositionalPidCommandMissingValue) {
+    std::vector<std::string> args = {"processAnalyzer", "pid"};
+    std::vector<char*> argv = makeArgv(args);
+    std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
+
+    ASSERT_FALSE(parsedArgs.has_value());
+}
+
+TEST(ArgsTests, ParseCommandLinePositionalPidCommandInvalidValue) {
+    std::vector<std::string> args = {"processAnalyzer", "pid", "not-a-number"};
+    std::vector<char*> argv = makeArgv(args);
+    std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
+
+    ASSERT_FALSE(parsedArgs.has_value());
+}
+
+TEST(ArgsTests, ParseCommandLinePositionalNameCommand) {
+    std::vector<std::string> args = {"processAnalyzer", "name", "firefox"};
+    std::vector<char*> argv = makeArgv(args);
+    std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
+
+    ASSERT_TRUE(parsedArgs.has_value());
+    EXPECT_EQ(parsedArgs->command, "name");
+    ASSERT_TRUE(parsedArgs->name.has_value());
+    EXPECT_EQ(parsedArgs->name.value(), "firefox");
+}
+
+TEST(ArgsTests, ParseCommandLinePositionalUserCommand) {
+    std::vector<std::string> args = {"processAnalyzer", "user", "root"};
+    std::vector<char*> argv = makeArgv(args);
+    std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
+
+    ASSERT_TRUE(parsedArgs.has_value());
+    EXPECT_EQ(parsedArgs->command, "user");
+    ASSERT_TRUE(parsedArgs->user.has_value());
+    EXPECT_EQ(parsedArgs->user.value(), "root");
+}
+
+TEST(ArgsTests, ParseCommandLinePidCommandRejectsPpidFilter) {
+    std::vector<std::string> args = {"processAnalyzer", "pid", "42", "--ppid", "1"};
+    std::vector<char*> argv = makeArgv(args);
+    std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
+
+    ASSERT_FALSE(parsedArgs.has_value());
+}

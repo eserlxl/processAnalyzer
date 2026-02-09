@@ -66,6 +66,16 @@ target_link_libraries(processAnalyzer PRIVATE processAnalyzerLib processAnalyzer
 
 # Enable testing
 include(FetchContent)
+
+# Reuse an already fetched googletest source tree when available.
+# This keeps clean out-of-tree builds usable in offline environments.
+if((NOT DEFINED FETCHCONTENT_SOURCE_DIR_GOOGLETEST OR FETCHCONTENT_SOURCE_DIR_GOOGLETEST STREQUAL "") AND
+   EXISTS "${CMAKE_SOURCE_DIR}/build/_deps/googletest-src/CMakeLists.txt")
+    set(FETCHCONTENT_SOURCE_DIR_GOOGLETEST
+        "${CMAKE_SOURCE_DIR}/build/_deps/googletest-src"
+        CACHE PATH "Path to pre-fetched googletest sources" FORCE)
+endif()
+
 FetchContent_Declare(
   googletest
   GIT_REPOSITORY https://github.com/google/googletest.git
