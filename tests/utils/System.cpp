@@ -110,6 +110,20 @@ TEST(SystemExecuteCommandTest, emptyCommand) {
     EXPECT_EQ(result.error(), utils::make_error_code(utils::UtilsError::invalidArgument));
 }
 
+TEST_F(SystemEnvTest, invalidEnvVariableName) {
+    auto getResult = utils::getEnv("");
+    ASSERT_FALSE(getResult.has_value());
+    EXPECT_EQ(getResult.error(), utils::make_error_code(utils::UtilsError::invalidArgument));
+
+    auto setResult = utils::setEnv("BAD=NAME", "value");
+    ASSERT_FALSE(setResult.has_value());
+    EXPECT_EQ(setResult.error(), utils::make_error_code(utils::UtilsError::invalidArgument));
+
+    auto unsetResult = utils::unsetEnv("BAD=NAME");
+    ASSERT_FALSE(unsetResult.has_value());
+    EXPECT_EQ(unsetResult.error(), utils::make_error_code(utils::UtilsError::invalidArgument));
+}
+
 
 // --- Stub Function Tests ---
 

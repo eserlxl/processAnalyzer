@@ -17,6 +17,11 @@
 namespace utils {
 
 Result<::std::string> getEnv(::std::string_view name) {
+    if (name.empty() || name.find('=') != ::std::string_view::npos ||
+        name.find('\0') != ::std::string_view::npos) {
+        return ::std::unexpected(make_error_code(UtilsError::invalidArgument));
+    }
+
     // std::getenv requires a null-terminated string, so we might need to convert.
     // A string_view doesn't guarantee null termination.
     char* value = ::std::getenv(::std::string(name).c_str());
