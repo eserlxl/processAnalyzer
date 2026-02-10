@@ -9,6 +9,7 @@
 #include <sstream>
 #include <map>
 #include <algorithm>
+#include <cassert>
 
 namespace {
     // Helper to get string value of a ProcessInfo field based on column name
@@ -40,7 +41,8 @@ namespace {
         }
         if (col == "exec-path") return info.executablePath;
         if (col == "nice") return std::to_string(info.priority);
-        return ""; // Should not happen with valid column names
+        assert(false && "Unknown column name requested");
+    return ""; // Should not happen with valid column names
     }
 }
 

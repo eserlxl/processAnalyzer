@@ -12,14 +12,15 @@
 
 **processAnalyzer** is a modern, high-performance system diagnostics tool for Linux. Built with C++23, it provides a powerful interface to the `/proc` filesystem, allowing developers and system administrators to inspect, monitor, and analyze processes with precision.
 
-Whether you are debugging complex microservices, analyzing memory footprints, or tracing process hierarchies, `processAnalyzer` delivers the insights you need through a user-friendly command-line interface.
+Whether you are debugging complex microservices, analyzing memory footprints, tracing process hierarchies, or inspecting thread-level details, `processAnalyzer` delivers the insights you need through a user-friendly command-line interface and a robust C++ API.
 
 ## Key Features
 
 -   **Deep Process Inspection**: Analyze memory maps, open files, network connections (TCP/UDP), and thread details.
--   **Advanced Filtering**: precise filtering by PID, user, state, memory usage, and more.
+-   **Advanced Filtering**: Precise filtering by PID, user, state, memory usage, and more.
+-   **Thread Analysis**: Inspect individual threads within a process to debug concurrency issues.
 -   **System-Wide Metrics**: Monitor global CPU load, memory utilization, and I/O statistics.
--   **Flexible Output Formats**: Export data as **table**, **vertical**, **JSON**, or **CSV** for easy integration with external tools.
+-   **Flexible Output Formats**: Export data as **table**, **vertical**, **JSON**, or **CSV** for easy integration with external tools like Splunk, ELK, or Excel.
 -   **Modern Architecture**: Written in C++23 for maximum performance and efficiency.
 
 For a detailed list of features, see [docs/features.md](docs/features.md).
@@ -28,7 +29,7 @@ For a detailed list of features, see [docs/features.md](docs/features.md).
 
 ### Prerequisites
 
--   **Operating System**: Linux (Kernel 5.x+ recommended for full feature support via `/proc`).
+-   **Operating System**: Linux (Kernel 5.x+ recommended).
 -   **Compiler**: C++23 compatible compiler (GCC 12+ or Clang 16+).
 -   **Build System**: CMake 3.17+ and a build tool (Make or Ninja).
 -   **Version Control**: Git.
@@ -43,7 +44,7 @@ cd processAnalyzer
 # Configure and build
 mkdir build && cd build
 cmake ..
-make -j$(nproc)
+cmake --build . -j$(nproc)
 ```
 
 The executable will be available at `build/processAnalyzer`.
@@ -52,9 +53,7 @@ For detailed build instructions and troubleshooting, see [docs/build.md](docs/bu
 
 ## Quick Start
 
-After building, the executable `processAnalyzer` will be located in the `build/` directory. You can run it using `./build/processAnalyzer <command>`.
-
-Get started immediately with these common commands:
+Run `processAnalyzer` from the `build/` directory:
 
 ```bash
 # List all running processes
@@ -63,11 +62,14 @@ Get started immediately with these common commands:
 # Find processes by name (e.g., 'sshd')
 ./build/processAnalyzer list --name sshd
 
-# Show detailed info for a specific PID (including children and open files)
-./build/processAnalyzer show --pid <PID> --children --open-files
+# Show detailed info for a specific PID (including children, open files, and threads)
+./build/processAnalyzer show --pid <PID> --children --open-files --threads
 
 # Equivalent positional PID command
-./build/processAnalyzer pid <PID> --children --open-files
+./build/processAnalyzer pid <PID> --network
+
+# Export process list to JSON
+./build/processAnalyzer list --output json > processes.json
 
 # Display help menu
 ./build/processAnalyzer --help
@@ -79,10 +81,10 @@ Comprehensive documentation is available in the `docs/` directory:
 
 | Document | Description |
 | :--- | :--- |
-| [**Usage Guide**](docs/usage.md) | detailed command reference and examples. |
+| [**Usage Guide**](docs/usage.md) | Detailed command reference and examples. |
 | [**API Reference**](docs/api-reference.md) | C++ API documentation for library integrators. |
 | [**Project Structure**](docs/project-structure.md) | Overview of the codebase organization. |
-| [**Configuration**](docs/configuration.md) | Configuration file options (Roadmap). |
+| [**Configuration**](docs/configuration.md) | Configuration file options. |
 | [**Utility Library**](docs/utils.md) | Guide to the internal `utils` library. |
 | [**Changelog**](docs/changelog.md) | History of version changes. |
 

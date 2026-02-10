@@ -50,7 +50,7 @@ ProcessInfo createDummyProcess(pid_t pid, const std::string& name, const std::st
     p.cpuKernelTimeTicks = 500 + (pid % 50);
     p.priority = 0;
     p.cpuUsage = 1.0F + (pid % 10);
-    p.memoryPercentage = 0.5F + (pid % 20) / 100.0F;
+    p.memoryPercentage = 0.5F + ((pid % 20) / 100.0F);
     p.environmentVariables = {"PATH=/usr/bin", "LANG=en_US.UTF-8"};
     // ProcessInfo does not directly contain openFiles or networkConnections as vectors of strings/pairs.
     // They are handled by separate structs (OpenFileDescriptorInfo, NetworkConnection) and returned by specific functions.
@@ -62,17 +62,17 @@ TEST(OutputTests, GetDefaultColumnsForTable) {
     std::vector<std::string> briefColumns = getDefaultColumnsForTable(false);
     ASSERT_FALSE(briefColumns.empty());
     // Check for some expected brief columns
-    EXPECT_TRUE(std::find(briefColumns.begin(), briefColumns.end(), "pid") != briefColumns.end());
-    EXPECT_TRUE(std::find(briefColumns.begin(), briefColumns.end(), "name") != briefColumns.end());
+    EXPECT_TRUE(std::ranges::find(briefColumns, "pid") != briefColumns.end());
+    EXPECT_TRUE(std::ranges::find(briefColumns, "name") != briefColumns.end());
 
     std::vector<std::string> fullColumns = getDefaultColumnsForTable(true);
     ASSERT_FALSE(fullColumns.empty());
     // Check for some expected full columns, which should be more than brief
     EXPECT_GT(fullColumns.size(), briefColumns.size());
-    EXPECT_TRUE(std::find(fullColumns.begin(), fullColumns.end(), "cmdline") != fullColumns.end());
+    EXPECT_TRUE(std::ranges::find(fullColumns, "cmdline") != fullColumns.end());
     // CPU% is now "cpu" or "cpu(%)" in header, but the key is "cpu" (or similar, checking impl). 
     // In Output.cpp getProcessInfoValue handles "cpu".
-    EXPECT_TRUE(std::find(fullColumns.begin(), fullColumns.end(), "rss") != fullColumns.end());
+    EXPECT_TRUE(std::ranges::find(fullColumns, "rss") != fullColumns.end());
 }
 
 TEST(OutputTests, PrintProcessTableBasic) {
@@ -92,7 +92,7 @@ TEST(OutputTests, PrintProcessTableBasic) {
     EXPECT_NE(output.find("USER"), std::string::npos);
     
     // Check for content presence. Spacing might vary based on column widths.
-    EXPECT_NE(output.find("1"), std::string::npos);
+    EXPECT_NE(output.find('1'), std::string::npos);
     EXPECT_NE(output.find("systemd"), std::string::npos);
     EXPECT_NE(output.find("root"), std::string::npos);
     
@@ -140,15 +140,26 @@ TEST(OutputTests, PrintProcessJson) {
     printProcessJson(processes, columns);
     std::string output = redirect.getString();
 
-    // Very basic check for JSON structure and content
+    // Check for JSON structure and content
     EXPECT_EQ(output.front(), '[');
     EXPECT_EQ(output.back(), '\n'); // Newline at the end
+    
+    // Check content of first object
     EXPECT_NE(output.find("\"pid\": 1"), std::string::npos);
     EXPECT_NE(output.find("\"name\": \"systemd\""), std::string::npos);
     EXPECT_NE(output.find("\"user\": \"root\""), std::string::npos);
+    
+    // Check content of second object
     EXPECT_NE(output.find("\"pid\": 100"), std::string::npos);
     EXPECT_NE(output.find("\"name\": \"bash\""), std::string::npos);
     EXPECT_NE(output.find("\"user\": \"user\""), std::string::npos);
+    
+    // More robust checks for JSON structure
+    EXPECT_TRUE(output.find("  {") != std::string::npos); // Check for indented object start
+    EXPECT_TRUE(output.find('}') != std::string::npos); // Check for closing brace
+    EXPECT_TRUE(output.find("},\
+") != std::string::npos); // Check for comma between objects
+    EXPECT_TRUE(output.find("]\n") != std::string::npos); // Check for closing array bracket
 }
 
 TEST(OutputTests, PrintVerticalProcessDetails) {
@@ -169,8 +180,7 @@ TEST(OutputTests, PrintVerticalProcessDetails) {
     EXPECT_NE(output.find("test_process"), std::string::npos);
     EXPECT_NE(output.find("/usr/bin/test_process --config /etc/test.conf"), std::string::npos);
     EXPECT_NE(output.find("testuser"), std::string::npos);
-    EXPECT_NE(output.find("S"), std::string::npos);
-    // Path and Env checks removed as they might not be in vertical output logic or conditional.
+    EXPECT_NE(output.find('S'), std::string::npos);
 }
 
 TEST(OutputTests, PrintUsage) {
@@ -186,4 +196,38 @@ TEST(OutputTests, PrintUsage) {
     EXPECT_NE(output.find("Options:"), std::string::npos);
     EXPECT_NE(output.find("--pid <pid>"), std::string::npos);
     EXPECT_NE(output.find("--help"), std::string::npos);
+}
+
+TEST(OutputTests, PrintProcessTableTruncation) {
+    std::vector<ProcessInfo> processes;
+    std::string longCmd = "this-is-a-very-long-command-line-that-will-surely-exceed-the-default-width-of-forty-characters";
+    processes.push_back(createDummyProcess(1, "long-cmd", longCmd, "user1", 'R', 100000));
+    std::vector<std::string> columns = {"cmdline"};
+
+    StdOutRedirect redirect;
+    printProcessTable(processes, columns, false); // noTruncateCmdline = false
+    std::string output = redirect.getString();
+
+    // Default width for cmdline is 40. The output should be 39 chars + '~'.
+    std::string expectedTrunc = "this-is-a-very-long-command-line-that-w~";
+    EXPECT_NE(output.find(expectedTrunc), std::string::npos);
+    EXPECT_EQ(output.find(longCmd), std::string::npos); // The full command should not be present
+}
+
+TEST(OutputTests, PrintProcessCsvQuoting) {
+    std::vector<ProcessInfo> processes;
+    processes.push_back(createDummyProcess(1, "comma,name", "cmd, with, comma", "user", 'S', 10000000));
+    processes.push_back(createDummyProcess(2, "quote\"name", "cmd with \"quote\"", "user", 'R', 100000));
+
+    std::vector<std::string> columns = {"pid", "name", "cmdline"};
+
+    StdOutRedirect redirect;
+    printProcessCsv(processes, columns);
+    std::string output = redirect.getString();
+
+    EXPECT_NE(output.find("pid,name,cmdline"), std::string::npos);
+    // Check for quoted fields
+    EXPECT_NE(output.find("1,\"comma,name\",\"cmd, with, comma\""), std::string::npos);
+    // Check for escaped quotes
+    EXPECT_NE(output.find("2,\"quote\"\"name\",\"cmd with \"\"quote\"\"\""), std::string::npos);
 }

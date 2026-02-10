@@ -15,7 +15,7 @@ namespace fs = std::filesystem;
 namespace {
     constexpr int cleanupRetryCount = 3;
     constexpr int cleanupRetryDelayMs = 50;
-}
+
 
 // Base fixture for tests requiring a temporary directory
 class TempDirTest : public ::testing::Test {
@@ -65,6 +65,7 @@ protected:
             return false;
         }
 };
+}
 
 class PathFsTest : public TempDirTest {};
 

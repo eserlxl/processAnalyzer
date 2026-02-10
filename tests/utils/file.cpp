@@ -34,7 +34,6 @@ namespace {
     constexpr int cleanupRetryDelayMs = 50;
     const std::vector<std::byte> testData = {std::byte{0xDE}, std::byte{0xAD}, std::byte{0xBE}, std::byte{0xEF}};
     const std::vector<std::byte> appendData = {std::byte{0x00}, std::byte{0xFF}};
-}
 
 // Base fixture for tests requiring a temporary directory
 class TempDirTest : public ::testing::Test {
@@ -67,6 +66,7 @@ protected:
             }
         }
 };
+}
         
 // Test fixture for new API tests
 class UtilsNewApiTest : public TempDirTest {
