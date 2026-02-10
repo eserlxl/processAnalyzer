@@ -23,7 +23,24 @@ MockProc::MockProc(const std::string& basePath) : root(basePath) {
 }
 
 MockProc::~MockProc() {
-    fs::remove_all(root);
+    std::error_code ec;
+    // Try to remove directly first
+    fs::remove_all(root, ec);
+    
+    if (ec) {
+        // If failed (likely permission denied), try to restore permissions
+        try {
+            for (const auto& entry : fs::recursive_directory_iterator(root, fs::directory_options::skip_permission_denied)) {
+                try {
+                    fs::permissions(entry.path(), fs::perms::all, fs::perm_options::replace);
+                } catch (...) {}
+            }
+            fs::permissions(root, fs::perms::all, fs::perm_options::replace);
+        } catch (...) {}
+        
+        // Try removing again
+        fs::remove_all(root, ec);
+    }
 }
 
 std::string MockProc::getPath() const {

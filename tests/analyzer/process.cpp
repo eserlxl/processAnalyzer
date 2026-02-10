@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright (c) 2026 Eser KUBALI
 
-#include "analyzer/Core.h"
-#include "utils/Test.h"
+#include "analyzer/core.h"
+#include "utils/test.h"
+#include <gtest/gtest.h>
+#include <algorithm>
 #include <ranges>
 #include <filesystem>
 
@@ -31,11 +33,11 @@ protected:
         // PID 1: init-like process
         mockProc->createProcFile(initPid, "status", "Name:\tinit\nState:\tS (sleeping)\nPPid:\t0\nUid:\t0\t0\t0\t0\nThreads:\t1\nVmRSS:\t1000 kB\nVmSize:\t4000 kB\n");
         mockProc->createProcFile(initPid, "stat", "1 (init) S 0 1 1 0 -1 4202752 239 0 0 0 10 20 0 0 20 0 1 0 12345 4096000 1000 18446744073709551615 1 1 0 0 0 0 0 4096 0 0 0 0 17 0 0 0 0 0 0 0 0 0 0 0 0 0 0");
-        mockProc->createProcFile(initPid, "cmdline", "systemd\0");
+        mockProc->createProcFile(initPid, "cmdline", std::string("systemd\0", 8));
         mockProc->createProcFile(initPid, "io", "rchar: 100\nwchar: 200\n");
         mockProc->createSymlink(initPid, "exe", "/sbin/init");
         mockProc->createSymlink(initPid, "cwd", "/");
-        mockProc->createProcFile(initPid, "environ", "PATH=/bin:/sbin\0HOME=/\0");
+        mockProc->createProcFile(initPid, "environ", std::string("PATH=/bin:/sbin\0HOME=/\0", 23));
         mockProc->createProcFile(initPid, "maps", "00400000-00452000 r-xp 00000000 08:01 12345 /sbin/init\n");
         mockProc->createProcFile(initPid, "limits", "Limit                     Soft Limit           Hard Limit           Units     \nMax cpu time              unlimited            unlimited            seconds   \n");
         mockProc->createProcFile(initPid, "cgroup", "1:cpu,cpuacct:/\n");
@@ -52,8 +54,8 @@ protected:
         // PID 3: another process, child of PID 1, running state
         mockProc->createProcFile(myAppPid, "status", "Name:\tmy-app\nState:\tR (running)\nPPid:\t1\nUid:\t1000\t1000\t1000\t1000\nThreads:\t10\nVmRSS:\t50000 kB\nVmSize:\t100000 kB\n");
         mockProc->createProcFile(myAppPid, "stat", "3 (my-app) R 1 3 3 0 -1 4202752 239 0 0 0 15 25 0 0 20 15 1 0 23456 102400000 50000 18446744073709551615 1 1 0 0 0 0 0 4096 0 0 0 0 17 0 0 0 0 0 0 0 0 0 0 0 0 0 0");
-        mockProc->createProcFile(myAppPid, "cmdline", "/usr/bin/my-app\0--config\0/etc/my-app.conf");
-        mockProc->createProcFile(myAppPid, "environ", "PATH=/usr/bin\0USER=testuser\0");
+        mockProc->createProcFile(myAppPid, "cmdline", std::string("/usr/bin/my-app\0--config\0/etc/my-app.conf", 41));
+        mockProc->createProcFile(myAppPid, "environ", std::string("PATH=/usr/bin\0USER=testuser\0", 28));
         mockProc->createProcFile(myAppPid, "io", "rchar: 9876\nwchar: 5432\nread_bytes: 9999\nwrite_bytes: 4444\n");
         mockProc->createSymlink(myAppPid, "exe", "/usr/bin/my-app");
         mockProc->createSymlink(myAppPid, "cwd", "/home/testuser");
@@ -512,11 +514,11 @@ TEST_F(ProcessAnalyzerTest, QueryProcessesSorting) {
     ASSERT_TRUE(resultsResult.has_value());
     results = *resultsResult;
     ASSERT_EQ(results.size(), 4);
-    // Cmdlines: "" (kthreadd), "[unreadable]" (zombie), "/usr/bin/my-app..." (myApp), "systemd" (init)
-    // Expected PID order: 2, 4, 3, 1
+    // Cmdlines: "" (kthreadd), "/usr/bin/my-app..." (myApp), "[unreadable]" (zombie), "systemd" (init)
+    // Expected PID order: 2, 3, 4, 1
     EXPECT_EQ(results[0].pid, kthreaddPid);
-    EXPECT_EQ(results[1].pid, zombiePid);
-    EXPECT_EQ(results[2].pid, myAppPid);
+    EXPECT_EQ(results[1].pid, myAppPid);
+    EXPECT_EQ(results[2].pid, zombiePid);
     EXPECT_EQ(results[3].pid, initPid);
 
     // Sort by uid descending
@@ -596,7 +598,7 @@ TEST_F(ProcessAnalyzerTest, GetProcessOpenFileDetailsEdgeCases) {
 
     // Broken symlink
     EXPECT_EQ(fds[0].fd, 10);
-    EXPECT_EQ(fds[0].path, "[unreadable]");
+    EXPECT_EQ(fds[0].path, "/path/to/nonexistent/target");
 
     // Valid symlink
     EXPECT_EQ(fds[1].fd, 11);

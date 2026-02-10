@@ -26,7 +26,6 @@ processAnalyzer/
 │   ├───utils.md                # Documentation for the internal 'utils' library.
 │   └───audit/                  # Directory for audit-related documentation or logs.
 ├───include/                    # Public header files for the project.
-│   ├───utils.h                 # Main header for the utility library.
 │   ├───analyzer/               # Headers for the core analysis engine.
 │   │   ├───core.h
 │   │   ├───network_model.h

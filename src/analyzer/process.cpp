@@ -78,36 +78,43 @@ namespace {
     }
 
     auto processSortPredicate = [](const ProcessInfo& a, const ProcessInfo& b, ProcessSortField sortBy, SortOrder sortOrder) {
-        auto keyLess = [&](const ProcessInfo& lhs, const ProcessInfo& rhs) {
+        auto compare = [&](const ProcessInfo& lhs, const ProcessInfo& rhs) -> int {
             switch (sortBy) {
-                case ProcessSortField::pid: return lhs.pid < rhs.pid;
-                case ProcessSortField::ppid: return lhs.ppid < rhs.ppid;
-                case ProcessSortField::uid: return lhs.uid < rhs.uid;
-                case ProcessSortField::user: return lhs.username < rhs.username;
-                case ProcessSortField::name: return lhs.name < rhs.name;
-                case ProcessSortField::state: return lhs.state < rhs.state;
-                case ProcessSortField::rss: return lhs.residentMemory < rhs.residentMemory;
-                case ProcessSortField::vmsize: return lhs.virtualMemory < rhs.virtualMemory;
-                case ProcessSortField::threads: return lhs.threadCount < rhs.threadCount;
-                case ProcessSortField::startTime: return lhs.startTimeTicks < rhs.startTimeTicks;
-                case ProcessSortField::executablePath: return lhs.executablePath < rhs.executablePath;
-                case ProcessSortField::cmdline: return lhs.cmdline < rhs.cmdline;
-                case ProcessSortField::cpuTime: return (lhs.cpuUserTimeTicks + lhs.cpuKernelTimeTicks) < (rhs.cpuUserTimeTicks + rhs.cpuKernelTimeTicks);
-                case ProcessSortField::cwd: return lhs.currentWorkingDirectory < rhs.currentWorkingDirectory;
-                case ProcessSortField::cpuUserTime: return lhs.cpuUserTimeTicks < rhs.cpuUserTimeTicks;
-                case ProcessSortField::cpuKernelTime: return lhs.cpuKernelTimeTicks < rhs.cpuKernelTimeTicks;
-                case ProcessSortField::ioReadBytes: return lhs.ioReadBytes < rhs.ioReadBytes;
-                case ProcessSortField::ioWriteBytes: return lhs.ioWriteBytes < rhs.ioWriteBytes;
-                case ProcessSortField::priority: return lhs.priority < rhs.priority;
-                case ProcessSortField::cpuUsage: return lhs.cpuUsage < rhs.cpuUsage;
-                case ProcessSortField::memoryPercentage: return lhs.memoryPercentage < rhs.memoryPercentage;
-                default: return lhs.pid < rhs.pid;
+                case ProcessSortField::pid: if (lhs.pid != rhs.pid) return lhs.pid < rhs.pid ? -1 : 1; break;
+                case ProcessSortField::ppid: if (lhs.ppid != rhs.ppid) return lhs.ppid < rhs.ppid ? -1 : 1; break;
+                case ProcessSortField::uid: if (lhs.uid != rhs.uid) return lhs.uid < rhs.uid ? -1 : 1; break;
+                case ProcessSortField::user: if (lhs.username != rhs.username) return lhs.username < rhs.username ? -1 : 1; break;
+                case ProcessSortField::name: if (lhs.name != rhs.name) return lhs.name < rhs.name ? -1 : 1; break;
+                case ProcessSortField::state: if (lhs.state != rhs.state) return lhs.state < rhs.state ? -1 : 1; break;
+                case ProcessSortField::rss: if (lhs.residentMemory != rhs.residentMemory) return lhs.residentMemory < rhs.residentMemory ? -1 : 1; break;
+                case ProcessSortField::vmsize: if (lhs.virtualMemory != rhs.virtualMemory) return lhs.virtualMemory < rhs.virtualMemory ? -1 : 1; break;
+                case ProcessSortField::threads: if (lhs.threadCount != rhs.threadCount) return lhs.threadCount < rhs.threadCount ? -1 : 1; break;
+                case ProcessSortField::startTime: if (lhs.startTimeTicks != rhs.startTimeTicks) return lhs.startTimeTicks < rhs.startTimeTicks ? -1 : 1; break;
+                case ProcessSortField::executablePath: if (lhs.executablePath != rhs.executablePath) return lhs.executablePath < rhs.executablePath ? -1 : 1; break;
+                case ProcessSortField::cmdline: if (lhs.cmdline != rhs.cmdline) return lhs.cmdline < rhs.cmdline ? -1 : 1; break;
+                case ProcessSortField::cpuTime: {
+                    auto leftTime = lhs.cpuUserTimeTicks + lhs.cpuKernelTimeTicks;
+                    auto rightTime = rhs.cpuUserTimeTicks + rhs.cpuKernelTimeTicks;
+                    if (leftTime != rightTime) return leftTime < rightTime ? -1 : 1;
+                    break;
+                }
+                case ProcessSortField::cwd: if (lhs.currentWorkingDirectory != rhs.currentWorkingDirectory) return lhs.currentWorkingDirectory < rhs.currentWorkingDirectory ? -1 : 1; break;
+                case ProcessSortField::cpuUserTime: if (lhs.cpuUserTimeTicks != rhs.cpuUserTimeTicks) return lhs.cpuUserTimeTicks < rhs.cpuUserTimeTicks ? -1 : 1; break;
+                case ProcessSortField::cpuKernelTime: if (lhs.cpuKernelTimeTicks != rhs.cpuKernelTimeTicks) return lhs.cpuKernelTimeTicks < rhs.cpuKernelTimeTicks ? -1 : 1; break;
+                case ProcessSortField::ioReadBytes: if (lhs.ioReadBytes != rhs.ioReadBytes) return lhs.ioReadBytes < rhs.ioReadBytes ? -1 : 1; break;
+                case ProcessSortField::ioWriteBytes: if (lhs.ioWriteBytes != rhs.ioWriteBytes) return lhs.ioWriteBytes < rhs.ioWriteBytes ? -1 : 1; break;
+                case ProcessSortField::priority: if (lhs.priority != rhs.priority) return lhs.priority < rhs.priority ? -1 : 1; break;
+                case ProcessSortField::cpuUsage: if (lhs.cpuUsage != rhs.cpuUsage) return lhs.cpuUsage < rhs.cpuUsage ? -1 : 1; break;
+                case ProcessSortField::memoryPercentage: if (lhs.memoryPercentage != rhs.memoryPercentage) return lhs.memoryPercentage < rhs.memoryPercentage ? -1 : 1; break;
+                default: if (lhs.pid != rhs.pid) return lhs.pid < rhs.pid ? -1 : 1; break;
             }
+            return 0;
         };
 
-        bool less = keyLess(a, b);
-        if (sortOrder == SortOrder::asc) return less;
-        return keyLess(b, a);
+        int cmp = compare(a, b);
+        if (cmp == 0) return a.pid < b.pid;
+        
+        return sortOrder == SortOrder::asc ? (cmp < 0) : (cmp > 0);
     };
 
     utils::Result<void> checkPidPathExistsAndPermissions(const fs::path& procPath, pid_t pid) {
@@ -434,11 +441,14 @@ utils::Result<ProcessDiskIoUsage> ProcessAnalyzer::getProcessDiskIoUsage(pid_t p
     if (!finalDetailsResult) return std::unexpected(finalDetailsResult.error());
 
     double durationSec = std::chrono::duration<double>(endTime - startTime).count();
+    double readBytesPerSec = (durationSec > 0) ? (finalDetailsResult->ioReadBytes - initialDetailsResult->ioReadBytes) / durationSec : 0.0;
+    double writeBytesPerSec = (durationSec > 0) ? (finalDetailsResult->ioWriteBytes - initialDetailsResult->ioWriteBytes) / durationSec : 0.0;
+
     return ProcessDiskIoUsage {
         .pid = pid,
         .name = finalDetailsResult->name,
-        .readBytesPerSecond = (durationSec > 0) ? (finalDetailsResult->ioReadBytes - initialDetailsResult->ioReadBytes) / durationSec : 0.0,
-        .writeBytesPerSecond = (durationSec > 0) ? (finalDetailsResult->ioWriteBytes - initialDetailsResult->ioWriteBytes) / durationSec : 0.0
+        .readBytesPerSecond = std::max(0.0, readBytesPerSec),
+        .writeBytesPerSecond = std::max(0.0, writeBytesPerSec)
     };
 }
 
