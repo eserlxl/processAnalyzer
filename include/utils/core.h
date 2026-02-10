@@ -7,11 +7,11 @@
 // This header aggregates all utility headers for backward compatibility.
 // New code should prefer including specific headers.
 
-#include "utils/Types.h"
-#include "utils/File.h"
-#include "utils/Path.h"
-#include "utils/String.h"
-#include "utils/System.h"
-#include "utils/Time.h"
+#include "utils/types.h"
+#include "utils/file.h"
+#include "utils/path.h"
+#include "utils/string.h"
+#include "utils/system.h"
+#include "utils/time.h"
 
 #endif // UTILS_H

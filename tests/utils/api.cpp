@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Eser KUBALI
 
 #include "gtest/gtest.h"
-#include "utils/Test.h"
+#include "utils/test.h"
 #include <sstream>
 #include <memory>
 #include <optional>

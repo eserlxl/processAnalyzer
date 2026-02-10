@@ -20,11 +20,11 @@
 #include <sched.h>        // For sched_setaffinity, cpu_set_t
 #include <regex>        // For std::regex (C++11)
 
-#include "utils/Types.h" // For utils::Result<T> and UtilsError
+#include "utils/types.h" // For utils::Result<T> and UtilsError
 
-#include "analyzer/ProcessModel.h"
-#include "analyzer/SystemModel.h"
-#include "analyzer/NetworkModel.h"
+#include "analyzer/process_model.h"
+#include "analyzer/system_model.h"
+#include "analyzer/network_model.h"
 
 class ProcessAnalyzer {
 public:

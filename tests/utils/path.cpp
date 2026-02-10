@@ -2,7 +2,7 @@
 // Copyright (c) 2024 Eser KUBALI
 
 #include "gtest/gtest.h"
-#include "utils/Core.h"
+#include "utils/core.h"
 #include <filesystem>
 #include <fstream>
 #include <string>

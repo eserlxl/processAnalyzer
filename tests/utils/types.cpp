@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Eser KUBALI
 
 #include "gtest/gtest.h"
-#include "utils/Types.h"
+#include "utils/types.h"
 #include <string>
 #include <system_error>
 #include <map>

@@ -6,7 +6,7 @@
 
 #include <vector>
 #include <string>
-#include "analyzer/ProcessModel.h"
+#include "analyzer/process_model.h"
 
 void printUsage();
 std::vector<std::string> getDefaultColumnsForTable(bool fullDetails);

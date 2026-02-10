@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Eser KUBALI
 
 #include "gtest/gtest.h"
-#include "utils/Time.h"
+#include "utils/time.h"
 #include <chrono>
 #include <string>
 #include <thread>

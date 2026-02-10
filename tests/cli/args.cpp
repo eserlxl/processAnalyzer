@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Eser KUBALI
 
 #include "gtest/gtest.h"
-#include "cli/Args.h"
+#include "cli/args.h"
 #include <vector>
 #include <string>
 #include <optional>

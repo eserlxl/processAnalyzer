@@ -8,9 +8,9 @@
 #include <iomanip>
 #include <filesystem> // Added for std::filesystem::path
 
-#include "analyzer/Core.h"
-#include "cli/Args.h"
-#include "cli/Output.h"
+#include "analyzer/core.h"
+#include "cli/args.h"
+#include "cli/output.h"
 
 int main(int argc, char* argv[]) {
     try {

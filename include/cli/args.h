@@ -8,7 +8,7 @@
 #include <vector>
 #include <optional>
 #include <span>
-#include "analyzer/ProcessModel.h" // For ProcessSortField, SortOrder
+#include "analyzer/process_model.h" // For ProcessSortField, SortOrder
 
 struct ParsedArguments {
     std::string command;

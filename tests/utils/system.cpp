@@ -2,9 +2,9 @@
 // Copyright (c) 2026 Eser KUBALI
 
 #include "gtest/gtest.h"
-#include "utils/System.h"
-#include "utils/String.h"
-#include "utils/Types.h"
+#include "utils/system.h"
+#include "utils/string.h"
+#include "utils/types.h"
 #include <cstdlib>
 
 // --- getEnv Tests ---

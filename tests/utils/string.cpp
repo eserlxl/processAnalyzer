@@ -2,8 +2,8 @@
 // Copyright (c) 2024 Eser KUBALI
 
 #include "gtest/gtest.h"
-#include "utils/String.h"
-#include "utils/Types.h" // For Result<T> and UtilsError
+#include "utils/string.h"
+#include "utils/types.h" // For Result<T> and UtilsError
 #include <string>
 #include <vector>
 #include <limits>

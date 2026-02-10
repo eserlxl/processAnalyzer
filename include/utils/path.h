@@ -4,7 +4,7 @@
 #ifndef UTILS_PATH_H
 #define UTILS_PATH_H
 
-#include "utils/Types.h"
+#include "utils/types.h"
 #include <filesystem>
 #include <string>
 #include <vector>

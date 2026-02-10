@@ -8,8 +8,8 @@
 #include <limits>  // For std::numeric_limits
 #include <string>  // For std::to_string
 
-#include "analyzer/Core.h"
-#include "utils/Core.h"
+#include "analyzer/core.h"
+#include "utils/core.h"
 
 #include <filesystem>
 #include <sstream>

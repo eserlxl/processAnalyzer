@@ -2,8 +2,8 @@
 // Copyright (c) 2026 Eser KUBALI
 
 #include "gtest/gtest.h"
-#include "cli/Output.h"
-#include "analyzer/ProcessModel.h"
+#include "cli/output.h"
+#include "analyzer/process_model.h"
 #include <vector>
 #include <string>
 #include <sstream>

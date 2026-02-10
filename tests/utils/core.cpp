@@ -2,13 +2,13 @@
 // Copyright (c) 2024 Eser KUBALI
 
 #include "gtest/gtest.h"
-#include "utils/Core.h"
+#include "utils/core.h"
 #include <string>
 #include <vector>
 #include <filesystem>
 #include <fstream>
 #include <cstdlib>
-#include "utils/String.h" // Added for utils::trim and utils::contains
+#include "utils/string.h" // Added for utils::trim and utils::contains
 
 
 // Helper to create a temporary file for testing
