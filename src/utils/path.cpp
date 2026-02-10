@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright (c) 2024 Eser KUBALI
 
-#include "utils/Path.h"
+#include "utils/path.h"
 
 namespace utils {
 

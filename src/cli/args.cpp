@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright (c) 2026 Eser KUBALI
 
-#include "cli/Args.h"
-#include "utils/String.h"
+#include "cli/args.h"
+#include "utils/string.h"
 #include <iostream>
 #include <algorithm>
 #include <vector>

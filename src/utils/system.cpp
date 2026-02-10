@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright (c) 2026 Eser KUBALI
 
-#include "utils/System.h"
+#include "utils/system.h"
 
 // C system headers
 #include <cstdio>

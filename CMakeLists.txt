@@ -36,13 +36,13 @@ endif()
 
 # Create a library for the core logic to be shared with tests
 add_library(processAnalyzerLib STATIC
-    src/analyzer/Core.cpp
-    src/utils/File.cpp
-    src/utils/Path.cpp
-    src/utils/String.cpp
-    src/utils/System.cpp
-    src/utils/Time.cpp
-    src/utils/Types.cpp
+    src/analyzer/core.cpp
+    src/utils/file.cpp
+    src/utils/path.cpp
+    src/utils/string.cpp
+    src/utils/system.cpp
+    src/utils/time.cpp
+    src/utils/types.cpp
 )
 # Add include directory correctly to the library target
 target_include_directories(processAnalyzerLib PUBLIC ${CMAKE_SOURCE_DIR}/include)
@@ -55,8 +55,8 @@ endif()
 
 # Create a library for CLI logic
 add_library(processAnalyzerCliLib STATIC
-    src/cli/Args.cpp
-    src/cli/Output.cpp
+    src/cli/args.cpp
+    src/cli/output.cpp
 )
 target_include_directories(processAnalyzerCliLib PUBLIC ${CMAKE_SOURCE_DIR}/include)
 

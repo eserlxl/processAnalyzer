@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright (c) 2024 Eser KUBALI
 
-#include "utils/String.h"
+#include "utils/string.h"
 #include <algorithm>
 #include <cctype> // For std::tolower, std::toupper (used carefully for ASCII only)
 #include <charconv> // For std::from_chars
