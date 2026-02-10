@@ -28,52 +28,57 @@ processAnalyzer/
 ├───include/                    # Public header files for the project.
 │   ├───utils.h                 # Main header for the utility library.
 │   ├───analyzer/               # Headers for the core analysis engine.
-│   │   ├───Core.h
-│   │   ├───NetworkModel.h
-│   │   ├───ProcessModel.h
-│   │   └───SystemModel.h
+│   │   ├───core.h
+│   │   ├───network_model.h
+│   │   ├───process_model.h
+│   │   └───system_model.h
 │   ├───cli/                    # Headers for the command-line interface.
-│   │   ├───Args.h
-│   │   └───Output.h
+│   │   ├───args.h
+│   │   └───output.h
 │   └───utils/                  # Headers for the utility library modules.
-│       ├───Core.h
-│       ├───File.h
-│       ├───Path.h
-│       ├───String.h
-│       ├───System.h
-│       ├───Time.h
-│       └───Types.h
+│       ├───core.h
+│       ├───file.h
+│       ├───path.h
+│       ├───string.h
+│       ├───system.h
+│       ├───time.h
+│       └───types.h
 ├───src/                        # Source code files for the application logic.
 │   ├───main.cpp                # Main entry point for the command-line application.
 │   ├───analyzer/               # Implementation of the core analysis engine.
-│   │   └───Core.cpp
+│   │   ├───core.cpp
+│   │   ├───network.cpp
+│   │   ├───process.cpp
+│   │   └───system.cpp
 │   ├───cli/                    # Command-line interface logic.
-│   │   ├───Args.cpp
-│   │   └───Output.cpp
+│   │   ├───args.cpp
+│   │   └───output.cpp
 │   └───utils/                  # Implementation of the utility library modules.
-│       ├───File.cpp
-│       ├───Path.cpp
-│       ├───String.cpp
-│       ├───System.cpp
-│       ├───Time.cpp
-│       └───Types.cpp
+│       ├───file.cpp
+│       ├───filesystem.cpp
+│       ├───path.cpp
+│       ├───string.cpp
+│       ├───system.cpp
+│       ├───time.cpp
+│       └───types.cpp
 ├───Testing/                    # Directory used by CTest for testing purposes.
 └───tests/                      # Source files for unit and integration tests.
     ├───CMakeLists.txt          # CMake configuration for building the tests.
     ├───analyzer/
-    │   └───Core.cpp            # Tests for the analysis engine.
+    │   ├───core.cpp            # Tests for the analysis engine.
+    │   ├───network.cpp
+    │   ├───process.cpp
+    │   └───system.cpp
     ├───cli/                    # Tests for the CLI components.
-    │   ├───ArgsTests.cpp
-    │   └───OutputTests.cpp
+    │   ├───args.cpp
+    │   └───output.cpp
     └───utils/                  # Tests for the utility library.
-        ├───Core.cpp
-        ├───FileTests.cpp
-        ├───PathTests.cpp
-        ├───String.cpp
-        ├───System.cpp
-        ├───Test.cpp
-        ├───Test.h
-        ├───TestApi.cpp
-        ├───TimeTests.cpp
-        └───Types.cpp
-
+        ├───core.cpp
+        ├───file.cpp
+        ├───path.cpp
+        ├───string.cpp
+        ├───system.cpp
+        ├───test.h
+        ├───time.cpp
+        └───types.cpp
+```
