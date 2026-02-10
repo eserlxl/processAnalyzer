@@ -5,19 +5,26 @@ cmake_minimum_required(VERSION 3.17)
 
 # Consolidate all tests into a single executable
 add_executable(ProcessAnalyzerTests
-    utils/core.cpp
-    utils/system.cpp
-    analyzer/core.cpp
     analyzer/core_additional.cpp
-    utils/test.cpp
-    utils/api.cpp
-    utils/file.cpp
-    utils/path.cpp
-    utils/types.cpp
-    utils/string.cpp
+    analyzer/core.cpp
+    analyzer/network.cpp
+    analyzer/process.cpp
+    analyzer/system.cpp
     cli/args.cpp
     cli/output.cpp
+    utils/core.cpp
+    utils/file.cpp
+    utils/mock_proc/basic.cpp
+    utils/mock_proc/process.cpp
+    utils/mock_proc/system.cpp
+    utils/path/core.cpp
+    utils/path/fs.cpp
+    utils/path.cpp
+    utils/string.cpp
+    utils/system.cpp
+    utils/test.cpp
     utils/time.cpp
+    utils/types.cpp
 )
 
 # Link the single test executable
