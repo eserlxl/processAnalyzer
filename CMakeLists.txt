@@ -38,6 +38,7 @@ endif()
 add_library(processAnalyzerLib STATIC
     src/analyzer/core.cpp
     src/utils/file.cpp
+    src/utils/filesystem.cpp
     src/utils/path.cpp
     src/utils/string.cpp
     src/utils/system.cpp

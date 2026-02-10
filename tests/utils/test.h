@@ -42,6 +42,9 @@ public:
     void createFdDir(int pid, const std::vector<std::pair<int, std::string>>& fds);
     void createProcFdLink(int pid, int fd, const std::string& target);
 
+    // Permissions
+    void setPermissions(const fs::path& relativePath, fs::perms prms, fs::perm_options opts = fs::perm_options::replace);
+
     // Iteration 8
     void createExeSymlink(int pid, const fs::path& targetPath);
     void createCwdSymlink(int pid, const fs::path& targetPath);

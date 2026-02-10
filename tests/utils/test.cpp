@@ -138,6 +138,18 @@ void MockProc::createProcFdLink(int pid, int fd, const std::string& target) {
     fs::create_symlink(target, fdPath / std::to_string(fd));
 }
 
+void MockProc::setPermissions(const fs::path& relativePath, fs::perms prms, fs::perm_options opts) {
+    std::error_code ec;
+    fs::permissions(root / relativePath, prms, opts, ec);
+    if (ec) {
+        // In a real test utils lib, you might throw or log here.
+        // For this context, we'll ignore errors to keep it simple,
+        // as permission errors on the test runner's temp dir are unlikely
+        // and would cause other failures anyway.
+        std::cerr << "Failed to set permissions on " << (root / relativePath) << ": " << ec.message() << std::endl;
+    }
+}
+
 void MockProc::createExeSymlink(int pid, const fs::path& targetPath) {
     createSymlink(pid, "exe", targetPath.string());
 }

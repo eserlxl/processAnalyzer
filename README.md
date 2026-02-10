@@ -52,6 +52,8 @@ For detailed build instructions and troubleshooting, see [docs/build.md](docs/bu
 
 ## Quick Start
 
+After building, the executable `processAnalyzer` will be located in the `build/` directory. You can run it using `./build/processAnalyzer <command>`.
+
 Get started immediately with these common commands:
 
 ```bash
@@ -86,12 +88,7 @@ Comprehensive documentation is available in the `docs/` directory:
 
 ## Project Structure
 
-The project follows a standard C++ directory layout:
-
--   `src/`: Source code (`main.cpp`, CLI logic, Analyzer core).
--   `include/`: Header files (API definitions).
--   `tests/`: Unit and integration tests (GoogleTest).
--   `docs/`: Project documentation.
+For a detailed overview of the codebase organization, see [docs/project-structure.md](docs/project-structure.md).
 
 ## Testing
 
