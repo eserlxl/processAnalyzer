@@ -2,41 +2,60 @@
 // Copyright (c) 2026 Eser KUBALI
 
 #include "gtest/gtest.h"
-#include "cli/args.h"
+#include "cli/args.h" // Includes analyzer/process_model.h indirectly
+
 #include <vector>
 #include <string>
 #include <optional>
+#include <span>
 
-namespace { // Anonymous namespace for file-scope statics
-    // Global buffer storage for argument strings.
-    // NOTE: This implementation is NOT thread-safe due to the use of a global buffer.
-    // In a multi-threaded test environment, a thread-local or fixture-based approach
-    // would be necessary. For this context, we assume sequential test execution or
-    // that tests are sufficiently isolated.
-    std::vector<std::vector<char>> gArgBuffers;
-
+// Define a test fixture to manage argument buffers and ensure thread-safety.
+class ArgsTestFixture : public ::testing::Test {
+protected:
     // Helper to convert std::vector<std::string> to std::vector<char*> for argv.
     // Creates mutable copies of the strings to avoid potential undefined behavior
     // if parseCommandLine were to modify the contents of argv.
+    // This method uses the fixture's member 'argBuffers_' for thread-safe storage.
     std::vector<char*> makeArgv(const std::vector<std::string>& args) {
-        gArgBuffers.clear(); // Clear previous arguments to reuse the buffer
-        gArgBuffers.reserve(args.size());
+        argBuffers.clear(); // Clear previous arguments to reuse the buffer
+        argBuffers.reserve(args.size());
 
         for (const std::string& arg : args) {
-            gArgBuffers.emplace_back(arg.begin(), arg.end());
-            gArgBuffers.back().push_back('\0'); // Null-terminate the string
+            argBuffers.emplace_back(arg.begin(), arg.end());
+            argBuffers.back().push_back('\0'); // Null-terminate the string
         }
 
         std::vector<char*> argv;
-        argv.reserve(gArgBuffers.size());
-        for (auto& buffer : gArgBuffers) {
+        argv.reserve(argBuffers.size());
+        for (auto& buffer : argBuffers) {
             argv.push_back(buffer.data()); // Get pointer to the managed buffer
         }
         return argv; // Return pointers to the managed data
     }
-} // namespace
 
-TEST(ArgsTests, ParseCommandLineBasic) {
+    // Use TEST_F macro in tests below, which will automatically call SetUp()
+    // and TearDown() for each test.
+    void SetUp() override {
+        // Initialization for each test if needed.
+        // For now, makeArgv clears argBuffers_ at the start of each call,
+        // so explicit clearing here is not strictly necessary but good practice.
+        argBuffers.clear();
+    }
+
+    void TearDown() override {
+        // Cleanup for each test if needed.
+        argBuffers.clear(); // Ensure buffer is clean after test
+    }
+
+private:
+    // Buffer storage for argument strings. This is a member of the fixture,
+    // making it thread-safe when tests are run in parallel, as each test
+    // instance will have its own 'argBuffers_'.
+    std::vector<std::vector<char>> argBuffers;
+};
+
+// Use TEST_F macro for all tests to associate them with the fixture.
+TEST_F(ArgsTestFixture, ParseCommandLineBasic) {
     std::vector<std::string> args = {"processAnalyzer", "list"};
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
@@ -50,7 +69,7 @@ TEST(ArgsTests, ParseCommandLineBasic) {
     EXPECT_TRUE(parsedArgs->selectedColumns.empty());
 }
 
-TEST(ArgsTests, ParseCommandLineWithPid) {
+TEST_F(ArgsTestFixture, ParseCommandLineWithPid) {
     std::vector<std::string> args = {"processAnalyzer", "show", "--pid", "1234"};
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
@@ -61,7 +80,7 @@ TEST(ArgsTests, ParseCommandLineWithPid) {
     EXPECT_EQ(parsedArgs->pid.value(), 1234);
 }
 
-TEST(ArgsTests, ParseCommandLineWithPidShort) {
+TEST_F(ArgsTestFixture, ParseCommandLineWithPidShort) {
     std::vector<std::string> args = {"processAnalyzer", "show", "-p", "1234"};
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
@@ -72,7 +91,7 @@ TEST(ArgsTests, ParseCommandLineWithPidShort) {
     EXPECT_EQ(parsedArgs->pid.value(), 1234);
 }
 
-TEST(ArgsTests, ParseCommandLineWithName) {
+TEST_F(ArgsTestFixture, ParseCommandLineWithName) {
     std::vector<std::string> args = {"processAnalyzer", "list", "--name", "firefox"};
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
@@ -83,7 +102,7 @@ TEST(ArgsTests, ParseCommandLineWithName) {
     EXPECT_EQ(parsedArgs->name.value(), "firefox");
 }
 
-TEST(ArgsTests, ParseCommandLineWithUser) {
+TEST_F(ArgsTestFixture, ParseCommandLineWithUser) {
     std::vector<std::string> args = {"processAnalyzer", "list", "--user", "root"};
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
@@ -94,7 +113,7 @@ TEST(ArgsTests, ParseCommandLineWithUser) {
     EXPECT_EQ(parsedArgs->user.value(), "root");
 }
 
-TEST(ArgsTests, ParseCommandLineWithBrief) {
+TEST_F(ArgsTestFixture, ParseCommandLineWithBrief) {
     std::vector<std::string> args = {"processAnalyzer", "list", "--brief"};
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
@@ -104,7 +123,7 @@ TEST(ArgsTests, ParseCommandLineWithBrief) {
     EXPECT_TRUE(parsedArgs->briefMode);
 }
 
-TEST(ArgsTests, ParseCommandLineWithColumns) {
+TEST_F(ArgsTestFixture, ParseCommandLineWithColumns) {
     std::vector<std::string> args = {"processAnalyzer", "list", "--columns", "pid,name,cpu"};
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
@@ -117,7 +136,7 @@ TEST(ArgsTests, ParseCommandLineWithColumns) {
     EXPECT_EQ(parsedArgs->selectedColumns[2], "cpu");
 }
 
-TEST(ArgsTests, ParseCommandLineWithNoTruncateCmdline) {
+TEST_F(ArgsTestFixture, ParseCommandLineWithNoTruncateCmdline) {
     std::vector<std::string> args = {"processAnalyzer", "list", "--no-truncate-cmdline"};
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
@@ -127,7 +146,7 @@ TEST(ArgsTests, ParseCommandLineWithNoTruncateCmdline) {
     EXPECT_TRUE(parsedArgs->noTruncateCmdline);
 }
 
-TEST(ArgsTests, ParseCommandLineWithOutput) {
+TEST_F(ArgsTestFixture, ParseCommandLineWithOutput) {
     std::vector<std::string> args = {"processAnalyzer", "list", "--output", "json"};
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
@@ -138,7 +157,7 @@ TEST(ArgsTests, ParseCommandLineWithOutput) {
     EXPECT_EQ(parsedArgs->outputFormat.value(), "json");
 }
 
-TEST(ArgsTests, ParseCommandLineWithVerticalOutput) {
+TEST_F(ArgsTestFixture, ParseCommandLineWithVerticalOutput) {
     std::vector<std::string> args = {"processAnalyzer", "show", "--pid", "1234", "--output", "vertical"};
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
@@ -149,7 +168,7 @@ TEST(ArgsTests, ParseCommandLineWithVerticalOutput) {
     EXPECT_EQ(parsedArgs->outputFormat.value(), "vertical");
 }
 
-TEST(ArgsTests, ParseCommandLineWithStateFilter) {
+TEST_F(ArgsTestFixture, ParseCommandLineWithStateFilter) {
     std::vector<std::string> args = {"processAnalyzer", "list", "--state", "R"};
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
@@ -160,7 +179,7 @@ TEST(ArgsTests, ParseCommandLineWithStateFilter) {
     EXPECT_EQ(parsedArgs->stateFilter.value(), 'R');
 }
 
-TEST(ArgsTests, ParseCommandLineWithSortByAscending) {
+TEST_F(ArgsTestFixture, ParseCommandLineWithSortByAscending) {
     std::vector<std::string> args = {"processAnalyzer", "list", "--sort-by", "pid"};
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
@@ -172,7 +191,7 @@ TEST(ArgsTests, ParseCommandLineWithSortByAscending) {
     EXPECT_EQ(parsedArgs->sortOrder, SortOrder::asc); // Default
 }
 
-TEST(ArgsTests, ParseCommandLineWithSortByDescending) {
+TEST_F(ArgsTestFixture, ParseCommandLineWithSortByDescending) {
     std::vector<std::string> args = {"processAnalyzer", "list", "--sort-by", "cpu", "--sort-order", "desc"};
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
@@ -184,7 +203,7 @@ TEST(ArgsTests, ParseCommandLineWithSortByDescending) {
     EXPECT_EQ(parsedArgs->sortOrder, SortOrder::desc);
 }
 
-TEST(ArgsTests, ParseCommandLineWithHelp) {
+TEST_F(ArgsTestFixture, ParseCommandLineWithHelp) {
     std::vector<std::string> args = {"processAnalyzer", "--help"};
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
@@ -193,7 +212,7 @@ TEST(ArgsTests, ParseCommandLineWithHelp) {
     EXPECT_TRUE(parsedArgs->showHelp);
 }
 
-TEST(ArgsTests, ParseCommandLineWithChildren) {
+TEST_F(ArgsTestFixture, ParseCommandLineWithChildren) {
     std::vector<std::string> args = {"processAnalyzer", "show", "--pid", "123", "--children"};
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
@@ -203,7 +222,7 @@ TEST(ArgsTests, ParseCommandLineWithChildren) {
     EXPECT_TRUE(parsedArgs->showChildren);
 }
 
-TEST(ArgsTests, ParseCommandLineWithOpenFiles) {
+TEST_F(ArgsTestFixture, ParseCommandLineWithOpenFiles) {
     std::vector<std::string> args = {"processAnalyzer", "show", "--pid", "123", "--open-files"};
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
@@ -213,7 +232,7 @@ TEST(ArgsTests, ParseCommandLineWithOpenFiles) {
     EXPECT_TRUE(parsedArgs->showOpenFiles);
 }
 
-TEST(ArgsTests, ParseCommandLineWithThreads) {
+TEST_F(ArgsTestFixture, ParseCommandLineWithThreads) {
     std::vector<std::string> args = {"processAnalyzer", "show", "--pid", "123", "--threads"};
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
@@ -223,7 +242,7 @@ TEST(ArgsTests, ParseCommandLineWithThreads) {
     EXPECT_TRUE(parsedArgs->showThreads);
 }
 
-TEST(ArgsTests, ParseCommandLineWithNetwork) {
+TEST_F(ArgsTestFixture, ParseCommandLineWithNetwork) {
     std::vector<std::string> args = {"processAnalyzer", "show", "--pid", "123", "--network"};
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
@@ -233,7 +252,7 @@ TEST(ArgsTests, ParseCommandLineWithNetwork) {
     EXPECT_TRUE(parsedArgs->showNetworkConnections);
 }
 
-TEST(ArgsTests, ParseCommandLineWithPpidFilter) {
+TEST_F(ArgsTestFixture, ParseCommandLineWithPpidFilter) {
     std::vector<std::string> args = {"processAnalyzer", "list", "--ppid", "5678"};
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
@@ -244,7 +263,7 @@ TEST(ArgsTests, ParseCommandLineWithPpidFilter) {
     EXPECT_EQ(parsedArgs->ppidFilter.value(), 5678);
 }
 
-TEST(ArgsTests, ParseCommandLineWithConfigFile) {
+TEST_F(ArgsTestFixture, ParseCommandLineWithConfigFile) {
     std::vector<std::string> args = {"processAnalyzer", "list", "--config-file", "/etc/processAnalyzer.conf"};
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
@@ -255,7 +274,7 @@ TEST(ArgsTests, ParseCommandLineWithConfigFile) {
     EXPECT_EQ(parsedArgs->configFilePath.value(), "/etc/processAnalyzer.conf");
 }
 
-TEST(ArgsTests, ParseCommandLineInvalidPid) {
+TEST_F(ArgsTestFixture, ParseCommandLineInvalidPid) {
     std::vector<std::string> args = {"processAnalyzer", "show", "--pid", "abc"};
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
@@ -263,7 +282,7 @@ TEST(ArgsTests, ParseCommandLineInvalidPid) {
     ASSERT_FALSE(parsedArgs.has_value());
 }
 
-TEST(ArgsTests, ParseCommandLineMissingPidValue) {
+TEST_F(ArgsTestFixture, ParseCommandLineMissingPidValue) {
     std::vector<std::string> args = {"processAnalyzer", "show", "--pid"};
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
@@ -271,7 +290,7 @@ TEST(ArgsTests, ParseCommandLineMissingPidValue) {
     ASSERT_FALSE(parsedArgs.has_value());
 }
 
-TEST(ArgsTests, ParseCommandLineInvalidSortBy) {
+TEST_F(ArgsTestFixture, ParseCommandLineInvalidSortBy) {
     std::vector<std::string> args = {"processAnalyzer", "list", "--sort-by", "invalid"};
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
@@ -279,7 +298,7 @@ TEST(ArgsTests, ParseCommandLineInvalidSortBy) {
     ASSERT_FALSE(parsedArgs.has_value());
 }
 
-TEST(ArgsTests, ParseCommandLineInvalidSortOrder) {
+TEST_F(ArgsTestFixture, ParseCommandLineInvalidSortOrder) {
     std::vector<std::string> args = {"processAnalyzer", "list", "--sort-by", "pid", "--sort-order", "invalid"};
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
@@ -287,7 +306,7 @@ TEST(ArgsTests, ParseCommandLineInvalidSortOrder) {
     ASSERT_FALSE(parsedArgs.has_value());
 }
 
-TEST(ArgsTests, ParseCommandLineInvalidState) {
+TEST_F(ArgsTestFixture, ParseCommandLineInvalidState) {
     std::vector<std::string> args = {"processAnalyzer", "list", "--state", "RUNNING"};
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
@@ -295,7 +314,7 @@ TEST(ArgsTests, ParseCommandLineInvalidState) {
     ASSERT_FALSE(parsedArgs.has_value());
 }
 
-TEST(ArgsTests, ParseCommandLineUnknownCommand) {
+TEST_F(ArgsTestFixture, ParseCommandLineUnknownCommand) {
     std::vector<std::string> args = {"processAnalyzer", "unknown_command"};
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
@@ -303,7 +322,7 @@ TEST(ArgsTests, ParseCommandLineUnknownCommand) {
     ASSERT_FALSE(parsedArgs.has_value());
 }
 
-TEST(ArgsTests, ParseCommandLineNoCommand) {
+TEST_F(ArgsTestFixture, ParseCommandLineNoCommand) {
     std::vector<std::string> args = {"processAnalyzer"};
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
@@ -312,7 +331,7 @@ TEST(ArgsTests, ParseCommandLineNoCommand) {
     EXPECT_EQ(parsedArgs->command, "list");
 }
 
-TEST(ArgsTests, ParseCommandLineMultipleOptions) {
+TEST_F(ArgsTestFixture, ParseCommandLineMultipleOptions) {
     std::vector<std::string> args = {
         "processAnalyzer", "list",
         "--name", "chrome",
@@ -338,6 +357,7 @@ TEST(ArgsTests, ParseCommandLineMultipleOptions) {
     ASSERT_TRUE(parsedArgs->stateFilter.has_value());
     EXPECT_EQ(parsedArgs->stateFilter.value(), 'S');
     ASSERT_TRUE(parsedArgs->sortBy.has_value());
+    // Note: "mem" argument maps to ProcessSortField::memoryPercentage
     EXPECT_EQ(parsedArgs->sortBy.value(), ProcessSortField::memoryPercentage);
     EXPECT_EQ(parsedArgs->sortOrder, SortOrder::desc);
     ASSERT_EQ(parsedArgs->selectedColumns.size(), 3);
@@ -354,7 +374,7 @@ TEST(ArgsTests, ParseCommandLineMultipleOptions) {
     EXPECT_EQ(parsedArgs->configFilePath.value(), "my_config.ini");
 }
 
-TEST(ArgsTests, ParseCommandLineRejectsInvalidColumns) {
+TEST_F(ArgsTestFixture, ParseCommandLineRejectsInvalidColumns) {
     std::vector<std::string> args = {"processAnalyzer", "list", "--columns", "pid,name,not-a-column"};
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
@@ -362,7 +382,7 @@ TEST(ArgsTests, ParseCommandLineRejectsInvalidColumns) {
     ASSERT_FALSE(parsedArgs.has_value());
 }
 
-TEST(ArgsTests, ParseCommandLinePositionalPidCommand) {
+TEST_F(ArgsTestFixture, ParseCommandLinePositionalPidCommand) {
     std::vector<std::string> args = {"processAnalyzer", "pid", "1234", "--threads"};
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
@@ -374,7 +394,7 @@ TEST(ArgsTests, ParseCommandLinePositionalPidCommand) {
     EXPECT_TRUE(parsedArgs->showThreads);
 }
 
-TEST(ArgsTests, ParseCommandLinePositionalPidCommandMissingValue) {
+TEST_F(ArgsTestFixture, ParseCommandLinePositionalPidCommandMissingValue) {
     std::vector<std::string> args = {"processAnalyzer", "pid"};
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
@@ -382,7 +402,7 @@ TEST(ArgsTests, ParseCommandLinePositionalPidCommandMissingValue) {
     ASSERT_FALSE(parsedArgs.has_value());
 }
 
-TEST(ArgsTests, ParseCommandLinePositionalPidCommandInvalidValue) {
+TEST_F(ArgsTestFixture, ParseCommandLinePositionalPidCommandInvalidValue) {
     std::vector<std::string> args = {"processAnalyzer", "pid", "not-a-number"};
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
@@ -390,7 +410,7 @@ TEST(ArgsTests, ParseCommandLinePositionalPidCommandInvalidValue) {
     ASSERT_FALSE(parsedArgs.has_value());
 }
 
-TEST(ArgsTests, ParseCommandLinePositionalNameCommand) {
+TEST_F(ArgsTestFixture, ParseCommandLinePositionalNameCommand) {
     std::vector<std::string> args = {"processAnalyzer", "name", "firefox"};
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
@@ -401,7 +421,7 @@ TEST(ArgsTests, ParseCommandLinePositionalNameCommand) {
     EXPECT_EQ(parsedArgs->name.value(), "firefox");
 }
 
-TEST(ArgsTests, ParseCommandLinePositionalUserCommand) {
+TEST_F(ArgsTestFixture, ParseCommandLinePositionalUserCommand) {
     std::vector<std::string> args = {"processAnalyzer", "user", "root"};
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
@@ -412,7 +432,7 @@ TEST(ArgsTests, ParseCommandLinePositionalUserCommand) {
     EXPECT_EQ(parsedArgs->user.value(), "root");
 }
 
-TEST(ArgsTests, ParseCommandLinePidCommandRejectsPpidFilter) {
+TEST_F(ArgsTestFixture, ParseCommandLinePidCommandRejectsPpidFilter) {
     std::vector<std::string> args = {"processAnalyzer", "pid", "42", "--ppid", "1"};
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
@@ -420,24 +440,29 @@ TEST(ArgsTests, ParseCommandLinePidCommandRejectsPpidFilter) {
     ASSERT_FALSE(parsedArgs.has_value());
 }
 
-TEST(ArgsTests, ParseCommandLineRejectsOutOfRangeLongPid) {
-    std::vector<std::string> args = {"processAnalyzer", "show", "--pid", "999999999999999999999"};
+TEST_F(ArgsTestFixture, ParseCommandLineRejectsOutOfRangeLongPid) {
+    // Using a value that exceeds typical int limits for PID.
+    // The exact limit depends on the system, but this should be large enough
+    // to test potential overflow or validation issues.
+    std::vector<std::string> args = {"processAnalyzer", "show", "--pid", "9223372036854775807"}; // Max long long
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
 
     ASSERT_FALSE(parsedArgs.has_value());
 }
 
-TEST(ArgsTests, ParseCommandLineRejectsOutOfRangePositionalPid) {
-    std::vector<std::string> args = {"processAnalyzer", "pid", "999999999999999999999"};
+TEST_F(ArgsTestFixture, ParseCommandLineRejectsOutOfRangePositionalPid) {
+    // Using a value that exceeds typical int limits for PID.
+    std::vector<std::string> args = {"processAnalyzer", "pid", "9223372036854775807"}; // Max long long
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
 
     ASSERT_FALSE(parsedArgs.has_value());
 }
 
-TEST(ArgsTests, ParseCommandLineRejectsOutOfRangePpid) {
-    std::vector<std::string> args = {"processAnalyzer", "list", "--ppid", "-999999999999999999999"};
+TEST_F(ArgsTestFixture, ParseCommandLineRejectsOutOfRangePpid) {
+    // Using a value that exceeds typical int limits for PPID.
+    std::vector<std::string> args = {"processAnalyzer", "list", "--ppid", "-9223372036854775807"}; // Min long long
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
 

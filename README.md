@@ -3,36 +3,55 @@
 [![Build Status](https://github.com/eserlxl/processAnalyzer/actions/workflows/build.yml/badge.svg)](https://github.com/eserlxl/processAnalyzer/actions/workflows/build.yml)
 [![Code Coverage](https://img.shields.io/badge/Coverage-95%25-green.svg)](https://github.com/eserlxl/processAnalyzer/actions/workflows/build.yml)
 [![Static Analysis](https://img.shields.io/badge/Static%20Analysis-Passing-green.svg)](https://github.com/eserlxl/processAnalyzer/actions/workflows/build.yml)
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/Version-0.1.0-blue.svg)](https://github.com/eserlxl/processAnalyzer/releases)
 [![C++23](https://img.shields.io/badge/C%2B%2B-23-blue.svg)](https://en.cppreference.com/w/cpp/23)
 [![CMake](https://img.shields.io/badge/CMake-3.17%2B-blue.svg)](https://cmake.org/)
 
-## Overview
+**processAnalyzer** is a modern, high-performance system diagnostics tool and C++ library for Linux. Built with **C++23**, it provides a powerful and efficient interface to the `/proc` filesystem, allowing developers and system administrators to inspect, monitor, and analyze processes and system-wide metrics with precision.
 
-**processAnalyzer** is a modern, high-performance system diagnostics tool for Linux. Built with C++23, it provides a powerful interface to the `/proc` filesystem, allowing developers and system administrators to inspect, monitor, and analyze processes with precision.
+---
 
-Whether you are debugging complex microservices, analyzing memory footprints, tracing process hierarchies, or inspecting thread-level details, `processAnalyzer` delivers the insights you need through a user-friendly command-line interface and a robust C++ API.
+## 📑 Table of Contents
 
-## Key Features
+- [Key Features](#-key-features)
+- [Core Technologies](#-core-technologies)
+- [Installation](#-installation)
+- [Quick Start](#-quick-start)
+- [API Usage Example](#-api-usage-example)
+- [Documentation](#-documentation)
+- [Testing](#-testing)
+- [Contributing](#-contributing)
+- [License](#-license)
 
--   **Deep Process Inspection**: Analyze memory maps, open files, network connections (TCP/UDP), and thread details.
--   **Advanced Filtering**: Precise filtering by PID, user, state, memory usage, and more.
--   **Thread Analysis**: Inspect individual threads within a process to debug concurrency issues.
--   **System-Wide Metrics**: Monitor global CPU load, memory utilization, and I/O statistics.
--   **Flexible Output Formats**: Export data as **table**, **vertical**, **JSON**, or **CSV** for easy integration with external tools like Splunk, ELK, or Excel.
--   **Modern Architecture**: Written in C++23 for maximum performance and efficiency.
+---
 
-For a detailed list of features, see [docs/features.md](docs/features.md).
+## 🚀 Key Features
 
-## Installation
+- **Deep Process Inspection**: Analyze memory maps, environment variables, open files, network connections (TCP/UDP), and resource limits.
+- **Advanced Filtering & Sorting**: Precise filtering by PID, user, state, name, or memory usage. Sort by any field (e.g., CPU %, RSS, threads).
+- **Thread-Level Analysis**: Inspect individual threads within a process to debug concurrency issues and performance bottlenecks.
+- **System-Wide Metrics**: Monitor global CPU load (per-core), memory utilization, disk I/O, network interface statistics, and filesystem usage.
+- **Flexible Output Formats**: Export data as **Table**, **Vertical**, **JSON**, or **CSV** for easy integration with external tools (Splunk, ELK, Excel).
+- **Process Control**: Send signals, modify process niceness, and set CPU affinity directly from the API.
+
+---
+
+## 🛠 Core Technologies
+
+- **C++23 Features**: Utilizes `std::generator` for lazy-loaded process streaming and `std::expected` for robust error handling.
+- **Modern Architecture**: Minimal dependencies, high performance, and thread-safe design.
+- **Zero-Cost Abstractions**: Direct interface to Linux `/proc` and `/sys` filesystems without unnecessary overhead.
+
+---
+
+## 📦 Installation
 
 ### Prerequisites
 
--   **Operating System**: Linux (Kernel 5.x+ recommended).
--   **Compiler**: C++23 compatible compiler (GCC 12+ or Clang 16+).
--   **Build System**: CMake 3.17+ and a build tool (Make or Ninja).
--   **Version Control**: Git.
+- **OS**: Linux (Kernel 5.x+)
+- **Compiler**: GCC 12+ or Clang 16+ (C++23 support required)
+- **Build Tools**: CMake 3.17+ and Make/Ninja
 
 ### Build from Source
 
@@ -47,66 +66,99 @@ cmake ..
 cmake --build . -j$(nproc)
 ```
 
-The executable will be available at `build/processAnalyzer`.
+For more details, see [docs/build.md](docs/build.md).
 
-For detailed build instructions and troubleshooting, see [docs/build.md](docs/build.md).
+---
 
-## Quick Start
+## ⚡ Quick Start
 
 Run `processAnalyzer` from the `build/` directory:
 
 ```bash
-# List all running processes
-./build/processAnalyzer list
+# List all running processes with default columns
+./processAnalyzer list
 
-# Find processes by name (e.g., 'sshd')
-./build/processAnalyzer list --name sshd
+# Find processes by name and sort by RSS memory (descending)
+./processAnalyzer list --name nginx --sort-by rss --sort-order desc
 
-# Show detailed info for a specific PID (including children, open files, and threads)
-./build/processAnalyzer show --pid <PID> --children --open-files --threads
+# Show detailed info for a specific PID (children, open files, threads, network)
+./processAnalyzer show --pid 1234 --children --open-files --threads --network
 
-# Equivalent positional PID command
-./build/processAnalyzer pid <PID> --network
+# Export high-memory processes to JSON
+./processAnalyzer list --sort-by rss --output json > heavy_procs.json
 
-# Export process list to JSON
-./build/processAnalyzer list --output json > processes.json
-
-# Display help menu
-./build/processAnalyzer --help
+# Display help menu for all options
+./processAnalyzer --help
 ```
 
-## Documentation
+For a full command reference, see [docs/usage.md](docs/usage.md).
 
-Comprehensive documentation is available in the `docs/` directory:
+---
+
+## 💻 API Usage Example
+
+`processAnalyzer` can also be used as a header-only or compiled library in your C++ projects.
+
+```cpp
+#include <analyzer/core.h>
+#include <iostream>
+
+int main() {
+    ProcessAnalyzer analyzer("/proc");
+
+    // Use C++23 generators for efficient streaming
+    for (const auto& proc : analyzer.streamProcesses()) {
+        std::cout << "PID: " << proc.pid << " Name: " << proc.name << "\n";
+    }
+
+    // Query specific process details
+    auto result = analyzer.getProcessDetails(1);
+    if (result) {
+        std::cout << "Init Memory: " << result->rss << " KB\n";
+    }
+
+    return 0;
+}
+```
+
+Refer to [docs/api-reference.md](docs/api-reference.md) for the full API documentation.
+
+---
+
+## 📚 Documentation
+
+Detailed documentation is available in the [docs/](docs/) folder:
 
 | Document | Description |
 | :--- | :--- |
-| [**Usage Guide**](docs/usage.md) | Detailed command reference and examples. |
-| [**API Reference**](docs/api-reference.md) | C++ API documentation for library integrators. |
-| [**Project Structure**](docs/project-structure.md) | Overview of the codebase organization. |
-| [**Configuration**](docs/configuration.md) | Configuration file options. |
+| [**Usage Guide**](docs/usage.md) | Command-line reference and examples. |
+| [**API Reference**](docs/api-reference.md) | Comprehensive C++ API details. |
+| [**Build Details**](docs/build.md) | Compilation and installation guide. |
+| [**Features**](docs/features.md) | Exhaustive list of capabilities. |
+| [**Configuration**](docs/configuration.md) | Customizing tool behavior via config files. |
+| [**Project Structure**](docs/project-structure.md) | Codebase organization and architecture. |
 | [**Utility Library**](docs/utils.md) | Guide to the internal `utils` library. |
 | [**Changelog**](docs/changelog.md) | History of version changes. |
 
-## Project Structure
+---
 
-For a detailed overview of the codebase organization, see [docs/project-structure.md](docs/project-structure.md).
+## 🧪 Testing
 
-## Testing
-
-We use GoogleTest for ensuring code reliability.
+We use **GoogleTest** for ensuring code reliability and performance.
 
 ```bash
 cd build
 ctest --output-on-failure
 ```
 
-## Contributing
+---
 
-Contributions are welcome! Whether it's reporting bugs, suggesting features, or submitting pull requests.
+## 🤝 Contributing
 
-Please read [docs/contributing.md](docs/contributing.md) for our contribution guidelines.
+Contributions are welcome! Please see [docs/contributing.md](docs/contributing.md) for our contribution guidelines.
 
-## License
+---
+
+## 📄 License
 
 This project is open-source software licensed under the [GNU General Public License v3.0](LICENSE).
