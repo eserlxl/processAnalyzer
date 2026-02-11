@@ -1,14 +1,18 @@
 # processAnalyzer
 
+<div align="center">
+
 [![Build Status](https://github.com/eserlxl/processAnalyzer/actions/workflows/build.yml/badge.svg)](https://github.com/eserlxl/processAnalyzer/actions/workflows/build.yml)
 [![Code Coverage](https://img.shields.io/badge/Coverage-100%25-green.svg)](https://github.com/eserlxl/processAnalyzer/actions/workflows/build.yml)
-[![Maintenance](https://img.shields.io/badge/Maintained-Yes-green.svg)](https://github.com/eserlxl/processAnalyzer/pulse)
 [![Static Analysis](https://img.shields.io/badge/Static%20Analysis-Passing-green.svg)](https://github.com/eserlxl/processAnalyzer/actions/workflows/build.yml)
-[![Platform](https://img.shields.io/badge/Platform-Linux-lightgrey.svg)](https://www.linux.org/)
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/Version-1.0.0-blue.svg)](https://github.com/eserlxl/processAnalyzer/releases)
 [![C++23](https://img.shields.io/badge/C%2B%2B-23-blue.svg)](https://en.cppreference.com/w/cpp/23)
 [![CMake](https://img.shields.io/badge/CMake-3.17%2B-blue.svg)](https://cmake.org/)
+[![Platform](https://img.shields.io/badge/Platform-Linux-lightgrey.svg)](https://www.linux.org/)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+[![Maintenance](https://img.shields.io/badge/Maintained-Yes-green.svg)](https://github.com/eserlxl/processAnalyzer/pulse)
+
+</div>
 
 **processAnalyzer** is a high-performance system diagnostics tool and C++23 library for Linux. It offers a powerful and efficient interface to the `/proc` filesystem, allowing developers and administrators to monitor, analyze, and manage processes and system metrics with precision.
 
@@ -20,7 +24,9 @@
 - [Project Structure](#️-project-structure)
 - [System Requirements](#-system-requirements)
 - [Build](#-build)
-- [Quick Start](#-quick-start)
+- [Installation](#-installation)
+- [CLI Quick Start](#-cli-quick-start)
+- [Library Quick Start](#-library-quick-start)
 - [Documentation](#-documentation)
 - [Security Considerations](#-security-considerations)
 - [Contributing](#-contributing)
@@ -73,43 +79,69 @@ Ensure the [system requirements](#-system-requirements) are met. All major depen
 
 2.  **Configure and Build**
 
-    You can use standard CMake commands:
+    You can use standard CMake commands with presets:
     ```bash
     # Configure using the Release preset
     cmake --preset release
     # Build
     cmake --build --preset release
     ```
-    The executable will be located at `build/processAnalyzer`.
+    The executable will be located at `build/bin/processAnalyzer`.
 
-For advanced build options, see the [Build Guide](docs/build.md).
+For advanced options, including debug builds and running tests, see the [Build Guide](docs/build.md).
 
 ---
 
-## ⚡ Quick Start
+## 🚀 Installation
 
-### Command-Line Interface (CLI)
+To install `processAnalyzer` system-wide (e.g., to `/usr/local/bin`), use the `install` target.
 
-After building, you can run `processAnalyzer` from the `build` directory.
+1.  **Configure and Build** (if not already done)
+    ```bash
+    cmake --preset release
+    cmake --build --preset release
+    ```
 
-```bash
-# List all running processes
-./build/processAnalyzer list
+2.  **Install**
+    ```bash
+    # This may require sudo depending on the install prefix
+    sudo cmake --install build
+    ```
 
-# Find processes by name and sort by RSS memory (descending)
-./build/processAnalyzer list --name nginx --sort-by rss --sort-order desc
+3.  **Run from anywhere**
+    ```bash
+    processAnalyzer --help
+    ```
 
-# Show detailed info for a specific PID (may require sudo)
-# This example includes children, open files, and network connections
-sudo ./build/processAnalyzer show --pid 1 --children --open-files --network
+---
 
-# Display the help menu
-./build/processAnalyzer --help
-```
+## ⚡ CLI Quick Start
 
-For a full command reference, see the [Usage Guide](docs/usage.md).
+After building, you can run `processAnalyzer` from the build directory or from anywhere if installed.
 
-### C++ Library Usage
+1.  **List all processes** in a table (the default view):
+    ```bash
+    ./build/bin/processAnalyzer
+    ```
+
+2.  **Find processes by name** and sort by memory usage:
+    ```bash
+    ./build/bin/processAnalyzer list --name nginx --sort-by rss --sort-order desc
+    ```
+
+3.  **Show detailed info for a PID**, including open files and network connections (may require `sudo`):
+    ```bash
+    sudo ./build/bin/processAnalyzer show --pid 1 --open-files --network
+    ```
+
+4.  **Export process data to JSON** for scripting:
+    ```bash
+    ./build/bin/processAnalyzer list --user www-data --output json > web-processes.json
+    ```
+
+For a full command reference and more examples, see the [Usage Guide](docs/usage.md).
+
+## ⚡ Library Quick Start
 
 The C++ API allows you to integrate process and system monitoring directly into your applications. You can link against the library by adding the project as a subdirectory in your CMake configuration.
 
@@ -123,7 +155,7 @@ int main() {
         ProcessAnalyzer analyzer;
         // Stream all running processes and print their PID and name
         for (const auto& process : analyzer.streamProcesses()) {
-            std::cout << "PID: " << process.pid
+            std.cout << "PID: " << process.pid
                       << ", Name: " << process.name << std::endl;
         }
     } catch (const std::exception& e) {

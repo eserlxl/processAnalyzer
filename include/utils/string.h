@@ -5,6 +5,7 @@
 #define UTILS_STRING_H
 
 #include "utils/types.h"
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -57,6 +58,32 @@ template<typename T>
         return true;
     }
     return false;
+}
+
+/**
+ * @brief Parses a string view into an integer type, returning an optional.
+ *
+ * This function attempts to parse the given string view `text` into an integer of
+ * type `TInt`. It uses `std::from_chars` for efficient, locale-independent parsing.
+ * If parsing is successful, it returns a `std::optional` containing the value.
+ * If parsing fails (e.g., due to invalid characters or out-of-range values),
+ * it returns `std::nullopt`.
+ *
+ * @tparam TInt The integer type to parse into (e.g., int, long, unsigned).
+ * @param text The string view to parse.
+ * @param base The numeric base to use for parsing (default is 10).
+ * @return A `std::optional<TInt>` containing the parsed value, or `std::nullopt` on failure.
+ */
+template <typename TInt>
+[[nodiscard]] inline std::optional<TInt> parseInteger(std::string_view text, int base = 10) {
+    TInt value{};
+    const char* begin = text.data();
+    const char* end = begin + text.size();
+    const auto [ptr, ec] = std::from_chars(begin, end, value, base);
+    if (ec != std::errc{} || ptr != end) {
+        return std::nullopt;
+    }
+    return value;
 }
 
 inline constexpr int defaultRadix = 10;

@@ -5,6 +5,7 @@
 #include "utils/core.h"
 
 #include <filesystem>
+#include <print>
 #include <sstream>
 #include <vector>
 #include <charconv>
@@ -12,26 +13,9 @@
 #include <thread>
 #include <unistd.h>
 #include <sys/statvfs.h>
-#include <map>
-#include <ranges>
+#include <string_view>
 
 namespace fs = std::filesystem;
-
-namespace {
-    constexpr int kDecimalBase = 10;
-    template <typename TInt>
-    std::optional<TInt> parseIntegerNoThrow(std::string_view text, int base = kDecimalBase) {
-        TInt value{};
-        const char* begin = text.data();
-        const char* end = begin + text.size();
-        const auto [ptr, ec] = std::from_chars(begin, end, value, base);
-        if (ec != std::errc{} || ptr != end) {
-            return std::nullopt;
-        }
-        return value;
-    }
-}
-
 
 utils::Result<std::vector<int>> ProcessAnalyzer::getPids() const {
     std::vector<int> pids;
@@ -44,7 +28,7 @@ utils::Result<std::vector<int>> ProcessAnalyzer::getPids() const {
             if (entry.is_directory()) {
                 std::string filename = entry.path().filename().string();
                 if (utils::isInteger(filename)) {
-                    if (auto parsedPid = parseIntegerNoThrow<int>(filename)) {
+                    if (auto parsedPid = utils::parseInteger<int>(filename)) {
                         pids.push_back(*parsedPid);
                     }
                 }
@@ -65,13 +49,16 @@ std::generator<int> ProcessAnalyzer::streamPids() const {
         if (entry.is_directory()) {
             std::string filename = entry.path().filename().string();
             if (utils::isInteger(filename)) {
-                if (auto parsedPid = parseIntegerNoThrow<int>(filename)) {
+                if (auto parsedPid = utils::parseInteger<int>(filename)) {
                     co_yield *parsedPid;
                 }
             }
         }
     }
 }
+
+
+// ...
 
 utils::Result<SystemMemoryInfo> ProcessAnalyzer::getSystemMemoryInfo() const {
     fs::path meminfoPath = procPath / "meminfo";
@@ -81,17 +68,32 @@ utils::Result<SystemMemoryInfo> ProcessAnalyzer::getSystemMemoryInfo() const {
     }
 
     SystemMemoryInfo memInfo;
-    std::stringstream ss(*contentOpt);
-    std::string line;
-    while (std::getline(ss, line)) {
-        std::string key;
-        unsigned long value = 0;
-        std::stringstream lineSs(line);
-        lineSs >> key >> value;
-        if(key.empty()) continue;
-        if (key.back() == ':') {
-            key.pop_back();
+    std::string_view content = *contentOpt;
+
+    while (!content.empty()) {
+        size_t lineEnd = content.find('\n');
+        std::string_view line = content.substr(0, lineEnd);
+        content.remove_prefix(lineEnd != std::string_view::npos ? lineEnd + 1 : content.size());
+
+        size_t colonPos = line.find(':');
+        if (colonPos == std::string_view::npos) continue;
+
+        std::string_view key = line.substr(0, colonPos);
+        if (key.empty()) continue;
+
+        line.remove_prefix(colonPos + 1);
+        line = utils::trim(line);
+        
+        // Find "kB" and remove it to parse the number
+        size_t unitPos = line.rfind(" kB");
+        if (unitPos != std::string_view::npos) {
+            line = line.substr(0, unitPos);
         }
+
+        unsigned long value = 0;
+        auto [ptr, ec] = std::from_chars(line.data(), line.data() + line.size(), value);
+
+        if (ec != std::errc()) continue;
 
         if (key == "MemTotal") memInfo.memTotal = value;
         else if (key == "MemFree") memInfo.memFree = value;
@@ -179,6 +181,9 @@ utils::Result<std::vector<MountPointInfo>> ProcessAnalyzer::getSystemDiskUsage()
                 .freeSpaceBytes = (unsigned long long)vfs.f_bfree * vfs.f_frsize,
                 .availableSpaceBytes = (unsigned long long)vfs.f_bavail * vfs.f_frsize
             });
+        } else {
+            // Log error if statvfs fails for a specific mount point
+            std::println(stderr, "Could not statvfs mount point {}: {}", mountPoint, strerror(errno));
         }
     }
     return mounts;
@@ -271,9 +276,6 @@ utils::Result<std::vector<DiskIoDeviceStats>> ProcessAnalyzer::getSystemDiskIoSt
             continue;
         }
         stats.push_back(stat);
-    }
-    if (stats.empty()) {
-        return std::unexpected(utils::make_error_code(utils::UtilsError::analyzerParsingError));
     }
     return stats;
 }
