@@ -271,9 +271,23 @@ std::string MockProc::SystemStatData::toString() const {
 
 std::string MockProc::NetDevStats::toString() const {
     std::stringstream ss;
-    ss << interface << ": "
-       << rx_bytes << " " << rx_packets << " " << rx_errs << " " << rx_drop << " 0 0 0 0 "
-       << tx_bytes << " " << tx_packets << " " << tx_errs << " " << tx_drop << " 0 0 0 0";
+    ss << "   " << std::left << std::setw(7) << (interface + ":") << std::right
+       << std::setw(7) << rx_bytes
+       << std::setw(8) << rx_packets
+       << std::setw(5) << rx_errs
+       << std::setw(5) << rx_drop
+       << std::setw(5) << 0
+       << std::setw(6) << 0
+       << std::setw(11) << 0
+       << std::setw(10) << 0
+       << std::setw(9) << tx_bytes
+       << std::setw(8) << tx_packets
+       << std::setw(5) << tx_errs
+       << std::setw(5) << tx_drop
+       << std::setw(5) << 0
+       << std::setw(6) << 0
+       << std::setw(8) << 0
+       << std::setw(11) << 0;
     return ss.str();
 }
 
@@ -308,9 +322,8 @@ void MockProc::createCpuinfo(const std::vector<CpuinfoData>& cores) {
 void MockProc::createSystemStat(const SystemStatData& data) {
     std::stringstream ss;
     ss << "cpu  " << data.toString() << "\n";
-    ss << "ctxt " << data.ctxt << "\n";
-    ss << "btime " << data.btime << "\n";
     ss << "processes " << data.processes << "\n";
+    ss << "ctxt " << data.ctxt << "\n";
     createFile("stat", ss.str());
 }
 
@@ -324,6 +337,12 @@ void MockProc::createSystemStat(const std::vector<SystemStatData>& perCpuData) {
         ss << "ctxt " << perCpuData[0].ctxt << "\n";
         ss << "btime " << perCpuData[0].btime << "\n";
         ss << "processes " << perCpuData[0].processes << "\n";
+    } else {
+        // Handle empty vector case by creating a default stat file
+        SystemStatData defaultData;
+        ss << "cpu  " << defaultData.toString() << "\n";
+        ss << "processes " << defaultData.processes << "\n";
+        ss << "ctxt " << defaultData.ctxt << "\n";
     }
     createFile("stat", ss.str());
 }

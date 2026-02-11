@@ -36,9 +36,15 @@
 
 ## 🚀 Key Features
 
-`processAnalyzer` provides a rich set of features for deep process inspection, advanced filtering, and system-wide monitoring.
+`processAnalyzer` offers a robust set of functionalities for in-depth system and process analysis:
 
-For a complete list of features, see [docs/features.md](docs/features.md).
+*   **Deep Process Inspection**: Access detailed information about running processes, including CPU usage, memory consumption, open files, network connections, and thread statistics.
+*   **Advanced Filtering & Sorting**: Efficiently filter processes by various criteria (name, PID, user, state) and sort results by any metric.
+*   **`/proc` Filesystem Abstraction**: Provides a clean, modern C++ interface to the Linux `/proc` filesystem, simplifying data retrieval.
+*   **System-Wide Monitoring**: Monitor overall system metrics alongside individual process data.
+*   **Flexible Output Formats**: Export data in human-readable or machine-parsable formats like JSON.
+
+For a complete list of features and detailed explanations, see [docs/features.md](docs/features.md).
 
 ---
 
@@ -87,9 +93,28 @@ For a full command reference, see [docs/usage.md](docs/usage.md).
 
 ---
 
-## 💻 API Usage
+## 📚 Quick API Example
 
-`processAnalyzer` can be used as a C++ library in your own projects. For details on how to use the API and code examples, please refer to the [API Reference](docs/api-reference.md).
+Integrate `processAnalyzer` into your C++ applications as a library to programmatically access system and process data.
+
+```cpp
+#include <analyzer/core.h>
+#include <iostream>
+
+int main() {
+    auto processes = analyzer::getAllProcesses();
+    if (processes.has_value()) {
+        for (const auto& proc : processes.value()) {
+            std::cout << "PID: " << proc.pid << ", Name: " << proc.name << std::endl;
+        }
+    } else {
+        std::cerr << "Error getting processes: " << processes.error().message << std::endl;
+    }
+    return 0;
+}
+```
+
+For comprehensive details on the library's classes, functions, and advanced usage, please refer to the [API Reference](docs/api-reference.md).
 
 ---
 

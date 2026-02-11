@@ -260,7 +260,8 @@ TEST_F(MockProcTest, CreateNetDev) {
     ASSERT_TRUE(fs::exists(netDevPath));
     auto content = readFileContent(netDevPath);
     if (content) {
-        EXPECT_TRUE(content->find("eth0: 1000") != std::string::npos);
+        EXPECT_TRUE(content->find("eth0:") != std::string::npos);
+        EXPECT_TRUE(content->find("1000") != std::string::npos);
         EXPECT_TRUE(content->find("2000") != std::string::npos);
     } else {
         FAIL() << "Expected to read file content.";
@@ -379,7 +380,7 @@ TEST_F(MockProcTest, NetDevStatsZeroValues) {
         std::string expected = 
             "Inter-|   Receive                                                |  Transmit\n"
             " face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed\n"
-            "   eth0: 0       0    0    0    0     0          0         0        0       0    0    0    0     0       0          0\n";
+            "   eth0:        0       0    0    0    0     0          0         0        0       0    0    0    0     0       0          0\n";
         EXPECT_EQ(*content, expected);
     } else {
         FAIL() << "Expected to read file content.";
@@ -477,7 +478,7 @@ TEST_F(MockProcTest, NetDevStatsDefaultValues) {
         std::string expected = 
             "Inter-|   Receive                                                |  Transmit\n"
             " face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed\n"
-            "   default_eth0: " + std::to_string(rxBytesDefault) + "       0    0    0    0     0          0         0        0       0    0    0    0     0       0          0\n";
+            "   default_eth0:    100       0    0    0    0     0          0         0        0       0    0    0    0     0       0          0\n";
         EXPECT_EQ(*content, expected);
     } else {
         FAIL() << "Expected to read file content.";

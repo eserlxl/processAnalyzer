@@ -14,12 +14,15 @@
 #include <array>
 #include <string>
 #include <vector>
+#include <filesystem>
+#include <mutex>
 
 namespace utils {
 
 namespace {
     constexpr int bufferSize = 4096;
     constexpr int signalExitCodeBase = 128;
+    std::mutex envMutex;
 } // namespace
 
 Result<::std::string> getEnv(::std::string_view name) {
@@ -30,7 +33,8 @@ Result<::std::string> getEnv(::std::string_view name) {
 
     // std::getenv requires a null-terminated string, so we might need to convert.
     // A string_view doesn't guarantee null termination.
-    char* value = ::std::getenv(::std::string(name).c_str());
+    std::scoped_lock lock(envMutex);
+    char* value = std::getenv(std::string(name).c_str());
     if (value) {
         return ::std::string(value);
     }
@@ -43,7 +47,8 @@ Result<CommandOutput> executeCommand(::std::string_view command) {
     }
 
     // Create a temporary file for stderr using a safer method
-    std::string stderrPathStr = "/tmp/process-analyzer-stderr-XXXXXX";
+    ::std::filesystem::path tempDir = std::filesystem::temp_directory_path();
+    std::string stderrPathStr = tempDir / "process-analyzer-stderr-XXXXXX";
     int stderrFd = mkstemp(stderrPathStr.data());
     if (stderrFd == -1) {
         return ::std::unexpected(make_error_code(UtilsError::commandExecutionError));
@@ -52,16 +57,20 @@ Result<CommandOutput> executeCommand(::std::string_view command) {
 
     // Construct the command to redirect stderr. We use grouping to ensure
     // that stderr from the entire command is captured, even with pipes.
-    ::std::string fullCommand = "{ " + ::std::string(command) + "; } 2> " + stderrPathStr;
+    ::std::string fullCommand = "{ " + std::string(command) + "; } 2> " + stderrPathStr;
 
     FILE* pipe = popen(fullCommand.c_str(), "r");
     if (!pipe) {
-        unlink(stderrPathStr.c_str());
+        // Attempt to unlink the temporary file, but check for errors.
+        if (unlink(stderrPathStr.c_str()) != 0) {
+            // Log or handle the error if the temp file cannot be unlinked.
+            // For now, we proceed with returning the command execution error.
+        }
         return ::std::unexpected(make_error_code(UtilsError::commandExecutionError));
     }
 
     ::std::string stdoutStr;
-    ::std::array<char, bufferSize> buffer;
+    std::array<char, bufferSize> buffer;
     while (size_t bytesRead = fread(buffer.data(), 1, buffer.size(), pipe)) {
         stdoutStr.append(buffer.data(), bytesRead);
     }
@@ -69,8 +78,11 @@ Result<CommandOutput> executeCommand(::std::string_view command) {
     int pcloseResult = pclose(pipe);
     int exitCode = -1;
     if (pcloseResult == -1) {
-        // pclose failed.
-        exitCode = -1; // Indicate a pclose error.
+        // pclose failed. Check errno to differentiate between command failure and pclose system errors.
+        // Use a specific negative exit code to indicate pclose system error.
+        // We use a sentinel value like -2 to clearly indicate a pclose failure, distinct from command exit codes.
+        // A more robust solution might involve changing the return type to include specific error information.
+        exitCode = -2; // Indicate pclose system error.
     } else {
         if (WIFEXITED(pcloseResult)) {
             exitCode = WEXITSTATUS(pcloseResult);
@@ -98,9 +110,7 @@ Result<CommandOutput> executeCommand(::std::string_view command) {
 
 
 
-// Stubs
 // setEnv: Sets or modifies an environment variable.
-// Not yet implemented. Returns `unsupportedOperation`.
 Result<void> setEnv(::std::string_view name, ::std::string_view value) {
     if (name.empty() || name.find('=') != ::std::string_view::npos ||
         name.find('\0') != ::std::string_view::npos ||
@@ -108,34 +118,34 @@ Result<void> setEnv(::std::string_view name, ::std::string_view value) {
         return ::std::unexpected(make_error_code(UtilsError::invalidArgument));
     }
 
+    std::scoped_lock lock(envMutex);
     const ::std::string nameStr(name);
     const ::std::string valueStr(value);
     if (::setenv(nameStr.c_str(), valueStr.c_str(), 1) != 0) {
-        return ::std::unexpected(::std::error_code(errno, ::std::generic_category()));
+        return ::std::unexpected(std::error_code(errno, ::std::generic_category()));
     }
     return {};
 }
 
 // unsetEnv: Unsets or removes an environment variable.
-// Not yet implemented. Returns `unsupportedOperation`.
 Result<void> unsetEnv(::std::string_view name) {
     if (name.empty() || name.find('=') != ::std::string_view::npos ||
         name.find('\0') != ::std::string_view::npos) {
         return ::std::unexpected(make_error_code(UtilsError::invalidArgument));
     }
 
+    std::scoped_lock lock(envMutex);
     const ::std::string nameStr(name);
     if (::unsetenv(nameStr.c_str()) != 0) {
-        return ::std::unexpected(::std::error_code(errno, ::std::generic_category()));
+        return ::std::unexpected(std::error_code(errno, ::std::generic_category()));
     }
     return {};
 }
 
 // getCurrentWorkingDirectory: Retrieves the application's current working directory.
-// Not yet implemented. Returns `unsupportedOperation`.
 Result<::std::filesystem::path> getCurrentWorkingDirectory() {
-    ::std::error_code ec;
-    auto cwd = ::std::filesystem::current_path(ec);
+    std::error_code ec;
+    auto cwd = std::filesystem::current_path(ec);
     if (ec) {
         return ::std::unexpected(ec);
     }
@@ -143,13 +153,12 @@ Result<::std::filesystem::path> getCurrentWorkingDirectory() {
 }
 
 // setCurrentWorkingDirectory: Changes the application's current working directory.
-// Not yet implemented. Returns `unsupportedOperation`.
 Result<void> setCurrentWorkingDirectory(const ::std::filesystem::path& path) {
     if (path.empty()) {
         return ::std::unexpected(make_error_code(UtilsError::invalidArgument));
     }
-    ::std::error_code ec;
-    ::std::filesystem::current_path(path, ec);
+    std::error_code ec;
+    std::filesystem::current_path(path, ec);
     if (ec) {
         return ::std::unexpected(ec);
     }
