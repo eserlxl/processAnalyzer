@@ -46,6 +46,10 @@ TEST(StringTest, TrimMixedWhitespace) {
     EXPECT_EQ(utils::trim("\t\n hello \r\f "), "hello");
 }
 
+TEST(StringTest, TrimInternalWhitespace) {
+    EXPECT_EQ(utils::trim("hello world"), "hello world");
+}
+
 // --- startsWith ---
 TEST(StringTest, StartsWithPositive) {
     EXPECT_TRUE(utils::startsWith("hello world", "hello"));
@@ -570,11 +574,13 @@ TEST(StringTest, ParseBoolValid) {
     EXPECT_TRUE(utils::parseBool("TRUE").value());
     EXPECT_TRUE(utils::parseBool("True").value());
     EXPECT_TRUE(utils::parseBool("1").value());
+    EXPECT_TRUE(utils::parseBool("  true  ").value()); // With whitespace
     
     EXPECT_FALSE(utils::parseBool("false").value());
     EXPECT_FALSE(utils::parseBool("FALSE").value());
     EXPECT_FALSE(utils::parseBool("False").value());
     EXPECT_FALSE(utils::parseBool("0").value());
+    EXPECT_FALSE(utils::parseBool("  0  ").value()); // With whitespace
 }
 
 TEST(StringTest, ParseBoolInvalid) {

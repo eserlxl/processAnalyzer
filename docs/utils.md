@@ -195,34 +195,26 @@ int main() {
 
 ## String Manipulation
 
-- `Result<std::string> urlEncode(std::string_view s)`: URL-encodes a string.
-- `Result<std::string> urlDecode(std::string_view s)`: URL-decodes a string.
-- `Result<std::string> base64Encode(std::string_view s)`: Base64-encodes a string.
-- `Result<std::string> base64Decode(std::string_view s)`: Base64-decodes a string.
-- `Result<std::string> base64Encode(std::span<const std::byte> data)`: Base64-encodes binary data.
-- `Result<std::vector<std::byte>> base64DecodeToBytes(std::string_view s)`: Base64-decodes a string to binary data.
-- `Result<std::string> generateUuid()`: Generates a new UUID.
-- `bool equalsIgnoreCase(std::string_view s1, std::string_view s2)`: Case-insensitive string comparison.
-- `std::string trim(std::string_view s)`: Removes leading and trailing whitespace.
-- `bool startsWith(std::string_view s, std::string_view prefix)`: Checks for a prefix.
-- `bool endsWith(std::string_view s, std::string_view suffix)`: Checks for a suffix.
-- `bool contains(std::string_view s, std::string_view substring)`: Checks for a substring.
-- `bool startsWithIgnoreCase(std::string_view str, std::string_view prefix)`: Case-insensitive check for a prefix.
-- `bool endsWithIgnoreCase(std::string_view str, std::string_view suffix)`: Case-insensitive check for a suffix.
-- `bool containsIgnoreCase(std::string_view str, std::string_view subStr)`: Case-insensitive check for a substring.
-- `std::string toLower(std::string_view s)`: Converts a string to lowercase.
-- `std::string toUpper(std::string_view s)`: Converts a string to uppercase.
-- `std::string replace(std::string_view s, std::string_view target, std::string_view replacement)`: Replaces all occurrences of a substring.
-- `std::string replaceFirst(std::string_view s, std::string_view from, std::string_view to)`: Replaces the first occurrence of a substring.
-- `std::string replaceN(std::string_view s, std::string_view from, std::string_view to, size_t count)`: Replaces the first `count` occurrences of a substring.
-- `std::string join(const std::vector<std::string>& parts, std::string_view delimiter)`: Joins a collection of strings with a delimiter.
-- `template<typename... Args> std::string format(std::string_view fmt, Args&&... args)`: Formats a string using `std::format`-like syntax.
-- `std::vector<std::string> split(std::string_view s, char delimiter, bool skipEmpty = false)`: Splits a string by a character delimiter.
-- `std::vector<std::string> split(std::string_view s, std::string_view delimiter, bool skipEmpty = false)`: Splits a string by a string delimiter.
-- `std::vector<std::string> splitAndTrim(std::string_view s, char delimiter, bool skipEmpty = false)`: Splits a string by a character delimiter and trims whitespace from each part.
+- `std::string trim(std::string_view s)`: Removes leading and trailing whitespace from a string view.
+- `bool startsWith(std::string_view s, std::string_view prefix)`: Checks if a string view starts with a specified prefix.
+- `bool endsWith(std::string_view s, std::string_view suffix)`: Checks if a string view ends with a specified suffix.
+- `bool contains(std::string_view s, std::string_view substring)`: Checks if a string view contains a specified substring.
+- `bool startsWithIgnoreCase(std::string_view str, std::string_view prefix)`: Checks if a string view starts with a specified prefix, ignoring case.
+- `bool endsWithIgnoreCase(std::string_view str, std::string_view suffix)`: Checks if a string view ends with a specified suffix, ignoring case.
+- `bool containsIgnoreCase(std::string_view str, std::string_view subStr)`: Checks if a string view contains a specified substring, ignoring case.
+- `std::string toLower(std::string_view s)`: Converts a string view to its lowercase equivalent.
+- `std::string toUpper(std::string_view s)`: Converts a string view to its uppercase equivalent.
+- `std::string replaceAll(std::string_view s, std::string_view target, std::string_view replacement)`: Replaces all occurrences of a target substring with a replacement substring in a string view.
+- `std::string replaceFirst(std::string_view s, std::string_view from, std::string_view to)`: Replaces the first occurrence of a target substring with a replacement substring in a string view.
+- `std::string replaceN(std::string_view s, std::string_view from, std::string_view to, size_t count)`: Replaces up to 'count' occurrences of a target substring with a replacement substring in a string view.
+- `std::string join(const std::vector<std::string>& parts, std::string_view delimiter)`: Joins a vector of strings into a single string using a specified delimiter.
+- `template<typename... Args> std::string format(std::format_string<Args...> fmt, Args&&... args)`: Formats a string using a format string and arguments.
+- `std::vector<std::string> split(std::string_view s, char delimiter, bool skipEmpty = false)`: Splits a string view into a vector of strings based on a character delimiter.
+- `std::vector<std::string> split(std::string_view s, std::string_view delimiter, bool skipEmpty = false)`: Splits a string view into a vector of strings based on a string view delimiter.
 
 ## Numeric Parsing/Validation
 
+- `template<typename T> bool tryParse(std::string_view s, T& out)`: Safely parses a string view and updates the output variable on success.
 - `bool isInteger(std::string_view s)`: Checks if a string represents an integer.
 - `bool isFloatingPoint(std::string_view s)`: Checks if a string represents a floating-point number.
 - `Result<long> toLong(std::string_view s, int base = 10)`: Converts a string to a `long`.

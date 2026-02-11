@@ -8,6 +8,17 @@
 #include <limits>   // For std::numeric_limits
 #include <cmath>    // For std::isinf, std::isfinite
 
+namespace {
+
+inline unsigned char toLowerAscii(unsigned char c) {
+    if (c >= 'A' && c <= 'Z') {
+        return static_cast<unsigned char>(c + ('a' - 'A'));
+    }
+    return c;
+}
+
+} // namespace
+
 namespace utils {
 
 std::string trim(std::string_view s) {
@@ -37,7 +48,7 @@ bool startsWithIgnoreCase(std::string_view str, std::string_view prefix) {
     }
     return std::equal(prefix.begin(), prefix.end(), str.begin(),
                       [](unsigned char c1, unsigned char c2) {
-                          return static_cast<unsigned char>(std::tolower(c1)) == static_cast<unsigned char>(std::tolower(c2));
+                          return toLowerAscii(c1) == toLowerAscii(c2);
                       });
 }
 
@@ -47,31 +58,34 @@ bool endsWithIgnoreCase(std::string_view str, std::string_view suffix) {
     }
     return std::equal(suffix.rbegin(), suffix.rend(), str.rbegin(),
                       [](unsigned char c1, unsigned char c2) {
-                          return static_cast<unsigned char>(std::tolower(c1)) == static_cast<unsigned char>(std::tolower(c2));
+                          return toLowerAscii(c1) == toLowerAscii(c2);
                       });
 }
 
 bool containsIgnoreCase(std::string_view str, std::string_view subStr) {
-    // Manually implement for case-insensitive search without locale dependency
     if (subStr.empty()) return true;
-    if (str.empty()) return false;
+    if (str.length() < subStr.length()) return false;
 
-    std::string lowerStr = toLower(str);
-    std::string lowerSubStr = toLower(subStr);
-
-    return lowerStr.find(lowerSubStr) != std::string::npos;
+    for (size_t i = 0; i <= str.length() - subStr.length(); ++i) {
+        bool match = true;
+        for (size_t j = 0; j < subStr.length(); ++j) {
+            if (toLowerAscii(static_cast<unsigned char>(str[i + j])) != toLowerAscii(static_cast<unsigned char>(subStr[j]))) {
+                match = false;
+                break;
+            }
+        }
+        if (match) {
+            return true;
+        }
+    }
+    return false;
 }
 
 std::string toLower(std::string_view s) {
     std::string result;
     result.reserve(s.length());
     for (char c : s) {
-        if (c >= 'A' && c <= 'Z') {
-            result += static_cast<char>(c + ('a' - 'A'));
-        }
-        else {
-            result += c;
-        }
+        result += static_cast<char>(toLowerAscii(static_cast<unsigned char>(c)));
     }
     return result;
 }
@@ -346,11 +360,25 @@ Result<double> toDouble(std::string_view s) {
 }
 
 Result<bool> parseBool(std::string_view s) {
-    std::string lowerS = toLower(s); // Use the locale-independent toLower
-    if (lowerS == "true" || lowerS == "1") {
+    auto equalsIgnoreCase = [](std::string_view s1, std::string_view s2) {
+        if (s1.length() != s2.length()) return false;
+        return std::equal(s1.begin(), s1.end(), s2.begin(), [](unsigned char c1, unsigned char c2) {
+             return toLowerAscii(c1) == toLowerAscii(c2);
+        });
+    };
+
+    // Trim leading and trailing whitespace for consistency with numeric parsing
+    auto first = s.find_first_not_of(" \t\n\r\f\v");
+    if (first == std::string_view::npos) {
+        return std::unexpected(make_error_code(UtilsError::invalidArgument));
+    }
+    auto last = s.find_last_not_of(" \t\n\r\f\v");
+    std::string_view trimmed = s.substr(first, (last - first + 1));
+
+    if (equalsIgnoreCase(trimmed, "true") || trimmed == "1") {
         return true;
     }
-    if (lowerS == "false" || lowerS == "0") {
+    if (equalsIgnoreCase(trimmed, "false") || trimmed == "0") {
         return false;
     }
     return std::unexpected(make_error_code(UtilsError::invalidArgument));

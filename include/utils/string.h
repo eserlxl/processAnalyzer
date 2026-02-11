@@ -27,7 +27,7 @@ namespace utils {
  * @param out A reference to the variable that will receive the parsed value.
  */
 template<typename T>
-inline bool tryParse(std::string_view s, T& out) {
+[[nodiscard]] inline bool tryParse(std::string_view s, T& out) {
     T temp_val{};
     auto [ptr, ec] = std::from_chars(s.data(), s.data() + s.size(), temp_val);
     if (ec == std::errc{} && ptr == s.data() + s.size()) {
@@ -54,7 +54,7 @@ inline constexpr int default_radix = 10;
  * @param s The string view to trim.
  * @return A new string with leading and trailing whitespace removed.
  */
-std::string trim(std::string_view s);
+[[nodiscard]] std::string trim(std::string_view s);
 
 /**
  * @brief Checks if a string view starts with a specified prefix.
@@ -62,7 +62,7 @@ std::string trim(std::string_view s);
  * @param prefix The prefix to look for.
  * @return True if the string starts with the prefix, false otherwise.
  */
-bool startsWith(std::string_view s, std::string_view prefix);
+[[nodiscard]] bool startsWith(std::string_view s, std::string_view prefix);
 
 /**
  * @brief Checks if a string view ends with a specified suffix.
@@ -70,7 +70,7 @@ bool startsWith(std::string_view s, std::string_view prefix);
  * @param suffix The suffix to look for.
  * @return True if the string ends with the suffix, false otherwise.
  */
-bool endsWith(std::string_view s, std::string_view suffix);
+[[nodiscard]] bool endsWith(std::string_view s, std::string_view suffix);
 
 /**
  * @brief Checks if a string view contains a specified substring.
@@ -78,31 +78,40 @@ bool endsWith(std::string_view s, std::string_view suffix);
  * @param substring The substring to look for.
  * @return True if the string contains the substring, false otherwise.
  */
-bool contains(std::string_view s, std::string_view substring);
+[[nodiscard]] bool contains(std::string_view s, std::string_view substring);
 
 /**
  * @brief Checks if a string view starts with a specified prefix, ignoring case.
+ *
+ * This function performs a locale-independent, case-insensitive comparison,
+ * only considering ASCII characters 'A'-'Z' and 'a'-'z' for case conversion.
  * @param str The string view to check.
  * @param prefix The prefix to look for.
  * @return True if the string starts with the prefix (case-insensitive), false otherwise.
  */
-bool startsWithIgnoreCase(std::string_view str, std::string_view prefix);
+[[nodiscard]] bool startsWithIgnoreCase(std::string_view str, std::string_view prefix);
 
 /**
  * @brief Checks if a string view ends with a specified suffix, ignoring case.
+ *
+ * This function performs a locale-independent, case-insensitive comparison,
+ * only considering ASCII characters 'A'-'Z' and 'a'-'z' for case conversion.
  * @param str The string view to check.
  * @param suffix The suffix to look for.
  * @return True if the string ends with the suffix (case-insensitive), false otherwise.
  */
-bool endsWithIgnoreCase(std::string_view str, std::string_view suffix);
+[[nodiscard]] bool endsWithIgnoreCase(std::string_view str, std::string_view suffix);
 
 /**
  * @brief Checks if a string view contains a specified substring, ignoring case.
+ *
+ * This function performs a locale-independent, case-insensitive comparison,
+ * only considering ASCII characters 'A'-'Z' and 'a'-'z' for case conversion.
  * @param str The string view to search within.
  * @param subStr The substring to look for.
  * @return True if the string contains the substring (case-insensitive), false otherwise.
  */
-bool containsIgnoreCase(std::string_view str, std::string_view subStr);
+[[nodiscard]] bool containsIgnoreCase(std::string_view str, std::string_view subStr);
 
 /**
  * @brief Converts a string view to its lowercase equivalent.
@@ -112,7 +121,7 @@ bool containsIgnoreCase(std::string_view str, std::string_view subStr);
  * @param s The string view to convert.
  * @return A new string with all characters converted to lowercase.
  */
-std::string toLower(std::string_view s);
+[[nodiscard]] std::string toLower(std::string_view s);
 
 /**
  * @brief Converts a string view to its uppercase equivalent.
@@ -122,7 +131,7 @@ std::string toLower(std::string_view s);
  * @param s The string view to convert.
  * @return A new string with all characters converted to uppercase.
  */
-std::string toUpper(std::string_view s);
+[[nodiscard]] std::string toUpper(std::string_view s);
 
 /**
  * @brief Replaces all occurrences of a target substring with a replacement substring in a string view.
@@ -131,7 +140,7 @@ std::string toUpper(std::string_view s);
  * @param replacement The substring to replace `target` with.
  * @return A new string with all occurrences replaced.
  */
-std::string replaceAll(std::string_view s, std::string_view target, std::string_view replacement);
+[[nodiscard]] std::string replaceAll(std::string_view s, std::string_view target, std::string_view replacement);
 
 /**
  * @brief Replaces the first occurrence of a target substring with a replacement substring in a string view.
@@ -140,7 +149,7 @@ std::string replaceAll(std::string_view s, std::string_view target, std::string_
  * @param to The substring to replace `from` with.
  * @return A new string with the first occurrence replaced.
  */
-std::string replaceFirst(std::string_view s, std::string_view from, std::string_view to);
+[[nodiscard]] std::string replaceFirst(std::string_view s, std::string_view from, std::string_view to);
 
 /**
  * @brief Replaces up to 'count' occurrences of a target substring with a replacement substring in a string view.
@@ -150,7 +159,7 @@ std::string replaceFirst(std::string_view s, std::string_view from, std::string_
  * @param count The maximum number of occurrences to replace.
  * @return A new string with up to 'count' occurrences replaced.
  */
-std::string replaceN(std::string_view s, std::string_view from, std::string_view to, size_t count);
+[[nodiscard]] std::string replaceN(std::string_view s, std::string_view from, std::string_view to, size_t count);
 
 /**
  * @brief Joins a vector of strings into a single string using a specified delimiter.
@@ -158,7 +167,7 @@ std::string replaceN(std::string_view s, std::string_view from, std::string_view
  * @param delimiter The string view to use as a separator between parts.
  * @return A single string formed by joining the parts with the delimiter.
  */
-std::string join(const std::vector<std::string>& parts, std::string_view delimiter);
+[[nodiscard]] std::string join(const std::vector<std::string>& parts, std::string_view delimiter);
 
 /**
  * @brief Formats a string using a format string and arguments.
@@ -171,7 +180,7 @@ std::string join(const std::vector<std::string>& parts, std::string_view delimit
  * @return The formatted string.
  */
 template<typename... Args>
-std::string format(std::format_string<Args...> fmt, Args&&... args) {
+[[nodiscard]] std::string format(std::format_string<Args...> fmt, Args&&... args) {
     return std::format(fmt, std::forward<Args>(args)...);
 }
 
@@ -182,7 +191,7 @@ std::string format(std::format_string<Args...> fmt, Args&&... args) {
  * @param skipEmpty If true, empty parts resulting from consecutive delimiters are skipped.
  * @return A vector of strings representing the split parts.
  */
-std::vector<std::string> split(std::string_view s, char delimiter, bool skipEmpty = false);
+[[nodiscard]] std::vector<std::string> split(std::string_view s, char delimiter, bool skipEmpty = false);
 
 /**
  * @brief Splits a string view into a vector of strings based on a string view delimiter.
@@ -191,7 +200,7 @@ std::vector<std::string> split(std::string_view s, char delimiter, bool skipEmpt
  * @param skipEmpty If true, empty parts resulting from consecutive delimiters are skipped.
  * @return A vector of strings representing the split parts.
  */
-std::vector<std::string> split(std::string_view s, std::string_view delimiter, bool skipEmpty = false);
+[[nodiscard]] std::vector<std::string> split(std::string_view s, std::string_view delimiter, bool skipEmpty = false);
 
 // Numeric Parsing/Validation
 
@@ -200,14 +209,14 @@ std::vector<std::string> split(std::string_view s, std::string_view delimiter, b
  * @param s The string view to check.
  * @return True if the string contains a valid integer, false otherwise.
  */
-bool isInteger(std::string_view s);
+[[nodiscard]] bool isInteger(std::string_view s);
 
 /**
  * @brief Checks if a string view represents a valid floating-point number.
  * @param s The string view to check.
  * @return True if the string contains a valid floating-point number, false otherwise.
  */
-bool isFloatingPoint(std::string_view s);
+[[nodiscard]] bool isFloatingPoint(std::string_view s);
 
 /**
  * @brief Converts a string view to a long integer.
@@ -218,7 +227,7 @@ bool isFloatingPoint(std::string_view s);
  * @param base The numeric base to use (e.g., 10 for decimal, 16 for hexadecimal).
  * @return A `Result<long>` containing the converted value or an error.
  */
-Result<long> toLong(std::string_view s, int base = default_radix);
+[[nodiscard]] Result<long> toLong(std::string_view s, int base = default_radix);
 
 /**
  * @brief Converts a string view to a double-precision floating-point number.
@@ -228,17 +237,18 @@ Result<long> toLong(std::string_view s, int base = default_radix);
  * @param s The string view to convert.
  * @return A `Result<double>` containing the converted value or an error.
  */
-Result<double> toDouble(std::string_view s);
+[[nodiscard]] Result<double> toDouble(std::string_view s);
 
 /**
  * @brief Parses a string view into a boolean value.
  *
  * Recognizes "true", "false", "1", and "0" (case-insensitive for "true"/"false").
+ * Case-insensitive comparison is performed using locale-independent ASCII-only conversion.
  * Returns a `Result<bool>` indicating success or failure.
  * @param s The string view to parse.
  * @return A `Result<bool>` containing the parsed boolean value or an error.
  */
-Result<bool> parseBool(std::string_view s);
+[[nodiscard]] Result<bool> parseBool(std::string_view s);
 
 /**
  * @brief Converts a string view to an integer.
@@ -249,7 +259,7 @@ Result<bool> parseBool(std::string_view s);
  * @param base The numeric base to use (e.g., 10 for decimal, 16 for hexadecimal).
  * @return A `Result<int>` containing the converted value or an error.
  */
-Result<int> toInt(std::string_view s, int base = default_radix);
+[[nodiscard]] Result<int> toInt(std::string_view s, int base = default_radix);
 
 /**
  * @brief Converts a string view to a single-precision floating-point number.
@@ -259,7 +269,7 @@ Result<int> toInt(std::string_view s, int base = default_radix);
  * @param s The string view to convert.
  * @return A `Result<float>` containing the converted value or an error.
  */
-Result<float> toFloat(std::string_view s);
+[[nodiscard]] Result<float> toFloat(std::string_view s);
 
 } // namespace utils
 

@@ -173,11 +173,11 @@ utils::Result<ProcessInfo> ProcessAnalyzer::getProcessDetails(pid_t pid) const {
 
             if (key == "Name") info.name = value;
             else if (key == "State") info.state = value;
-            else if (key == "VmSize") utils::tryParse(utils::split(value, ' ')[0], info.virtualMemory);
-            else if (key == "VmRSS") utils::tryParse(utils::split(value, ' ')[0], info.residentMemory);
-            else if (key == "PPid") utils::tryParse(value, info.ppid);
-            else if (key == "Uid") utils::tryParse(utils::split(value, ' ')[0], info.uid);
-            else if (key == "Threads") utils::tryParse(value, info.threadCount);
+            else if (key == "VmSize") (void)utils::tryParse(utils::split(value, ' ')[0], info.virtualMemory);
+            else if (key == "VmRSS") (void)utils::tryParse(utils::split(value, ' ')[0], info.residentMemory);
+            else if (key == "PPid") (void)utils::tryParse(value, info.ppid);
+            else if (key == "Uid") (void)utils::tryParse(utils::split(value, ' ')[0], info.uid);
+            else if (key == "Threads") (void)utils::tryParse(value, info.threadCount);
         }
     } else {
         return std::unexpected(utils::make_error_code(utils::UtilsError::fileNotFound));
@@ -189,13 +189,13 @@ utils::Result<ProcessInfo> ProcessAnalyzer::getProcessDetails(pid_t pid) const {
         if (lastRParen != std::string::npos) {
             std::vector<std::string> stat_fields = utils::split(utils::trim(content.substr(lastRParen + 1)), ' ', true);
             if (stat_fields.size() > 19) {
-                utils::tryParse(stat_fields[1], info.ppid);
-                utils::tryParse(stat_fields[11], info.cpuUserTimeTicks);
-                utils::tryParse(stat_fields[12], info.cpuKernelTimeTicks);
+                (void)utils::tryParse(stat_fields[1], info.ppid);
+                (void)utils::tryParse(stat_fields[11], info.cpuUserTimeTicks);
+                (void)utils::tryParse(stat_fields[12], info.cpuKernelTimeTicks);
                 long nice_val = 0;
-                utils::tryParse(stat_fields[16], nice_val);
+                (void)utils::tryParse(stat_fields[16], nice_val);
                 info.priority = static_cast<int>(nice_val);
-                utils::tryParse(stat_fields[19], info.startTimeTicks);
+                (void)utils::tryParse(stat_fields[19], info.startTimeTicks);
             }
         }
     }
@@ -416,8 +416,8 @@ utils::Result<std::vector<ThreadInfo>> ProcessAnalyzer::getProcessThreads(pid_t 
                     std::vector<std::string> stat_fields = utils::split(utils::trim(content.substr(lastParen + 1)), ' ', true);
                     if (!stat_fields.empty() && !stat_fields[0].empty()) thread.state = stat_fields[0][0];
                     if (stat_fields.size() > 12) {
-                        utils::tryParse(stat_fields[11], thread.cpuUserTimeTicks);
-                        utils::tryParse(stat_fields[12], thread.cpuKernelTimeTicks);
+                        (void)utils::tryParse(stat_fields[11], thread.cpuUserTimeTicks);
+                        (void)utils::tryParse(stat_fields[12], thread.cpuKernelTimeTicks);
                     }
                 }
             }

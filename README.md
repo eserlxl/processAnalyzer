@@ -12,8 +12,15 @@
 
 ---
 
+## ⭐ Motivation
+
+`processAnalyzer` is a high-performance C++ command-line utility designed for the real-time inspection and monitoring of system processes. It delivers detailed resource usage metrics and execution statistics to facilitate efficient system diagnostics and performance optimization.
+
+---
+
 ## 📑 Table of Contents
 
+- [Motivation](#-motivation)
 - [Key Features](#-key-features)
 - [Core Technologies](#-core-technologies)
 - [Installation](#-installation)
@@ -21,6 +28,7 @@
 - [API Usage Example](#-api-usage-example)
 - [Documentation](#-documentation)
 - [Testing](#-testing)
+- [Security](#-security)
 - [Contributing](#-contributing)
 - [License](#-license)
 
@@ -168,6 +176,18 @@ After building the project, you can run tests in two ways:
     ```
 
 For more detailed information on the build process and testing, see the [Build Details](docs/build.md) document.
+
+---
+
+## 🔒 Security
+
+`processAnalyzer` interacts directly with the Linux `/proc` filesystem to gather system and process information. While designed with security in mind, users should be aware of the following:
+
+-   **Permissions**: Running `processAnalyzer` with elevated privileges (e.g., `sudo`) will grant it access to sensitive process information that might otherwise be restricted. Use `sudo` only when necessary and understand the implications.
+-   **Output Handling**: When exporting data to files (especially JSON or CSV), ensure the destination is secure if the data contains sensitive information (e.g., command-line arguments, environment variables of certain processes).
+-   **External Integration**: If integrating `processAnalyzer`'s output with other tools or scripts, validate and sanitize inputs to prevent injection vulnerabilities.
+
+Always follow best security practices when using system diagnostic tools.
 
 ---
 
