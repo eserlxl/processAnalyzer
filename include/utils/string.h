@@ -37,10 +37,17 @@ template<typename T>
     auto lastCharPos = s.find_last_not_of(whitespace);
     std::string_view trimmedSv = s.substr(firstCharPos, lastCharPos - firstCharPos + 1);
 
-    T tempVal{};
-    auto [ptr, ec] = std::from_chars(trimmedSv.data(), trimmedSv.data() + trimmedSv.size(), tempVal);
+    const char* begin = trimmedSv.data();
+    const char* end = begin + trimmedSv.size();
 
-    if (ec == std::errc{} && ptr == trimmedSv.data() + trimmedSv.size()) {
+    if (!trimmedSv.empty() && trimmedSv.front() == '+') {
+        begin++;
+    }
+
+    T tempVal{};
+    auto [ptr, ec] = std::from_chars(begin, end, tempVal);
+
+    if (ec == std::errc{} && ptr == end) {
         if constexpr (std::is_floating_point_v<T>) {
             if (!std::isfinite(tempVal)) {
                 return false;

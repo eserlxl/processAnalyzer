@@ -82,21 +82,29 @@ TEST(TimeTests, FormatTimestampErrorCases) {
 TEST(TimeTests, FormatTimestampUnix) {
     // Epoch: Jan 1, 1970, 00:00:00 UTC
     long long unixEpoch = 0;
-    std::string formattedEpoch = utils::formatTimestamp(unixEpoch);
+    auto formattedEpoch = utils::formatTimestamp(unixEpoch);
+    ASSERT_TRUE(formattedEpoch.has_value());
     
     std::tm epochTm = getLocalTm(std::chrono::system_clock::from_time_t(0));
-    EXPECT_EQ(formattedEpoch, formatTmLocal(epochTm, "%Y-%m-%d %H:%M:%S"));
+    EXPECT_EQ(formattedEpoch.value(), formatTmLocal(epochTm, "%Y-%m-%d %H:%M:%S"));
 
     // Some arbitrary time (Jan 15, 2023, 14:30:00 UTC)
     long long unixTime = 1673793000LL;
-    std::string formattedTime = utils::formatTimestamp(unixTime);
+    auto formattedTime = utils::formatTimestamp(unixTime);
+    ASSERT_TRUE(formattedTime.has_value());
+
     std::tm timeTm = getLocalTm(std::chrono::system_clock::from_time_t(unixTime));
-    EXPECT_EQ(formattedTime, formatTmLocal(timeTm, "%Y-%m-%d %H:%M:%S"));
+    EXPECT_EQ(formattedTime.value(), formatTmLocal(timeTm, "%Y-%m-%d %H:%M:%S"));
 }
 
 TEST(TimeTests, FormatTimestampUnixNegative) {
-    EXPECT_EQ(utils::formatTimestamp(-1LL), "N/A");
-    EXPECT_EQ(utils::formatTimestamp(-1000LL), "N/A");
+    auto res1 = utils::formatTimestamp(-1LL);
+    ASSERT_FALSE(res1.has_value());
+    EXPECT_EQ(res1.error(), utils::make_error_code(utils::UtilsError::invalidArgument));
+
+    auto res2 = utils::formatTimestamp(-1000LL);
+    ASSERT_FALSE(res2.has_value());
+    EXPECT_EQ(res2.error(), utils::make_error_code(utils::UtilsError::invalidArgument));
 }
 
 TEST(TimeTests, ParseTimestamp) {
@@ -133,10 +141,6 @@ TEST(TimeTests, ParseTimestampVariousFormats) {
     EXPECT_EQ(tm1.tm_year, 2024 - 1900); EXPECT_EQ(tm1.tm_mon, 2); EXPECT_EQ(tm1.tm_mday, 10);
 
     // Test with DD-Mon-YYYY (e.g., 25-Dec-2025)
-    // Note: %b is locale dependent, but usually works for English abbreviations.
-    // If strict locale independence is needed, avoid %b, but it is standard strptime.
-    // We will assume "C" or english-like locale for this specific test case or use known digits.
-    // Using numeric month to be safe: 25-12-2025
     auto result2 = utils::parseTimestamp("25-12-2025", "%d-%m-%Y");
     ASSERT_TRUE(result2.has_value());
     std::tm tm2 = getLocalTm(result2.value());
@@ -251,22 +255,65 @@ TEST(TimeTests, ParseTimestampEpochAndFarFuture) {
 }
 
 TEST(TimeTests, FormatElapsedTime) {
-    EXPECT_EQ(utils::formatElapsedTime(0LL), "0s");
-    EXPECT_EQ(utils::formatElapsedTime(1LL), "1s");
-    EXPECT_EQ(utils::formatElapsedTime(59LL), "59s");
-    EXPECT_EQ(utils::formatElapsedTime(60LL), "1m 0s");
-    EXPECT_EQ(utils::formatElapsedTime(61LL), "1m 1s");
-    EXPECT_EQ(utils::formatElapsedTime(3599LL), "59m 59s");
-    EXPECT_EQ(utils::formatElapsedTime(3600LL), "1h 0m 0s");
-    EXPECT_EQ(utils::formatElapsedTime(3601LL), "1h 0m 1s");
-    EXPECT_EQ(utils::formatElapsedTime(86399LL), "23h 59m 59s");
-    EXPECT_EQ(utils::formatElapsedTime(86400LL), "1d 0h 0m 0s");
-    EXPECT_EQ(utils::formatElapsedTime(86401LL), "1d 0h 0m 1s");
-    EXPECT_EQ(utils::formatElapsedTime(172800LL), "2d 0h 0m 0s");
-    EXPECT_EQ(utils::formatElapsedTime(365LL * 86400LL + 3600LL), "365d 1h 0m 0s");
+    auto res0 = utils::formatElapsedTime(0LL);
+    ASSERT_TRUE(res0.has_value());
+    EXPECT_EQ(res0.value(), "0s");
+
+    auto res1 = utils::formatElapsedTime(1LL);
+    ASSERT_TRUE(res1.has_value());
+    EXPECT_EQ(res1.value(), "1s");
+
+    auto res59 = utils::formatElapsedTime(59LL);
+    ASSERT_TRUE(res59.has_value());
+    EXPECT_EQ(res59.value(), "59s");
+
+    auto res60 = utils::formatElapsedTime(60LL);
+    ASSERT_TRUE(res60.has_value());
+    EXPECT_EQ(res60.value(), "1m 0s");
+
+    auto res61 = utils::formatElapsedTime(61LL);
+    ASSERT_TRUE(res61.has_value());
+    EXPECT_EQ(res61.value(), "1m 1s");
+
+    auto res3599 = utils::formatElapsedTime(3599LL);
+    ASSERT_TRUE(res3599.has_value());
+    EXPECT_EQ(res3599.value(), "59m 59s");
+
+    auto res3600 = utils::formatElapsedTime(3600LL);
+    ASSERT_TRUE(res3600.has_value());
+    EXPECT_EQ(res3600.value(), "1h 0m 0s");
+
+    auto res3601 = utils::formatElapsedTime(3601LL);
+    ASSERT_TRUE(res3601.has_value());
+    EXPECT_EQ(res3601.value(), "1h 0m 1s");
+
+    auto res86399 = utils::formatElapsedTime(86399LL);
+    ASSERT_TRUE(res86399.has_value());
+    EXPECT_EQ(res86399.value(), "23h 59m 59s");
+
+    auto res86400 = utils::formatElapsedTime(86400LL);
+    ASSERT_TRUE(res86400.has_value());
+    EXPECT_EQ(res86400.value(), "1d 0h 0m 0s");
+
+    auto res86401 = utils::formatElapsedTime(86401LL);
+    ASSERT_TRUE(res86401.has_value());
+    EXPECT_EQ(res86401.value(), "1d 0h 0m 1s");
+
+    auto res172800 = utils::formatElapsedTime(172800LL);
+    ASSERT_TRUE(res172800.has_value());
+    EXPECT_EQ(res172800.value(), "2d 0h 0m 0s");
+
+    auto resLong = utils::formatElapsedTime(365LL * 86400LL + 3600LL);
+    ASSERT_TRUE(resLong.has_value());
+    EXPECT_EQ(resLong.value(), "365d 1h 0m 0s");
 }
 
 TEST(TimeTests, FormatElapsedTimeNegative) {
-    EXPECT_EQ(utils::formatElapsedTime(-100LL), "N/A");
-    EXPECT_EQ(utils::formatElapsedTime(-1LL), "N/A");
+    auto resNeg = utils::formatElapsedTime(-100LL);
+    ASSERT_FALSE(resNeg.has_value());
+    EXPECT_EQ(resNeg.error(), utils::make_error_code(utils::UtilsError::invalidArgument));
+
+    auto resNeg2 = utils::formatElapsedTime(-1LL);
+    ASSERT_FALSE(resNeg2.has_value());
+    EXPECT_EQ(resNeg2.error(), utils::make_error_code(utils::UtilsError::invalidArgument));
 }

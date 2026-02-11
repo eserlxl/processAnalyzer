@@ -246,7 +246,7 @@ std::vector<std::string> split(std::string_view s, std::string_view delimiter, b
 // Numeric Parsing/Validation
 
 template <typename T>
-Result<T> parseNumeric(std::string_view s, int base = default_radix);
+Result<T> parseNumeric(std::string_view s, int base = defaultRadix);
 
 bool isInteger(std::string_view s) {
     long long val;
@@ -268,17 +268,16 @@ Result<T> parseNumeric(std::string_view s, int base) {
     auto lastCharPos = s.find_last_not_of(whitespace);
     std::string_view trimmedSv = s.substr(firstCharPos, lastCharPos - firstCharPos + 1);
 
+    if (!trimmedSv.empty() && trimmedSv.front() == '+') {
+        trimmedSv.remove_prefix(1);
+    }
+
     T value;
     std::from_chars_result res;
     const char* first = trimmedSv.data();
     const char* last = trimmedSv.data() + trimmedSv.size();
 
     if constexpr (std::is_integral_v<T>) {
-        // std::from_chars for integers does not support leading '+'.
-        if (!trimmedSv.empty() && trimmedSv.front() == '+') {
-            trimmedSv.remove_prefix(1);
-            first = trimmedSv.data();
-        }
         res = std::from_chars(first, last, value, base);
     } else { // Floating point types
         res = std::from_chars(first, last, value);

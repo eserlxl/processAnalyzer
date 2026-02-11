@@ -653,7 +653,7 @@ utils::Result<ProcessInfo> ProcessAnalyzer::getProcessDetails(pid_t pid) const {
             
             auto now = std::chrono::system_clock::now();
             long long currentTimeUnix = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
-            info.elapsedTime = utils::formatElapsedTime(currentTimeUnix - info.startTimeUnix);
+            info.elapsedTime = utils::formatElapsedTime(currentTimeUnix - info.startTimeUnix).value_or("N/A");
         }
     }
 

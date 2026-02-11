@@ -186,7 +186,7 @@ utils::Result<ProcessInfo> ProcessAnalyzer::getProcessDetails(pid_t pid) const {
     if (auto statContentOpt = utils::readTextFile((pidPath / "stat").string())) {
                         const std::string& content = *statContentOpt;        size_t lastRParen = content.rfind(')');
         if (lastRParen != std::string::npos) {
-            std::vector<std::string> stat_fields = utils::split(utils::trim(content.substr(lastRParen + 1)), ' ', true);
+            std::vector<std::string> statFields = utils::split(utils::trim(content.substr(lastRParen + 1)), ' ', true);
             constexpr int PROCESS_STAT_FIELD_COUNT = 19;
             constexpr int PROCESS_STAT_PPID_INDEX = 1;
             constexpr int PROCESS_STAT_CPU_USER_TIME_INDEX = 11;
@@ -213,7 +213,7 @@ utils::Result<ProcessInfo> ProcessAnalyzer::getProcessDetails(pid_t pid) const {
             
             auto now = std::chrono::system_clock::now();
             long long currentTimeUnix = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
-            info.elapsedTime = utils::formatElapsedTime(currentTimeUnix - info.startTimeUnix);
+            info.elapsedTime = utils::formatElapsedTime(currentTimeUnix - info.startTimeUnix).value_or("N/A");
         }
     }
 

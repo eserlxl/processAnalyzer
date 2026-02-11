@@ -9,8 +9,10 @@
 
 namespace utils {
 
-::std::string formatElapsedTime(long long seconds) {
-    if (seconds < 0) return "N/A";
+Result<::std::string> formatElapsedTime(long long seconds) {
+    if (seconds < 0) {
+        return ::std::unexpected(make_error_code(UtilsError::invalidArgument));
+    }
 
     constexpr long long secondsPerMinute = 60;
     constexpr long long secondsPerHour = 3600;
@@ -37,9 +39,9 @@ namespace utils {
     return result;
 }
 
-::std::string formatTimestamp(long long unixTimestamp) {
+Result<::std::string> formatTimestamp(long long unixTimestamp) {
     if (unixTimestamp < 0) {
-        return "N/A";
+        return ::std::unexpected(make_error_code(UtilsError::invalidArgument));
     }
 
     auto tt = static_cast<::std::time_t>(unixTimestamp);
@@ -66,16 +68,16 @@ namespace utils {
 #endif
 
     if (!success) {
-        return "N/A"; // Explicitly return N/A on failure
+        return ::std::unexpected(make_error_code(UtilsError::unknownError));
     }
 
     constexpr size_t bufferSize = 64;
     ::std::array<char, bufferSize> buffer{};
     if (::std::strftime(buffer.data(), buffer.size(), "%Y-%m-%d %H:%M:%S", &tmBuf)) {
-        return {buffer.data()};
+        return ::std::string(buffer.data());
     }
     // If strftime fails for any reason after localtime succeeded
-    return "N/A";
+    return ::std::unexpected(make_error_code(UtilsError::unknownError));
 }
 
 Result<::std::chrono::system_clock::time_point> getCurrentSystemTime() {

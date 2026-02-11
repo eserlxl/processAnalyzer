@@ -31,7 +31,7 @@ namespace {
             return ss.str();
         }
         if (col == "start-time") {
-            return utils::formatTimestamp(info.startTimeUnix);
+            return utils::formatTimestamp(info.startTimeUnix).value_or("N/A");
         }
         if (col == "elapsed-time") return info.elapsedTime;
         if (col == "mem-perc") {
@@ -96,7 +96,7 @@ void printVerticalProcessDetails(const ProcessInfo& info) {
               << "RSS Memory:        " << info.residentMemory << " KB\n"
               << "Virtual Memory:    " << info.virtualMemory << " KB\n"
               << "Threads:           " << info.threadCount << "\n"
-              << "Start Time:        " << utils::formatTimestamp(info.startTimeUnix) << "\n"
+              << "Start Time:        " << utils::formatTimestamp(info.startTimeUnix).value_or("N/A") << "\n"
               << "Elapsed Time:      " << info.elapsedTime << "\n"
               << "Executable Path:   " << info.executablePath << "\n"
               << "Command:           " << info.cmdline << "\n";
