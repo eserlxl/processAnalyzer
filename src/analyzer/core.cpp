@@ -33,6 +33,7 @@ namespace {
     constexpr double msInSecond = 1000.0;
     constexpr long defaultSystemClockTicks = 100;
     constexpr size_t pwBufSize = 1024;
+    constexpr size_t hostnameBufSize = 256;
     
     constexpr std::string_view anyIpV4AddrPort = "00000000:0000";
     constexpr std::string_view anyIpV6AddrPort = "00000000000000000000000000000000:0000";
@@ -303,7 +304,15 @@ namespace {
 
 ProcessAnalyzer::ProcessAnalyzer(std::filesystem::path procPath) : procPath(std::move(procPath)) {}
 
-utils::Result<long long> ProcessAnalyzer::getSystemBootTimeUnix(const std::filesystem::path& procPath) {
+void ProcessAnalyzer::setProcPath(const std::filesystem::path& newPath) {
+    procPath = newPath;
+}
+
+const std::filesystem::path& ProcessAnalyzer::getProcPath() const {
+    return procPath;
+}
+
+utils::Result<long long> ProcessAnalyzer::getSystemBootTimeUnix() const {
     std::filesystem::path uptimePath = procPath / "uptime";
     auto contentOpt = utils::readTextFile(uptimePath.string());
     if (!contentOpt) {
@@ -323,6 +332,120 @@ utils::Result<long long> ProcessAnalyzer::getSystemBootTimeUnix(const std::files
     long long bootTimeUnix = currentTimeUnix - static_cast<long long>(uptimeSeconds);
 
     return bootTimeUnix;
+}
+
+utils::Result<SystemInfo> ProcessAnalyzer::getSystemInfo() const {
+    SystemInfo sysInfo;
+
+    // Get Kernel Version
+    fs::path versionPath = procPath / "version";
+    if (auto versionContent = utils::readTextFile(versionPath.string())) {
+        sysInfo.kernelVersion = utils::trim(*versionContent);
+    } else {
+        return std::unexpected(utils::make_error_code(utils::UtilsError::fileNotFound));
+    }
+
+    // Get Uptime
+    fs::path uptimePath = procPath / "uptime";
+    if (auto uptimeContent = utils::readTextFile(uptimePath.string())) {
+        std::stringstream ss(*uptimeContent);
+        double uptimeSeconds;
+        ss >> uptimeSeconds;
+        sysInfo.uptime = std::chrono::seconds(static_cast<long long>(uptimeSeconds));
+    } else {
+        return std::unexpected(utils::make_error_code(utils::UtilsError::fileNotFound));
+    }
+
+    // Get Hostname
+    std::array<char, hostnameBufSize> hostnameBuf;
+    if (gethostname(hostnameBuf.data(), hostnameBuf.size()) == 0) {
+        sysInfo.hostname = hostnameBuf.data();
+    } else {
+        sysInfo.hostname = "unknown";
+    }
+
+    return sysInfo;
+}
+
+
+utils::Result<std::vector<ProcessCpuUsage>> ProcessAnalyzer::getAllProcessesCpuUsage(std::chrono::milliseconds durationMs) const {
+    auto initialSnapshotResult = snapshot();
+    if (!initialSnapshotResult) {
+        return std::unexpected(initialSnapshotResult.error());
+    }
+    
+    auto initialTotalSystemTicksResult = getTotalSystemCpuTimeTicks(procPath);
+    if (!initialTotalSystemTicksResult) {
+        return std::unexpected(initialTotalSystemTicksResult.error());
+    }
+
+    std::this_thread::sleep_for(durationMs);
+
+    auto finalSnapshotResult = snapshot();
+    if (!finalSnapshotResult) {
+        return std::unexpected(finalSnapshotResult.error());
+    }
+    
+    auto finalTotalSystemTicksResult = getTotalSystemCpuTimeTicks(procPath);
+    if (!finalTotalSystemTicksResult) {
+        return std::unexpected(finalTotalSystemTicksResult.error());
+    }
+    
+    long long totalSystemTicksDelta = *finalTotalSystemTicksResult - *initialTotalSystemTicksResult;
+
+    std::map<int, ProcessInfo> initialSnapshotMap;
+    for(const auto& info : *initialSnapshotResult) {
+        initialSnapshotMap[info.pid] = info;
+    }
+
+    std::vector<ProcessCpuUsage> results;
+    if (totalSystemTicksDelta <= 0) {
+        return results;
+    }
+
+    for(const auto& finalInfo : *finalSnapshotResult) {
+        auto it = initialSnapshotMap.find(finalInfo.pid);
+        if (it != initialSnapshotMap.end()) {
+            const auto& initialInfo = it->second;
+            long long processCpuTicksDelta = (finalInfo.cpuUserTimeTicks + finalInfo.cpuKernelTimeTicks) - (initialInfo.cpuUserTimeTicks + initialInfo.cpuKernelTimeTicks);
+            results.push_back({
+                .pid = finalInfo.pid,
+                .name = finalInfo.name,
+                .cpuPercentage = 100.0 * static_cast<double>(processCpuTicksDelta) / static_cast<double>(totalSystemTicksDelta)
+            });
+        }
+    }
+    return results;
+}
+
+utils::Result<SystemCpuUsage> ProcessAnalyzer::getSystemCpuUsage(std::chrono::milliseconds durationMs) const {
+    auto initialStatsResult = getSystemCpuStats();
+    if (!initialStatsResult) {
+        return std::unexpected(initialStatsResult.error());
+    }
+
+    std::this_thread::sleep_for(durationMs);
+
+    auto finalStatsResult = getSystemCpuStats();
+    if (!finalStatsResult) {
+        return std::unexpected(finalStatsResult.error());
+    }
+
+    auto& initialStats = *initialStatsResult;
+    auto& finalStats = *finalStatsResult;
+
+    unsigned long long initialTotal = initialStats.user + initialStats.nice + initialStats.system + initialStats.idle + initialStats.iowait + initialStats.irq + initialStats.softirq + initialStats.steal;
+    unsigned long long finalTotal = finalStats.user + finalStats.nice + finalStats.system + finalStats.idle + finalStats.iowait + finalStats.irq + finalStats.softirq + finalStats.steal;
+
+    unsigned long long totalDelta = finalTotal - initialTotal;
+    unsigned long long idleDelta = finalStats.idle - initialStats.idle;
+
+    double cpuPct = 0.0;
+    if (totalDelta > 0) {
+        cpuPct = 100.0 * (1.0 - static_cast<double>(idleDelta) / static_cast<double>(totalDelta));
+    }
+    
+    return SystemCpuUsage { .cpuPercentage = cpuPct };
 }
 
 utils::Result<std::vector<int>> ProcessAnalyzer::getPids() const {
@@ -646,7 +769,7 @@ utils::Result<ProcessInfo> ProcessAnalyzer::getProcessDetails(pid_t pid) const {
         }
     }
 
-    if (auto systemBootTimeUnixResult = getSystemBootTimeUnix(procPath)) {
+    if (auto systemBootTimeUnixResult = getSystemBootTimeUnix()) {
         if (auto ticksResult = getSystemClockTicksPerSecond()) {
             long long processStartTimeSec = info.startTimeTicks / *ticksResult;
             info.startTimeUnix = *systemBootTimeUnixResult + processStartTimeSec;

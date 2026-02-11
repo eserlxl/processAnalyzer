@@ -120,7 +120,7 @@ TEST_F(ProcessAnalyzerAdditionalTest, GetProcessThreads_NameWithParentheses) {
 TEST_F(ProcessAnalyzerAdditionalTest, GetSystemBootTimeUnix_MissingUptimeFile) {
     mockProc->removeFile("uptime"); // Remove the mock uptime file
     ProcessAnalyzer analyzer(std::filesystem::path(mockProc->getPath()));
-    auto bootTimeResult = analyzer.getSystemBootTimeUnix(std::filesystem::path(mockProc->getPath())); // Pass procPath directly
+    auto bootTimeResult = analyzer.getSystemBootTimeUnix(); // Pass procPath directly
     ASSERT_FALSE(bootTimeResult.has_value());
     EXPECT_EQ(bootTimeResult.error(), utils::make_error_code(utils::UtilsError::fileNotFound));
 }

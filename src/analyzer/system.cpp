@@ -31,27 +31,6 @@ namespace {
     }
 }
 
-utils::Result<long long> ProcessAnalyzer::getSystemBootTimeUnix(const std::filesystem::path& procPath) {
-    std::filesystem::path uptimePath = procPath / "uptime";
-    auto contentOpt = utils::readTextFile(uptimePath.string());
-    if (!contentOpt) {
-        return std::unexpected(utils::make_error_code(utils::UtilsError::fileNotFound));
-    }
-
-    std::stringstream ss(*contentOpt);
-    double uptimeSeconds;
-    ss >> uptimeSeconds;
-
-    if (ss.fail()) {
-        return std::unexpected(utils::make_error_code(utils::UtilsError::analyzerParsingError));
-    }
-
-    auto now = std::chrono::system_clock::now();
-    long long currentTimeUnix = std::chrono::duration_cast<std::chrono::seconds>(now.time_since_epoch()).count();
-    long long bootTimeUnix = currentTimeUnix - static_cast<long long>(uptimeSeconds);
-
-    return bootTimeUnix;
-}
 
 utils::Result<std::vector<int>> ProcessAnalyzer::getPids() const {
     std::vector<int> pids;

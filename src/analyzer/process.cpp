@@ -206,7 +206,7 @@ utils::Result<ProcessInfo> ProcessAnalyzer::getProcessDetails(pid_t pid) const {
         }
     }
 
-    if (auto systemBootTimeUnixResult = getSystemBootTimeUnix(procPath)) {
+    if (auto systemBootTimeUnixResult = getSystemBootTimeUnix()) {
         if (auto ticksResult = getSystemClockTicksPerSecond()) {
             long long processStartTimeSec = info.startTimeTicks / *ticksResult;
             info.startTimeUnix = *systemBootTimeUnixResult + processStartTimeSec;
