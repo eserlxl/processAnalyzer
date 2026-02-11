@@ -28,18 +28,6 @@ namespace {
     constexpr long defaultSystemClockTicks = 100;
     constexpr size_t pwBufSize = 1024;
 
-    template <typename TInt>
-    std::optional<TInt> parseIntegerNoThrow(std::string_view text, int base = 10) {
-        TInt value{};
-        const char* begin = text.data();
-        const char* end = begin + text.size();
-        const auto [ptr, ec] = std::from_chars(begin, end, value, base);
-        if (ec != std::errc{} || ptr != end) {
-            return std::nullopt;
-        }
-        return value;
-    }
-
     utils::Result<long long> getTotalSystemCpuTimeTicks(const ::std::filesystem::path& procPath) {
         auto stats = ProcessAnalyzer(procPath).getSystemCpuStats();
         if(stats) {

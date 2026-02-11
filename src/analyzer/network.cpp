@@ -27,7 +27,7 @@ namespace {
     // for filtering purposes before converting to the public NetworkConnection struct.
     struct InternalNetworkConnection {
         NetworkConnection baseConn;
-        int inode;
+        unsigned long inode;
     };
 
     enum class TcpState : std::uint8_t {
@@ -56,6 +56,8 @@ namespace {
         std::string line;
         std::getline(ss, line); // Skip header
 
+        bool isUdp = protocolPrefix.starts_with("UDP");
+
         while (std::getline(ss, line)) {
             std::stringstream lineSs(line);
             std::string dummySl;
@@ -75,28 +77,32 @@ namespace {
             InternalNetworkConnection internalConn;
             internalConn.baseConn.protocol = protocolPrefix;
             internalConn.inode = 0;
-            if (auto inode = utils::parseIntegerNoThrow<int>(inodeStr)) {
+            if (auto inode = utils::parseIntegerNoThrow<unsigned long>(inodeStr)) {
                 internalConn.inode = *inode;
             }
 
-            int stateInt = 0;
-            if (auto parsedState = utils::parseIntegerNoThrow<int>(stStr, hexBase)) {
-                stateInt = *parsedState;
-            }
-            
-            switch (static_cast<TcpState>(stateInt)) {
-                case TcpState::established: internalConn.baseConn.state = "ESTABLISHED"; break;
-                case TcpState::synSent: internalConn.baseConn.state = "SYN_SENT"; break;
-                case TcpState::synRecv: internalConn.baseConn.state = "SYN_RECV"; break;
-                case TcpState::finWait1: internalConn.baseConn.state = "FIN_WAIT1"; break;
-                case TcpState::finWait2: internalConn.baseConn.state = "FIN_WAIT2"; break;
-                case TcpState::timeWait: internalConn.baseConn.state = "TIME_WAIT"; break;
-                case TcpState::close: internalConn.baseConn.state = "CLOSE"; break;
-                case TcpState::closeWait: internalConn.baseConn.state = "CLOSE_WAIT"; break;
-                case TcpState::lastAck: internalConn.baseConn.state = "LAST_ACK"; break;
-                case TcpState::listen: internalConn.baseConn.state = "LISTEN"; break;
-                case TcpState::closing: internalConn.baseConn.state = "CLOSING"; break;
-                default: internalConn.baseConn.state = "UNKNOWN"; break;
+            if (isUdp) {
+                internalConn.baseConn.state = "UNKNOWN";
+            } else {
+                int stateInt = 0;
+                if (auto parsedState = utils::parseIntegerNoThrow<int>(stStr, hexBase)) {
+                    stateInt = *parsedState;
+                }
+                
+                switch (static_cast<TcpState>(stateInt)) {
+                    case TcpState::established: internalConn.baseConn.state = "ESTABLISHED"; break;
+                    case TcpState::synSent: internalConn.baseConn.state = "SYN_SENT"; break;
+                    case TcpState::synRecv: internalConn.baseConn.state = "SYN_RECV"; break;
+                    case TcpState::finWait1: internalConn.baseConn.state = "FIN_WAIT1"; break;
+                    case TcpState::finWait2: internalConn.baseConn.state = "FIN_WAIT2"; break;
+                    case TcpState::timeWait: internalConn.baseConn.state = "TIME_WAIT"; break;
+                    case TcpState::close: internalConn.baseConn.state = "CLOSE"; break;
+                    case TcpState::closeWait: internalConn.baseConn.state = "CLOSE_WAIT"; break;
+                    case TcpState::lastAck: internalConn.baseConn.state = "LAST_ACK"; break;
+                    case TcpState::listen: internalConn.baseConn.state = "LISTEN"; break;
+                    case TcpState::closing: internalConn.baseConn.state = "CLOSING"; break;
+                    default: internalConn.baseConn.state = "UNKNOWN"; break;
+                }
             }
 
             auto parseIpPort = [](const std::string& addrStr) -> std::string {
@@ -131,6 +137,19 @@ namespace {
                         if (!chunkValue) return addrStr;
                         
                         uint32_t val = *chunkValue;
+                        // The kernel /proc/net/tcp6 exposes 32-bit chunks in host-byte order (usually Little Endian).
+                        // We read them as integers.
+                        // To get the correct bytes in memory (Network Byte Order for in6_addr), 
+                        // we should NOT swap if we are on Little Endian, because the integer reading already gave us the value 
+                        // whose in-memory representation (on LE) matches the byte sequence we want?
+                        // Wait, logic check:
+                        // File: "01000000" -> Value 0x01000000.
+                        // LE Memory: 00 00 00 01.
+                        // Desired: 00 00 00 01 (::1).
+                        // So LE machine -> No swap.
+                        // BE machine -> Value 0x01000000. Memory: 01 00 00 00.
+                        // Desired: 00 00 00 01.
+                        // BE machine -> Swap.
                         if constexpr (std::endian::native == std::endian::big) {
                             val = std::byteswap(val);
                         }
@@ -159,7 +178,7 @@ utils::Result<std::vector<NetworkConnection>> ProcessAnalyzer::getNetworkConnect
         return std::unexpected(fdsResult.error());
     }
 
-    std::set<int> socketInodes;
+    std::set<unsigned long> socketInodes;
     constexpr int socketInodePrefixLen = 8; // "socket:["
     constexpr int socketInodeSuffixLen = 1; // "]"
 
@@ -175,7 +194,7 @@ utils::Result<std::vector<NetworkConnection>> ProcessAnalyzer::getNetworkConnect
                                 std::string_view inodeView = std::string_view(fdInfo.path.data() + socketInodePrefixLen, fdInfo.path.length() - socketInodePrefixLen - socketInodeSuffixLen);
                                 
                                 if (utils::isInteger(inodeView)) { // Ensure it's a valid integer string
-                                    if (auto parsedInode = utils::parseIntegerNoThrow<int>(inodeView)) {
+                                    if (auto parsedInode = utils::parseIntegerNoThrow<unsigned long>(inodeView)) {
                                         socketInodes.insert(*parsedInode);
                                     }
                                 }

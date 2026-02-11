@@ -18,8 +18,7 @@
 - [Key Features](#-key-features)
 - [Project Structure](#️-project-structure)
 - [System Requirements](#-system-requirements)
-- [Installation](#-installation)
-- [Building](#-building)
+- [Build and Installation](#-build-and-installation)
 - [Quick Start](#-quick-start)
 - [Documentation](#-documentation)
 - [Security Considerations](#-security-considerations)
@@ -61,7 +60,7 @@ The project follows a standard CMake structure. For a detailed breakdown of the 
 
 ---
 
-## 📦 Installation
+## 🛠️ Build and Installation
 
 Ensure the [system requirements](#-system-requirements) are met. All major dependencies are fetched automatically by CMake during the build process.
 
@@ -71,17 +70,25 @@ Ensure the [system requirements](#-system-requirements) are met. All major depen
     cd processAnalyzer
     ```
 
----
+2.  **Configure and Build**
 
-## 🛠️ Building
-
-1.  **Configure and Build**
+    You can use standard CMake commands:
     ```bash
-    cmake -B build -DCMAKE_BUILD_TYPE=Release
-    cmake --build build
+    # Configure using the Release preset
+    cmake --preset release
+    # Build
+    cmake --build --preset release
     ```
+    The executable will be located at `build/bin/processAnalyzer`.
 
-The executable will be located at `build/bin/processAnalyzer`. For advanced build configurations, such as building with sanitizers, see the [Build Guide](docs/build.md).
+3.  **Install (Optional)**
+    ```bash
+    # Install the executable and library (requires sudo)
+    sudo cmake --install build
+    ```
+    This will install `processAnalyzer` to your system (e.g., in `/usr/local`).
+
+For advanced build options, see the [Build Guide](docs/build.md).
 
 ---
 
@@ -109,8 +116,9 @@ For a full command reference, see the [Usage Guide](docs/usage.md).
 
 ### C++ Library Usage
 
-The C++ API allows you to integrate process and system monitoring directly into your applications.
+The C++ API allows you to integrate process and system monitoring directly into your applications. After [installing](#-build-and-installation) the library, you can link against it using CMake.
 
+**Example `main.cpp`:**
 ```cpp
 #include <iostream>
 #include "analyzer/core.h"
@@ -128,6 +136,19 @@ int main() {
     }
     return 0;
 }
+```
+
+**Example `CMakeLists.txt`:**
+```cmake
+cmake_minimum_required(VERSION 3.17)
+project(MyMonitor)
+
+set(CMAKE_CXX_STANDARD 23)
+
+find_package(processAnalyzer REQUIRED)
+
+add_executable(MyMonitor main.cpp)
+target_link_libraries(MyMonitor PRIVATE processAnalyzer::analyzer)
 ```
 
 For more examples, see the [Code Examples](docs/code-examples.md) and the complete [API Reference](docs/api-reference.md).

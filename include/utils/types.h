@@ -179,10 +179,6 @@ inline ::std::error_code make_error_code(UtilsError e) {
     return {static_cast<int>(e), utilsErrorCategory()};
 }
 
-// Declaration for parseIntegerNoThrow
-template <typename TInt>
-std::optional<TInt> parseIntegerNoThrow(std::string_view text, int base = 10);
-
 } // namespace utils
 
 // Specializations must be in namespace std
