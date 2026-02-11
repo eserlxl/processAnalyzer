@@ -78,6 +78,9 @@ public:
     [[nodiscard]] utils::Result<SystemCpuUsage> getSystemCpuUsage(std::chrono::milliseconds durationMs) const;
     [[nodiscard]] utils::Result<PerCpuUsage> getPerCpuUsage(std::chrono::milliseconds durationMs) const;
 
+    // For testing purposes
+    static std::function<utils::Result<SystemCpuStats>()> s_testMockGetSystemCpuStats;
+
     //- Process Query & Filtering
     [[nodiscard]] utils::Result<std::vector<ProcessInfo>> queryProcesses(
         const ProcessFilter& filter = {},

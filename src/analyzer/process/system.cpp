@@ -75,8 +75,14 @@ utils::Result<long> ProcessAnalyzer::getSystemClockTicksPerSecond() {
     return ticks;
 }
 
+// Initialize the test mock function pointer
+std::function<utils::Result<SystemCpuStats>()> ProcessAnalyzer::s_testMockGetSystemCpuStats = nullptr;
+
 // Implementation of ProcessAnalyzer::getSystemCpuStats
 utils::Result<SystemCpuStats> ProcessAnalyzer::getSystemCpuStats() {
+    if (s_testMockGetSystemCpuStats) {
+        return s_testMockGetSystemCpuStats();
+    }
     auto statContent = utils::readTextFile("/proc/stat");
     if (!statContent) {
         return std::unexpected(statContent.error());
