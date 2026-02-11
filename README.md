@@ -40,7 +40,7 @@ It delivers detailed resource usage metrics and execution statistics to facilita
 *   **Process Hierarchy Traversal**: Navigate parent, child, and descendant process relationships with ease.
 *   **Advanced Filtering & Sorting**: Query processes by name, user, resource usage, and more.
 *   **Comprehensive System Metrics**: Monitor global and per-CPU usage, memory statistics, load average, system uptime, disk I/O, and network interface statistics.
-*   **Process Control**: Send signals to processes and adjust their niceness or CPU affinity.
+*   **Process Control (API Only)**: Programmatically send signals to processes and adjust their niceness or CPU affinity.
 
 For a complete list of features, see [docs/features.md](docs/features.md).
 
@@ -118,8 +118,7 @@ The CLI provides several commands to inspect and manage processes:
 
 - **`list`**: Streams all running processes with optional filtering and sorting.
 - **`show`**: Displays detailed information for a specific process ID (PID).
-- **`kill`**: Sends a signal to a process (e.g., `SIGTERM`, `SIGKILL`).
-- **`config`**: Manages tool configuration.
+- **`help`**: Displays help information and usage details.
 
 For a complete CLI reference and examples, see the [Usage Guide](docs/usage.md).
 

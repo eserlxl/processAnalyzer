@@ -119,6 +119,9 @@ std::string replaceAll(std::string_view s, std::string_view target, std::string_
 }
 
 std::string replaceFirst(std::string_view s, std::string_view from, std::string_view to) {
+    if (from.empty()) {
+        return std::string(s);
+    }
     auto pos = s.find(from);
     if (pos == std::string_view::npos) {
         return std::string(s);
@@ -272,7 +275,7 @@ Result<T> parseNumeric(std::string_view s, int base) {
         trimmedSv.remove_prefix(1);
     }
 
-    T value;
+    T value{}; // Value-initialize
     std::from_chars_result res;
     const char* first = trimmedSv.data();
     const char* last = trimmedSv.data() + trimmedSv.size();
@@ -281,14 +284,16 @@ Result<T> parseNumeric(std::string_view s, int base) {
         res = std::from_chars(first, last, value, base);
     } else { // Floating point types
         res = std::from_chars(first, last, value);
-        // Explicitly check for non-finite values (overflow to infinity or NaN)
-        // that std::from_chars might not always explicitly flag as out_of_range.
-        if (res.ec == std::errc() && !std::isfinite(value)) {
-             res.ec = std::errc::result_out_of_range;
-        }
     }
 
     if (res.ec == std::errc()) {
+        // For floating point, std::from_chars may successfully parse non-finite
+        // values like "inf" or "nan". We explicitly reject them.
+        if constexpr (std::is_floating_point_v<T>) {
+            if (!std::isfinite(value)) {
+                return std::unexpected(make_error_code(UtilsError::invalidArgument));
+            }
+        }
         if (res.ptr == last) {
             return value;
         }

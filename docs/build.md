@@ -75,14 +75,14 @@ To verify the correctness of the application, you can run the included unit test
 
 ## Installation
 
-After a successful build, you can install the `processAnalyzer` binary to a system-wide location (e.g., `/usr/local/bin`).
+The project does not currently provide an automatic install target (e.g., `make install`). To install the application, simply copy the executable to a directory in your system's `PATH`.
 
-From the `build` directory, run:
+From the `build` directory:
 ```bash
-sudo make install
+sudo cp processAnalyzer /usr/local/bin/
 ```
 
-This will install the `processAnalyzer` executable, making it available from any terminal. You can then run it directly:
+You can then run it from any terminal:
 ```bash
 processAnalyzer --help
 ```

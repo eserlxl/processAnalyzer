@@ -7,7 +7,6 @@
 #include <string>
 #include <vector>
 #include <limits>
-#include <cfloat> // For DBL_MAX, FLT_MAX
 
 namespace { // Anonymous namespace to avoid name collisions for helper functions and tests
 
@@ -178,6 +177,20 @@ TEST(StringTest, ContainsIgnoreCaseEmptyString) {
     EXPECT_FALSE(utils::containsIgnoreCase("", "foo"));
 }
 
+TEST(StringTest, CaseInsensitiveNonASCII) {
+    // These functions are ASCII-only. They should match non-ASCII bytes exactly.
+    // They should not lowercase non-ASCII chars.
+    EXPECT_TRUE(utils::startsWithIgnoreCase("Grüße", "Gr"));
+    EXPECT_TRUE(utils::startsWithIgnoreCase("Grüße", "gr")); // G -> g works
+    
+    EXPECT_TRUE(utils::endsWithIgnoreCase("Grüße", "ße"));
+    // 'ß' (0xDF) does not equal 'S' or 's' in ASCII compare, nor does it have a simple ASCII upper/lower pair.
+    // So "SS" or "ss" won't match "ß" in this implementation.
+    EXPECT_FALSE(utils::endsWithIgnoreCase("Grüße", "SS")); 
+    
+    EXPECT_TRUE(utils::containsIgnoreCase("Grüße", "üß"));
+}
+
 // --- toLower ---
 TEST(StringTest, ToLowerAllUppercase) {
     EXPECT_EQ(utils::toLower("HELLO"), "hello");
@@ -199,7 +212,7 @@ TEST(StringTest, ToLowerEmptyString) {
     EXPECT_EQ(utils::toLower(""), "");
 }
 
-TEST(StringTest, ToLowerUnicode) {
+TEST(StringTest, ToLowerNonASCII) {
     // Should not change non-ASCII characters
     EXPECT_EQ(utils::toLower("Grüße"), "grüße"); // 'ü' is not in A-Z,a-z
 }
@@ -225,7 +238,7 @@ TEST(StringTest, ToUpperEmptyString) {
     EXPECT_EQ(utils::toUpper(""), "");
 }
 
-TEST(StringTest, ToUpperUnicode) {
+TEST(StringTest, ToUpperNonASCII) {
     EXPECT_EQ(utils::toUpper("Grüße"), "GRüßE"); // 'ü' and 'ß' are not converted as they are non-ASCII. 
 }
 
@@ -270,6 +283,12 @@ TEST(StringTest, ReplaceAllTargetAtEnd) {
     EXPECT_EQ(utils::replaceAll("test string", "string", "text"), "test text");
 }
 
+TEST(StringTest, ReplaceAllOverlapping) {
+    // Ensure non-overlapping replacement strategy
+    EXPECT_EQ(utils::replaceAll("aaaa", "aa", "b"), "bb");
+    EXPECT_EQ(utils::replaceAll("aaaaa", "aa", "b"), "bba");
+}
+
 
 
 // --- replaceFirst ---
@@ -286,8 +305,8 @@ TEST(StringTest, ReplaceFirstNoOccurrence) {
 }
 
 TEST(StringTest, ReplaceFirstEmptyTarget) {
-    // Corrected expected value: replaceFirst on empty target inserts replacement at beginning
-    EXPECT_EQ(utils::replaceFirst("abc", "", "X"), "Xabc");
+    // Corrected expected value: replaceFirst on empty target should return original string
+    EXPECT_EQ(utils::replaceFirst("abc", "", "X"), "abc");
 }
 
 TEST(StringTest, ReplaceFirstEmptyReplacement) {
@@ -454,6 +473,7 @@ TEST(StringTest, SplitStringViewOnlyDelimitersSkipEmptyFalse) {
 TEST(StringTest, SplitStringViewEmptyDelimiter) {
     std::vector<std::string> expected = {"h", "e", "l", "l", "o"};
     EXPECT_EQ(utils::split("hello", "", false), expected); // Empty delimiter now splits to chars
+    EXPECT_EQ(utils::split("hello", "", true), expected); // skipEmpty shouldn't affect chars
 }
 
 TEST(StringTest, SplitStringViewEmptyStringSkipEmptyFalse) {
@@ -464,6 +484,15 @@ TEST(StringTest, SplitStringViewEmptyStringSkipEmptyFalse) {
 TEST(StringTest, SplitStringViewEmptyStringSkipEmptyTrue) {
     std::vector<std::string> expected = {};
     EXPECT_EQ(utils::split("", "<->", true), expected);
+}
+
+TEST(StringTest, SplitStringViewOverlapping) {
+    // "ababab", split by "aba"
+    // First "aba" matches at 0. Remaining: "bab".
+    // "bab" does not contain "aba".
+    // Result: {"", "bab"} (since first part before "aba" is empty)
+    std::vector<std::string> expected = {"", "bab"};
+    EXPECT_EQ(utils::split("ababab", "aba", false), expected);
 }
 
 // --- isInteger ---
@@ -517,6 +546,8 @@ TEST(StringTest, ToLongValid) {
     EXPECT_EQ(utils::toLong("+789").value(), 789L);
     EXPECT_EQ(utils::toLong("   1000   ").value(), 1000L); // With whitespace
     EXPECT_EQ(utils::toLong("FF", 16).value(), 255L);
+    EXPECT_EQ(utils::toLong("101", 2).value(), 5L); // Binary
+    EXPECT_EQ(utils::toLong("10", 8).value(), 8L); // Octal
 }
 
 TEST(StringTest, ToLongInvalid) {
@@ -526,17 +557,25 @@ TEST(StringTest, ToLongInvalid) {
     EXPECT_TRUE(hasError(utils::toLong("   "), utils::UtilsError::invalidArgument));
     EXPECT_TRUE(hasError(utils::toLong("12a"), utils::UtilsError::invalidArgument));
     EXPECT_TRUE(hasError(utils::toLong("123a"), utils::UtilsError::invalidArgument)); // Partial parse
+    
+    // Invalid characters for base
+    EXPECT_TRUE(hasError(utils::toLong("G", 16), utils::UtilsError::invalidArgument));
+    EXPECT_TRUE(hasError(utils::toLong("2", 2), utils::UtilsError::invalidArgument));
+    EXPECT_TRUE(hasError(utils::toLong("8", 8), utils::UtilsError::invalidArgument));
+
+    // Prefixes not supported by std::from_chars (except sign)
+    EXPECT_TRUE(hasError(utils::toLong("0xFF", 16), utils::UtilsError::invalidArgument));
 }
 
 TEST(StringTest, ToLongOutOfRange) {
-    // Max long + 1
-    std::string overflowStr = std::to_string(std::numeric_limits<long>::max());
-    overflowStr += "0"; // Append a digit to cause overflow
+    // Max long + 1 (assuming 64-bit long for typical strict testing, or just a very large number)
+    // "9223372036854775808" is 2^63, which is > LLONG_MAX (2^63 - 1)
+    std::string overflowStr = "9223372036854775808"; 
     EXPECT_TRUE(hasError(utils::toLong(overflowStr), utils::UtilsError::outOfRange));
 
     // Min long - 1
-    std::string underflowStr = std::to_string(std::numeric_limits<long>::min());
-    underflowStr += "0"; // Append a digit to cause underflow
+    // "-9223372036854775809" is < LLONG_MIN (-2^63)
+    std::string underflowStr = "-9223372036854775809";
     EXPECT_TRUE(hasError(utils::toLong(underflowStr), utils::UtilsError::outOfRange));
 }
 
@@ -569,23 +608,17 @@ TEST(StringTest, ToDoubleOutOfRange) {
 }
 
 TEST(StringTest, ToDoubleSpecialValues) {
-    // Test for infinity
-    // Accept either outOfRange (parsed as infinity) or invalidArgument (not parsed)
-    auto resInf = utils::toDouble("inf");
-    EXPECT_TRUE(hasError(resInf, utils::UtilsError::outOfRange) || hasError(resInf, utils::UtilsError::invalidArgument));
+    // Implementation explicitly rejects non-finite values after std::from_chars
+    // So "inf", "nan", etc. should return invalidArgument.
     
-    auto resInfPlus = utils::toDouble("+inf");
-    EXPECT_TRUE(hasError(resInfPlus, utils::UtilsError::outOfRange) || hasError(resInfPlus, utils::UtilsError::invalidArgument));
-
-    auto resInfMinus = utils::toDouble("-inf");
-    EXPECT_TRUE(hasError(resInfMinus, utils::UtilsError::outOfRange) || hasError(resInfMinus, utils::UtilsError::invalidArgument));
+    // Test for infinity
+    EXPECT_TRUE(hasError(utils::toDouble("inf"), utils::UtilsError::invalidArgument));
+    EXPECT_TRUE(hasError(utils::toDouble("+inf"), utils::UtilsError::invalidArgument));
+    EXPECT_TRUE(hasError(utils::toDouble("-inf"), utils::UtilsError::invalidArgument));
 
     // Test for NaN
-    auto resNan = utils::toDouble("nan");
-    EXPECT_TRUE(hasError(resNan, utils::UtilsError::outOfRange) || hasError(resNan, utils::UtilsError::invalidArgument));
-    
-    auto resNanCase = utils::toDouble("NaN");
-    EXPECT_TRUE(hasError(resNanCase, utils::UtilsError::outOfRange) || hasError(resNanCase, utils::UtilsError::invalidArgument));
+    EXPECT_TRUE(hasError(utils::toDouble("nan"), utils::UtilsError::invalidArgument));
+    EXPECT_TRUE(hasError(utils::toDouble("NaN"), utils::UtilsError::invalidArgument));
 }
 
 // --- parseBool ---
@@ -619,6 +652,8 @@ TEST(StringTest, ToIntValid) {
     EXPECT_EQ(utils::toInt("+789").value(), 789);
     EXPECT_EQ(utils::toInt("   1000   ").value(), 1000); // With whitespace
     EXPECT_EQ(utils::toInt("FF", 16).value(), 255);
+    EXPECT_EQ(utils::toInt("101", 2).value(), 5); // Binary
+    EXPECT_EQ(utils::toInt("77", 8).value(), 63); // Octal
 }
 
 TEST(StringTest, ToIntInvalid) {
@@ -627,16 +662,24 @@ TEST(StringTest, ToIntInvalid) {
     EXPECT_TRUE(hasError(utils::toInt(""), utils::UtilsError::invalidArgument));
     EXPECT_TRUE(hasError(utils::toInt("   "), utils::UtilsError::invalidArgument));
     EXPECT_TRUE(hasError(utils::toInt("12a"), utils::UtilsError::invalidArgument));
+
+    // Invalid characters for base
+    EXPECT_TRUE(hasError(utils::toInt("G", 16), utils::UtilsError::invalidArgument));
+    EXPECT_TRUE(hasError(utils::toInt("2", 2), utils::UtilsError::invalidArgument));
+    EXPECT_TRUE(hasError(utils::toInt("8", 8), utils::UtilsError::invalidArgument));
+    
+    // Prefixes not supported
+    EXPECT_TRUE(hasError(utils::toInt("0xFF", 16), utils::UtilsError::invalidArgument));
 }
 
 TEST(StringTest, ToIntOutOfRange) {
-    // Max int + 1
-    long long overflowVal = static_cast<long long>(std::numeric_limits<int>::max()) + 1;
-    EXPECT_TRUE(hasError(utils::toInt(std::to_string(overflowVal)), utils::UtilsError::outOfRange));
+    // Max int + 1 (2147483648 for 32-bit int)
+    std::string overflowStr = "2147483648";
+    EXPECT_TRUE(hasError(utils::toInt(overflowStr), utils::UtilsError::outOfRange));
 
-    // Min int - 1
-    long long underflowVal = static_cast<long long>(std::numeric_limits<int>::min()) - 1;
-    EXPECT_TRUE(hasError(utils::toInt(std::to_string(underflowVal)), utils::UtilsError::outOfRange));
+    // Min int - 1 (-2147483649 for 32-bit int)
+    std::string underflowStr = "-2147483649";
+    EXPECT_TRUE(hasError(utils::toInt(underflowStr), utils::UtilsError::outOfRange));
 }
 
 // --- toFloat ---
@@ -669,21 +712,13 @@ TEST(StringTest, ToFloatOutOfRange) {
 
 TEST(StringTest, ToFloatSpecialValues) {
     // Test for infinity
-    auto resInf = utils::toFloat("inf");
-    EXPECT_TRUE(hasError(resInf, utils::UtilsError::outOfRange) || hasError(resInf, utils::UtilsError::invalidArgument));
-
-    auto resInfPlus = utils::toFloat("+inf");
-    EXPECT_TRUE(hasError(resInfPlus, utils::UtilsError::outOfRange) || hasError(resInfPlus, utils::UtilsError::invalidArgument));
-
-    auto resInfMinus = utils::toFloat("-inf");
-    EXPECT_TRUE(hasError(resInfMinus, utils::UtilsError::outOfRange) || hasError(resInfMinus, utils::UtilsError::invalidArgument));
+    EXPECT_TRUE(hasError(utils::toFloat("inf"), utils::UtilsError::invalidArgument));
+    EXPECT_TRUE(hasError(utils::toFloat("+inf"), utils::UtilsError::invalidArgument));
+    EXPECT_TRUE(hasError(utils::toFloat("-inf"), utils::UtilsError::invalidArgument));
 
     // Test for NaN
-    auto resNan = utils::toFloat("nan");
-    EXPECT_TRUE(hasError(resNan, utils::UtilsError::outOfRange) || hasError(resNan, utils::UtilsError::invalidArgument));
-    
-    auto resNanCase = utils::toFloat("NaN");
-    EXPECT_TRUE(hasError(resNanCase, utils::UtilsError::outOfRange) || hasError(resNanCase, utils::UtilsError::invalidArgument));
+    EXPECT_TRUE(hasError(utils::toFloat("nan"), utils::UtilsError::invalidArgument));
+    EXPECT_TRUE(hasError(utils::toFloat("NaN"), utils::UtilsError::invalidArgument));
 }
 
 // --- tryParse ---
@@ -743,57 +778,29 @@ TEST(StringTest, TryParseDoubleInvalid) {
 
 TEST(StringTest, TryParseOutOfRange) {
     // Test with values that should cause out_of_range for std::from_chars
-    int val_int;
-    long val_long;
-    double val_double;
+    int valInt;
+    long valLong;
+    double valDouble;
 
-    std::string overflow_int_str = std::to_string(static_cast<long long>(std::numeric_limits<int>::max()) + 1);
-    EXPECT_FALSE(utils::tryParse(overflow_int_str, val_int));
+    std::string overflowIntStr = std::to_string(static_cast<long long>(std::numeric_limits<int>::max()) + 1);
+    EXPECT_FALSE(utils::tryParse(overflowIntStr, valInt));
 
-    std::string underflow_int_str = std::to_string(static_cast<long long>(std::numeric_limits<int>::min()) - 1);
-    EXPECT_FALSE(utils::tryParse(underflow_int_str, val_int));
+    std::string underflowIntStr = std::to_string(static_cast<long long>(std::numeric_limits<int>::min()) - 1);
+    EXPECT_FALSE(utils::tryParse(underflowIntStr, valInt));
 
-    std::string overflow_long_str = std::to_string(std::numeric_limits<long>::max()) + "0";
-    EXPECT_FALSE(utils::tryParse(overflow_long_str, val_long));
+    std::string overflowLongStr = "9223372036854775808"; // > INT64_MAX
+    EXPECT_FALSE(utils::tryParse(overflowLongStr, valLong));
 
-    std::string large_float_str = "1e+309"; // Exceeds double range
-    EXPECT_FALSE(utils::tryParse(large_float_str, val_double));
+    std::string largeFloatStr = "1e+309"; // Exceeds double range
+    EXPECT_FALSE(utils::tryParse(largeFloatStr, valDouble));
 }
 
-// --- isInteger and isFloatingPoint Tests (Already Present) ---
-// ... (Existing tests for isInteger and isFloatingPoint)
+TEST(StringTest, TryParseSpecialValues) {
+    double val;
+    // tryParse implementation explicitly rejects non-finite values
+    EXPECT_FALSE(utils::tryParse("inf", val));
+    EXPECT_FALSE(utils::tryParse("-inf", val));
+    EXPECT_FALSE(utils::tryParse("nan", val));
+}
 
-// --- toLong, toDouble, toInt, toFloat Tests (Already Present) ---
-// ... (Existing tests for numeric parsing)
-
-// --- parseBool Tests (Already Present) ---
-// ... (Existing tests for parseBool)
-
-// --- split(char) Tests (Already Present) ---
-// ... (Existing tests for split with char delimiter)
-
-// --- split(string_view) Tests (Already Present) ---
-// ... (Existing tests for split with string_view delimiter)
-
-// --- format Tests (Already Present) ---
-// ... (Existing tests for format)
-
-// --- replaceAll, replaceFirst, replaceN Tests (Already Present) ---
-// ... (Existing tests for replace functions)
-
-// --- join Tests (Already Present) ---
-// ... (Existing tests for join)
-
-// --- contains, startsWith, endsWith Tests (Already Present) ---
-// ... (Existing tests for basic string checks)
-
-// --- startsWithIgnoreCase, endsWithIgnoreCase, containsIgnoreCase Tests (Already Present) ---
-// ... (Existing tests for case-insensitive checks)
-
-// --- toLower, toUpper Tests (Already Present) ---
-// ... (Existing tests for case conversion)
-
-// --- trim Tests (Already Present) ---
-// ... (Existing tests for trim)
-
-} // namespace utils
+} // namespace
