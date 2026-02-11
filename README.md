@@ -8,13 +8,13 @@
 [![C++23](https://img.shields.io/badge/C%2B%2B-23-blue.svg)](https://en.cppreference.com/w/cpp/23)
 [![CMake](https://img.shields.io/badge/CMake-3.17%2B-blue.svg)](https://cmake.org/)
 
-**processAnalyzer** is a modern, high-performance system diagnostics tool and C++ library for Linux. Built with **C++23**, it provides a powerful and efficient interface to the `/proc` filesystem, allowing developers and system administrators to inspect, monitor, and analyze processes and system-wide metrics with precision.
+processAnalyzer is a modern, high-performance system diagnostics tool and C++ library for Linux. Built with **C++23**, it provides a powerful and efficient interface to the `/proc` filesystem, allowing developers and system administrators to inspect, monitor, and analyze processes and system-wide metrics with precision.
 
 ---
 
 ## ⭐ Motivation
 
-`processAnalyzer` is a high-performance C++ command-line utility designed for the real-time inspection and monitoring of system processes. It delivers detailed resource usage metrics and execution statistics to facilitate efficient system diagnostics and performance optimization.
+`processAnalyzer` is a high-performance C++ command-line utility for real-time inspection and monitoring of system processes. It delivers detailed resource usage metrics and execution statistics to facilitate efficient system diagnostics and performance optimization.
 
 ---
 
@@ -38,11 +38,24 @@
 
 `processAnalyzer` offers a robust set of functionalities for in-depth system and process analysis:
 
-*   **Deep Process Inspection**: Access detailed information about running processes, including CPU usage, memory consumption, open files, network connections, and thread statistics.
-*   **Advanced Filtering & Sorting**: Efficiently filter processes by various criteria (name, PID, user, state) and sort results by any metric.
-*   **`/proc` Filesystem Abstraction**: Provides a clean, modern C++ interface to the Linux `/proc` filesystem, simplifying data retrieval.
-*   **System-Wide Monitoring**: Monitor overall system metrics alongside individual process data.
-*   **Flexible Output Formats**: Export data in human-readable or machine-parsable formats like JSON.
+*   **Lazy-Loaded Process Streaming**: Use C++23's `std::generator` to efficiently stream and query process data on-the-fly, minimizing memory overhead.
+*   **Deep Process Inspection**: Access detailed information for any process, including:
+    *   CPU, memory, and disk I/O usage (including live rate monitoring).
+    *   Process state, priority, user, and start time.
+    *   Executable path, command line, and environment variables.
+    *   Parent/child relationships and full descendant trees.
+    *   Detailed thread-level statistics.
+*   **Advanced Filtering & Sorting**: Dynamically query processes with complex filters (name, user, memory, etc.) and sort results by any metric.
+*   **Comprehensive System Metrics**: Monitor system-wide statistics:
+    *   Overall CPU load, memory usage (RAM/swap), and uptime.
+    *   Per-CPU core usage percentages.
+    *   Network interface and disk I/O statistics.
+*   **Process Control Interface**:
+    *   Send signals to processes (e.g., `SIGTERM`, `SIGKILL`).
+    *   Adjust process niceness (priority) and CPU affinity.
+*   **Detailed Context Retrieval**:
+    *   Inspect open file descriptors, memory maps, and resource limits.
+    *   Analyze network connections (TCP/UDP) per process.
 
 For a complete list of features and detailed explanations, see [docs/features.md](docs/features.md).
 
@@ -93,24 +106,38 @@ For a full command reference, see [docs/usage.md](docs/usage.md).
 
 ---
 
-## 📚 Quick API Example
+## 📚 API Usage Example
 
-Integrate `processAnalyzer` into your C++ applications as a library to programmatically access system and process data.
+Integrate `processAnalyzer` into your C++ applications. The library's C++23-based design makes it easy to perform complex queries efficiently.
+
+The example below demonstrates how to use `streamQueryProcesses` to lazily stream all processes, filter them for names containing "bash", and print their details sorted by resident memory usage.
 
 ```cpp
 #include "analyzer/core.h"
 #include <iostream>
 
 int main() {
-    ProcessAnalyzer analyzer; // Manages access to /proc
-    auto result = analyzer.snapshot();
-    if (result.has_value()) {
-        for (const auto& proc : result.value()) {
-            std::cout << "PID: " << proc.pid << ", Name: " << proc.name << std::endl;
-        }
-    } else {
-        std::cerr << "Error getting processes: " << result.error().message << std::endl;
+    ProcessAnalyzer analyzer;
+
+    // 1. Define a filter to find processes with "bash" in their name
+    ProcessFilter filter;
+    filter.nameContains = "bash";
+
+    // 2. Lazily stream, filter, and sort processes by memory usage
+    auto processStream = analyzer.streamQueryProcesses(
+        filter,
+        ProcessSortField::rss, // Sort by Resident Set Size (RSS)
+        SortOrder::desc        // Sort in descending order
+    );
+
+    // 3. Iterate through the stream and print details
+    std::cout << "--- Finding 'bash' processes, sorted by memory usage ---\n";
+    for (const auto& proc : processStream) {
+        std::cout << "PID: " << proc.pid
+                  << ", Name: " << proc.name
+                  << ", Memory: " << proc.residentMemory << " KB\n";
     }
+
     return 0;
 }
 ```
