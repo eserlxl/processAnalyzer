@@ -23,8 +23,9 @@
 - [Key Features](#-key-features)
 - [Project Structure](#️-project-structure)
 - [System Requirements](#-system-requirements)
-- [Build](#-build)
-- [Installation](#-installation)
+- [Build and Installation](#-build-and-installation)
+  - [Prerequisites](#prerequisites)
+  - [Basic Build Steps](#basic-build-steps)
 - [CLI Quick Start](#-cli-quick-start)
 - [Library Quick Start](#-library-quick-start)
 - [Documentation](#-documentation)
@@ -69,13 +70,36 @@ The project follows a standard CMake structure. For a detailed breakdown of the 
 
 ## 🛠️ Build and Installation
 
-For detailed instructions on building, installing, and running tests, please refer to the [Build Guide](docs/build.md).
+To get started with `processAnalyzer`, you'll need to build it from source.
 
+### Prerequisites
+Ensure you have met the [System Requirements](#-system-requirements) before proceeding.
+
+### Basic Build Steps
+
+```bash
+mkdir -p build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release # Or Debug
+cmake --build .
+sudo cmake --install . # Optional: Install to system paths
+```
+
+For detailed instructions on building, installing, running tests, and advanced configuration, please refer to the [Build Guide](docs/build.md).
 
 ---
 ---
 
-## ⚡ CLI Usage
+## ⚡ CLI Quick Start
+
+Once built and installed, you can use the `processAnalyzer` command-line tool.
+
+### Example: List all processes
+
+To list all running processes with their PID and name:
+
+```bash
+processAnalyzer list
+```
 
 For a comprehensive guide to the command-line interface, including detailed commands, options, and practical examples, see the [Usage Guide](docs/usage.md).
 

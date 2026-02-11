@@ -89,10 +89,10 @@ Result<void> traverseDirectory(const ::std::filesystem::path& dirPath, Traversal
                         }
                         
                         // Recurse into the subdirectory
-                        auto recursive_result = self(self, entry.path(), currentDepth + 1);
-                        if (!recursive_result) {
+                        auto recursiveResult = self(self, entry.path(), currentDepth + 1);
+                        if (!recursiveResult) {
                             // Propagate any result (including traversalStopped if it occurred in a deeper call)
-                            return recursive_result;
+                            return recursiveResult;
                         }
                     }
                     
@@ -126,16 +126,15 @@ Result<void> createDirectories(const ::std::filesystem::path& path) {
     // If the path already exists and is a directory, consider it a success.
     // This check is important because `create_directories` might fail with file_exists
     // if an intermediate path component is a file, or if the target path itself is a file.
-    ::std::error_code status_ec;
-    if (::std::filesystem::exists(path, status_ec)) {
-        if (::std::filesystem::is_directory(path, status_ec)) {
+    ::std::error_code statusEc;
+    if (::std::filesystem::exists(path, statusEc)) {
+        if (::std::filesystem::is_directory(path, statusEc)) {
             // Target path exists and is a directory. Operation successful.
             return {};
-        } else {
-            // Target path exists but is not a directory (it's a file).
+        }             // Target path exists but is not a directory (it's a file).
             // Return fileAlreadyExists error.
             return ::std::unexpected(make_error_code(UtilsError::fileAlreadyExists));
-        }
+       
     }
 
     // If the target path does not exist, but `create_directories` failed,
