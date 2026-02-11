@@ -3,29 +3,11 @@
 
 cmake_minimum_required(VERSION 3.17)
 
+# Automatically discover all test source files
+file(GLOB_RECURSE TEST_SOURCES CONFIGURE_DEPENDS "*.cpp")
+
 # Consolidate all tests into a single executable
-add_executable(ProcessAnalyzerTests
-    analyzer/core_additional.cpp
-    analyzer/core.cpp
-    analyzer/network.cpp
-    analyzer/process.cpp
-    analyzer/system.cpp
-    cli/args.cpp
-    cli/output.cpp
-    utils/core.cpp
-    utils/file.cpp
-    utils/mock_proc/basic.cpp
-    utils/mock_proc/process.cpp
-    utils/mock_proc/system.cpp
-    utils/path/core.cpp
-    utils/path/fs.cpp
-    utils/path.cpp
-    utils/string.cpp
-    utils/system.cpp
-    utils/test.cpp
-    utils/time.cpp
-    utils/types.cpp
-)
+add_executable(ProcessAnalyzerTests ${TEST_SOURCES})
 
 # Link the single test executable
 target_include_directories(ProcessAnalyzerTests PRIVATE

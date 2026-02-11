@@ -58,7 +58,7 @@ std::vector<std::string> readNullSeparatedStrings(const fs::path& filePath) {
     if (!contentOpt) {
         return {};
     }
-    return splitNullSeparatedStrings(*contentOpt);
+    return splitNullSeparatedStrings(contentOpt.value());
 }
 
 // Helper to parse a key-value file (like /proc/status)
@@ -67,7 +67,7 @@ std::map<std::string, std::string> parseKeyValueFile(const fs::path& filePath) {
     auto contentOpt = readFileContent(filePath);
     if (!contentOpt) return data;
 
-    std::stringstream ss(*contentOpt);
+    std::stringstream ss(contentOpt.value());
     std::string line;
     while (std::getline(ss, line)) {
         auto colonPos = line.find(':');
@@ -132,8 +132,11 @@ TEST_F(MockProcTest, CreateFileAt) {
     fs::path expectedFilePath = mockRootPath / relativeFilePath;
     ASSERT_TRUE(fs::exists(expectedFilePath));
     auto content = readFileContent(expectedFilePath);
-    ASSERT_TRUE(content.has_value());
-    EXPECT_EQ(content.value(), fileContent);
+    if (content) {
+        EXPECT_EQ(content.value(), fileContent);
+    } else {
+        FAIL() << "Expected to read file content.";
+    }
 }
 
 TEST_F(MockProcTest, CreateFileAt_EmptyContent) {
@@ -143,8 +146,11 @@ TEST_F(MockProcTest, CreateFileAt_EmptyContent) {
     fs::path expectedFilePath = mockRootPath / relativeFilePath;
     ASSERT_TRUE(fs::exists(expectedFilePath));
     auto content = readFileContent(expectedFilePath);
-    ASSERT_TRUE(content.has_value());
-    EXPECT_EQ(content.value(), fileContent);
+    if (content) {
+        EXPECT_EQ(content.value(), fileContent);
+    } else {
+        FAIL() << "Expected to read file content.";
+    }
 }
 
 TEST_F(MockProcTest, CreateDirectoryAt) {

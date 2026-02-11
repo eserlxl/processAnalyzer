@@ -4,4 +4,4 @@
 #include "analyzer/core.h"
 #include <filesystem>
 
-ProcessAnalyzer::ProcessAnalyzer(std::filesystem::path procPath = "/proc") : procPath(std::move(procPath)) {}
+ProcessAnalyzer::ProcessAnalyzer(std::filesystem::path procPath) : procPath(std::move(procPath)) {}

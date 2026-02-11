@@ -20,6 +20,10 @@ namespace {
 // Define constants for common magic numbers
 constexpr unsigned long kbInBytes = 1024;
 constexpr unsigned long mbInBytes = 1024 * kbInBytes;
+constexpr int sixteenGB = 16;
+constexpr int eightGB = 8;
+constexpr int twoGB = 2;
+
 
 // Constants for test values
 constexpr unsigned long utime10 = 10;
@@ -74,9 +78,9 @@ protected:
 
 TEST_F(MockProcTest, MeminfoDataToString) {
     MockProc::MeminfoData data;
-    data.memTotalKb = 16 * mbInBytes; // 16GB in KB
-    data.memFreeKb = 8 * mbInBytes;   // 8GB in KB
-    data.cachedKb = 2 * mbInBytes;    // 2GB in KB
+    data.memTotalKb = sixteenGB * mbInBytes; // 16GB in KB
+    data.memFreeKb = eightGB * mbInBytes;   // 8GB in KB
+    data.cachedKb = twoGB * mbInBytes;    // 2GB in KB
     std::string expected = 
         "MemTotal:       16777216 kB\n"
         "MemFree:        8388608 kB\n"
@@ -96,8 +100,11 @@ TEST_F(MockProcTest, CreateMeminfo) {
     fs::path meminfoPath = mockRootPath / "meminfo";
     ASSERT_TRUE(fs::exists(meminfoPath));
     auto content = readFileContent(meminfoPath);
-    ASSERT_TRUE(content.has_value());
-    EXPECT_EQ(*content, data.toString());
+    if (content) {
+        EXPECT_EQ(content.value(), data.toString());
+    } else {
+        FAIL() << "Expected to read file content.";
+    }
 }
 
 TEST_F(MockProcTest, CpuinfoDataToString) {
@@ -142,9 +149,12 @@ TEST_F(MockProcTest, CreateCpuinfo) {
     fs::path cpuinfoPath = mockRootPath / "cpuinfo";
     ASSERT_TRUE(fs::exists(cpuinfoPath));
     auto content = readFileContent(cpuinfoPath);
-    ASSERT_TRUE(content.has_value());
-    std::string expectedContent = core0.toString() + core1.toString();
-    EXPECT_EQ(*content, expectedContent);
+    if (content) {
+        std::string expectedContent = core0.toString() + core1.toString();
+        EXPECT_EQ(content.value(), expectedContent);
+    } else {
+        FAIL() << "Expected to read file content.";
+    }
 }
 
 TEST_F(MockProcTest, CreateSystemStat) {
@@ -159,10 +169,13 @@ TEST_F(MockProcTest, CreateSystemStat) {
     fs::path statPath = mockRootPath / "stat";
     ASSERT_TRUE(fs::exists(statPath));
     auto content = readFileContent(statPath);
-    ASSERT_TRUE(content.has_value());
-    EXPECT_TRUE(content->find("cpu  100 0 0 200") != std::string::npos);
-    EXPECT_TRUE(content->find("ctxt 5000") != std::string::npos);
-    EXPECT_TRUE(content->find("processes 10") != std::string::npos);
+    if (content) {
+        EXPECT_TRUE(content.value().find("cpu  100 0 0 200") != std::string::npos);
+        EXPECT_TRUE(content.value().find("ctxt 5000") != std::string::npos);
+        EXPECT_TRUE(content.value().find("processes 10") != std::string::npos);
+    } else {
+        FAIL() << "Expected to read file content.";
+    }
 }
 
 TEST_F(MockProcTest, CreatePerCpuStat) {
@@ -187,10 +200,13 @@ TEST_F(MockProcTest, CreatePerCpuStat) {
     
     fs::path statPath = mockRootPath / "stat";
     auto content = readFileContent(statPath);
-    ASSERT_TRUE(content.has_value());
-    EXPECT_TRUE(content->find("cpu  200") != std::string::npos);
-    EXPECT_TRUE(content->find("cpu0 100") != std::string::npos);
-    EXPECT_TRUE(content->find("cpu1 100") != std::string::npos);
+    if (content) {
+        EXPECT_TRUE(content.value().find("cpu  200") != std::string::npos);
+        EXPECT_TRUE(content.value().find("cpu0 100") != std::string::npos);
+        EXPECT_TRUE(content.value().find("cpu1 100") != std::string::npos);
+    } else {
+        FAIL() << "Expected to read file content.";
+    }
 }
 
 TEST_F(MockProcTest, CreateUptime) {
@@ -198,8 +214,11 @@ TEST_F(MockProcTest, CreateUptime) {
     fs::path uptimePath = mockRootPath / "uptime";
     ASSERT_TRUE(fs::exists(uptimePath));
     auto content = readFileContent(uptimePath);
-    ASSERT_TRUE(content.has_value());
-    EXPECT_TRUE(content->find("1234.56 789.01") != std::string::npos);
+    if (content) {
+        EXPECT_TRUE(content.value().find("1234.56 789.01") != std::string::npos);
+    } else {
+        FAIL() << "Expected to read file content.";
+    }
 }
 
 TEST_F(MockProcTest, CreateVersion) {
@@ -208,8 +227,11 @@ TEST_F(MockProcTest, CreateVersion) {
     fs::path verPath = mockRootPath / "version";
     ASSERT_TRUE(fs::exists(verPath));
     auto content = readFileContent(verPath);
-    ASSERT_TRUE(content.has_value());
-    EXPECT_EQ(*content, ver + "\n");
+    if (content) {
+        EXPECT_EQ(content.value(), ver + "\n");
+    } else {
+        FAIL() << "Expected to read file content.";
+    }
 }
 
 TEST_F(MockProcTest, CreateNetDev) {
@@ -226,7 +248,10 @@ TEST_F(MockProcTest, CreateNetDev) {
     fs::path netDevPath = mockRootPath / "net" / "dev";
     ASSERT_TRUE(fs::exists(netDevPath));
     auto content = readFileContent(netDevPath);
-    ASSERT_TRUE(content.has_value());
-    EXPECT_TRUE(content->find("eth0: 1000") != std::string::npos);
-    EXPECT_TRUE(content->find("2000") != std::string::npos);
+    if (content) {
+        EXPECT_TRUE(content.value().find("eth0: 1000") != std::string::npos);
+        EXPECT_TRUE(content.value().find("2000") != std::string::npos);
+    } else {
+        FAIL() << "Expected to read file content.";
+    }
 }

@@ -43,6 +43,7 @@ constexpr unsigned long stime45 = 45;
 constexpr int ppid50 = 50;
 constexpr unsigned long ioRchar5000 = 5000;
 constexpr unsigned long ioWriteBytes10000 = 10000;
+constexpr int fd_10 = 10;
 
 // Helper to read file content for verification
 std::optional<std::string> readFileContent(const fs::path& filePath) {
@@ -80,7 +81,7 @@ std::vector<std::string> readNullSeparatedStrings(const fs::path& filePath) {
     if (!contentOpt) {
         return {};
     }
-    return splitNullSeparatedStrings(*contentOpt);
+    return splitNullSeparatedStrings(contentOpt.value());
 }
 
 } // namespace
@@ -141,8 +142,11 @@ TEST_F(MockProcTest, CreateComm) {
     fs::path commPath = mockRootPath / std::to_string(testPid) / "comm";
     ASSERT_TRUE(fs::exists(commPath));
     auto content = readFileContent(commPath);
-    ASSERT_TRUE(content.has_value());
-    EXPECT_EQ(content.value(), commName + "\n");
+    if (content) {
+        EXPECT_EQ(content.value(), commName + "\n");
+    } else {
+        FAIL() << "Expected to read file content.";
+    }
 }
 
 TEST_F(MockProcTest, ProcMapEntryToString) {
@@ -182,9 +186,12 @@ TEST_F(MockProcTest, CreateMaps) {
     fs::path mapsPath = mockRootPath / std::to_string(testPid) / "maps";
     ASSERT_TRUE(fs::exists(mapsPath));
     auto content = readFileContent(mapsPath);
-    ASSERT_TRUE(content.has_value());
-    std::string expectedContent = entries[0].toString() + "\n" + entries[1].toString() + "\n";
-    EXPECT_EQ(*content, expectedContent);
+    if (content) {
+        std::string expectedContent = entries[0].toString() + "\n" + entries[1].toString() + "\n";
+        EXPECT_EQ(content.value(), expectedContent);
+    } else {
+        FAIL() << "Expected to read file content.";
+    }
 }
 
 TEST_F(MockProcTest, ProcIoStatsToString) {
@@ -213,8 +220,11 @@ TEST_F(MockProcTest, CreateIo) {
     fs::path ioPath = mockRootPath / std::to_string(testPid) / "io";
     ASSERT_TRUE(fs::exists(ioPath));
     auto content = readFileContent(ioPath);
-    ASSERT_TRUE(content.has_value());
-    EXPECT_EQ(*content, stats.toString());
+    if (content) {
+        EXPECT_EQ(content.value(), stats.toString());
+    } else {
+        FAIL() << "Expected to read file content.";
+    }
 }
 
 TEST_F(MockProcTest, ProcStatDataToString) {
@@ -262,8 +272,11 @@ TEST_F(MockProcTest, CreateStat) {
     fs::path statPath = mockRootPath / std::to_string(testPid) / "stat";
     ASSERT_TRUE(fs::exists(statPath));
     auto content = readFileContent(statPath);
-    ASSERT_TRUE(content.has_value());
-    EXPECT_EQ(*content, data.toString());
+    if (content) {
+        EXPECT_EQ(content.value(), data.toString());
+    } else {
+        FAIL() << "Expected to read file content.";
+    }
 }
 
 // --- New addProcess tests ---
@@ -279,13 +292,19 @@ TEST_F(MockProcTest, AddProcessMinimal) {
     ASSERT_TRUE(fs::is_directory(pidPath));
     ASSERT_TRUE(fs::exists(pidPath / "status"));
     auto statusContent = readFileContent(pidPath / "status");
-    ASSERT_TRUE(statusContent.has_value());
-    EXPECT_TRUE(statusContent->find("Name: min_proc") != std::string::npos);
+    if (statusContent) {
+        EXPECT_TRUE(statusContent.value().find("Name: min_proc") != std::string::npos);
+    } else {
+        FAIL() << "Expected to read file content.";
+    }
     
     ASSERT_TRUE(fs::exists(pidPath / "comm"));
     auto commContent = readFileContent(pidPath / "comm");
-    ASSERT_TRUE(commContent.has_value());
-    EXPECT_EQ(*commContent, "min_proc\n");
+    if (commContent) {
+        EXPECT_EQ(commContent.value(), "min_proc\n");
+    } else {
+        FAIL() << "Expected to read file content.";
+    }
 
     // Cmdline should exist and contain the name as fallback
     ASSERT_TRUE(fs::exists(pidPath / "cmdline"));
@@ -352,16 +371,19 @@ TEST_F(MockProcTest, AddProcessWithEnviron) {
     ASSERT_TRUE(fs::is_directory(pidPath));
     ASSERT_TRUE(fs::exists(pidPath / "environ"));
     auto environContent = readFileContent(pidPath / "environ");
-    ASSERT_TRUE(environContent.has_value());
-    EXPECT_TRUE(environContent->find("LANG=C") != std::string::npos);
-    EXPECT_TRUE(environContent->find("TERM=xterm") != std::string::npos);
+    if (environContent) {
+        EXPECT_TRUE(environContent.value().find("LANG=C") != std::string::npos);
+        EXPECT_TRUE(environContent.value().find("TERM=xterm") != std::string::npos);
+    } else {
+        FAIL() << "Expected to read file content.";
+    }
 }
 
 TEST_F(MockProcTest, AddProcessWithFdDir) {
     const int testPid = 205;
     MockProc::AddProcessOptions options;
     options.name = "fd_proc";
-    options.fds = {{0, "/dev/null"}, {10, "/var/log/my.log"}};
+    options.fds = {{0, "/dev/null"}, {fd_10, "/var/log/my.log"}};
 
     mockProc->addProcess(testPid, options);
 
@@ -387,9 +409,12 @@ TEST_F(MockProcTest, AddProcessWithIoStats) {
     ASSERT_TRUE(fs::is_directory(pidPath));
     ASSERT_TRUE(fs::exists(pidPath / "io"));
     auto content = readFileContent(pidPath / "io");
-    ASSERT_TRUE(content.has_value());
-    EXPECT_TRUE(content->find("rchar: 5000") != std::string::npos);
-    EXPECT_TRUE(content->find("write_bytes: 10000") != std::string::npos);
+    if (content) {
+        EXPECT_TRUE(content.value().find("rchar: 5000") != std::string::npos);
+        EXPECT_TRUE(content.value().find("write_bytes: 10000") != std::string::npos);
+    } else {
+        FAIL() << "Expected to read file content.";
+    }
 }
 
 TEST_F(MockProcTest, AddProcessWithStatData) {
@@ -409,9 +434,12 @@ TEST_F(MockProcTest, AddProcessWithStatData) {
     ASSERT_TRUE(fs::is_directory(pidPath));
     ASSERT_TRUE(fs::exists(pidPath / "stat"));
     auto statContent = readFileContent(pidPath / "stat");
-    ASSERT_TRUE(statContent.has_value());
-    EXPECT_TRUE(statContent->find(std::to_string(testPid) + " (stat_proc_comm) S 10 ") != std::string::npos);
-    EXPECT_TRUE(statContent->find(" 123 45 ") != std::string::npos);
+    if (statContent) {
+        EXPECT_TRUE(statContent.value().find(std::to_string(testPid) + " (stat_proc_comm) S 10 ") != std::string::npos);
+        EXPECT_TRUE(statContent.value().find(" 123 45 ") != std::string::npos);
+    } else {
+        FAIL() << "Expected to read file content.";
+    }
 }
 
 TEST_F(MockProcTest, AddProcessWithPopulateDefaultStat) {
@@ -426,9 +454,12 @@ TEST_F(MockProcTest, AddProcessWithPopulateDefaultStat) {
     ASSERT_TRUE(fs::is_directory(pidPath));
     ASSERT_TRUE(fs::exists(pidPath / "stat"));
     auto statContent = readFileContent(pidPath / "stat");
-    ASSERT_TRUE(statContent.has_value());
-    EXPECT_TRUE(statContent->find(std::to_string(testPid) + " (default_stat_proc) ") != std::string::npos);
-    EXPECT_TRUE(statContent->find(" (default_stat_proc) R ") != std::string::npos);
+    if (statContent) {
+        EXPECT_TRUE(statContent.value().find(std::to_string(testPid) + " (default_stat_proc) ") != std::string::npos);
+        EXPECT_TRUE(statContent.value().find(" (default_stat_proc) R ") != std::string::npos);
+    } else {
+        FAIL() << "Expected to read file content.";
+    }
 }
 
 TEST_F(MockProcTest, AddProcessCombinedOptions) {
@@ -456,25 +487,37 @@ TEST_F(MockProcTest, AddProcessCombinedOptions) {
     ASSERT_EQ(fs::read_symlink(pidPath / "cwd"), options.cwdPath);
     
     auto environContent = readFileContent(pidPath / "environ");
-    ASSERT_TRUE(environContent.has_value());
-    EXPECT_TRUE(environContent->find("LANG=C") != std::string::npos);
-    EXPECT_TRUE(environContent->find("TERM=xterm") != std::string::npos);
+    if (environContent) {
+        EXPECT_TRUE(environContent.value().find("LANG=C") != std::string::npos);
+        EXPECT_TRUE(environContent.value().find("TERM=xterm") != std::string::npos);
+    } else {
+        FAIL() << "Expected to read file content.";
+    }
 
     ASSERT_TRUE(fs::is_symlink(pidPath / "fd" / "1"));
     ASSERT_EQ(fs::read_symlink(pidPath / "fd" / "1"), "/dev/stdout");
     
     auto ioContent = readFileContent(pidPath / "io");
-    ASSERT_TRUE(ioContent.has_value());
-    EXPECT_TRUE(ioContent->find("rchar: 1") != std::string::npos);
+    if (ioContent) {
+        EXPECT_TRUE(ioContent.value().find("rchar: 1") != std::string::npos);
+    } else {
+        FAIL() << "Expected to read file content.";
+    }
     
     auto statContent = readFileContent(pidPath / "stat");
-    ASSERT_TRUE(statContent.has_value());
-    EXPECT_TRUE(statContent->find(std::to_string(testPid) + " (combined_comm) Z ") != std::string::npos);
+    if (statContent) {
+        EXPECT_TRUE(statContent.value().find(std::to_string(testPid) + " (combined_comm) Z ") != std::string::npos);
+    } else {
+        FAIL() << "Expected to read file content.";
+    }
 
     ASSERT_TRUE(fs::exists(pidPath / "comm"));
     auto commContent = readFileContent(pidPath / "comm");
-    ASSERT_TRUE(commContent.has_value());
-    EXPECT_EQ(*commContent, options.name + "\n");
+    if (commContent) {
+        EXPECT_EQ(commContent.value(), options.name + "\n");
+    } else {
+        FAIL() << "Expected to read file content.";
+    }
 }
 
 // --- System Statistics and Builder API Tests ---
@@ -490,12 +533,18 @@ TEST_F(MockProcTest, ProcessBuilderFluentApi) {
     fs::path pidPath = mockRootPath / std::to_string(pid);
     ASSERT_TRUE(fs::exists(pidPath));
     auto commContent = readFileContent(pidPath / "comm");
-    ASSERT_TRUE(commContent.has_value());
-    EXPECT_EQ(*commContent, "fluent_proc\n");
+    if (commContent) {
+        EXPECT_EQ(commContent.value(), "fluent_proc\n");
+    } else {
+        FAIL() << "Expected to read file content.";
+    }
     
     auto statContent = readFileContent(pidPath / "stat");
-    ASSERT_TRUE(statContent.has_value());
-    EXPECT_TRUE(statContent->find(" 50 ") != std::string::npos);
+    if (statContent) {
+        EXPECT_TRUE(statContent.value().find(" 50 ") != std::string::npos);
+    } else {
+        FAIL() << "Expected to read file content.";
+    }
     
     std::vector<std::string> expectedCmd = {"/bin/fluent", "--mode=fast"};
     ASSERT_EQ(readNullSeparatedStrings(pidPath / "cmdline"), expectedCmd);
@@ -511,9 +560,12 @@ TEST_F(MockProcTest, ProcessBuilderWithMaps) {
     fs::path mapsPath = mockRootPath / std::to_string(pid) / "maps";
     ASSERT_TRUE(fs::exists(mapsPath));
     auto mapsContent = readFileContent(mapsPath);
-    ASSERT_TRUE(mapsContent.has_value());
-    EXPECT_TRUE(mapsContent->find("1000-2000 r-xp") != std::string::npos);
-    EXPECT_TRUE(mapsContent->find("/lib/libc.so") != std::string::npos);
+    if (mapsContent) {
+        EXPECT_TRUE(mapsContent.value().find("1000-2000 r-xp") != std::string::npos);
+        EXPECT_TRUE(mapsContent.value().find("/lib/libc.so") != std::string::npos);
+    } else {
+        FAIL() << "Expected to read file content.";
+    }
 }
 
 TEST_F(MockProcTest, AddThread) {
@@ -536,9 +588,12 @@ TEST_F(MockProcTest, AddThread) {
     ASSERT_TRUE(fs::exists(taskPath));
     
     auto statContent = readFileContent(threadPath / "stat");
-    ASSERT_TRUE(statContent.has_value());
-    EXPECT_TRUE(statContent->find("(child_thread)") != std::string::npos);
-    EXPECT_TRUE(statContent->find(std::to_string(threadId)) != std::string::npos);
+    if (statContent) {
+        EXPECT_TRUE(statContent.value().find("(child_thread)") != std::string::npos);
+        EXPECT_TRUE(statContent.value().find(std::to_string(threadId)) != std::string::npos);
+    } else {
+        FAIL() << "Expected to read file content.";
+    }
     
     ASSERT_TRUE(fs::is_symlink(threadPath / "exe"));
     fs::path symlinkTarget = fs::read_symlink(threadPath / "exe");

@@ -60,13 +60,16 @@ TEST_F(ArgsTestFixture, ParseCommandLineBasic) {
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
 
-    ASSERT_TRUE(parsedArgs.has_value());
-    EXPECT_EQ(parsedArgs->command, "list");
-    EXPECT_FALSE(parsedArgs->pid.has_value());
-    EXPECT_FALSE(parsedArgs->name.has_value());
-    EXPECT_FALSE(parsedArgs->user.has_value());
-    EXPECT_FALSE(parsedArgs->briefMode);
-    EXPECT_TRUE(parsedArgs->selectedColumns.empty());
+    if (parsedArgs) {
+        EXPECT_EQ(parsedArgs.value().command, "list");
+        EXPECT_FALSE(parsedArgs.value().pid.has_value());
+        EXPECT_FALSE(parsedArgs.value().name.has_value());
+        EXPECT_FALSE(parsedArgs.value().user.has_value());
+        EXPECT_FALSE(parsedArgs.value().briefMode);
+        EXPECT_TRUE(parsedArgs.value().selectedColumns.empty());
+    } else {
+        FAIL() << "Expected a valid parsed argument object.";
+    }
 }
 
 TEST_F(ArgsTestFixture, ParseCommandLineWithPid) {
@@ -74,10 +77,13 @@ TEST_F(ArgsTestFixture, ParseCommandLineWithPid) {
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
 
-    ASSERT_TRUE(parsedArgs.has_value());
-    EXPECT_EQ(parsedArgs->command, "show");
-    ASSERT_TRUE(parsedArgs->pid.has_value());
-    EXPECT_EQ(parsedArgs->pid.value(), 1234);
+    if (parsedArgs) {
+        EXPECT_EQ(parsedArgs.value().command, "show");
+        ASSERT_TRUE(parsedArgs.value().pid.has_value());
+        EXPECT_EQ(parsedArgs.value().pid.value(), 1234);
+    } else {
+        FAIL() << "Expected a valid parsed argument object.";
+    }
 }
 
 TEST_F(ArgsTestFixture, ParseCommandLineWithPidShort) {
@@ -85,10 +91,13 @@ TEST_F(ArgsTestFixture, ParseCommandLineWithPidShort) {
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
 
-    ASSERT_TRUE(parsedArgs.has_value());
-    EXPECT_EQ(parsedArgs->command, "show");
-    ASSERT_TRUE(parsedArgs->pid.has_value());
-    EXPECT_EQ(parsedArgs->pid.value(), 1234);
+    if (parsedArgs) {
+        EXPECT_EQ(parsedArgs.value().command, "show");
+        ASSERT_TRUE(parsedArgs.value().pid.has_value());
+        EXPECT_EQ(parsedArgs.value().pid.value(), 1234);
+    } else {
+        FAIL() << "Expected a valid parsed argument object.";
+    }
 }
 
 TEST_F(ArgsTestFixture, ParseCommandLineWithName) {
@@ -96,10 +105,13 @@ TEST_F(ArgsTestFixture, ParseCommandLineWithName) {
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
 
-    ASSERT_TRUE(parsedArgs.has_value());
-    EXPECT_EQ(parsedArgs->command, "list");
-    ASSERT_TRUE(parsedArgs->name.has_value());
-    EXPECT_EQ(parsedArgs->name.value(), "firefox");
+    if (parsedArgs) {
+        EXPECT_EQ(parsedArgs.value().command, "list");
+        ASSERT_TRUE(parsedArgs.value().name.has_value());
+        EXPECT_EQ(parsedArgs.value().name.value(), "firefox");
+    } else {
+        FAIL() << "Expected a valid parsed argument object.";
+    }
 }
 
 TEST_F(ArgsTestFixture, ParseCommandLineWithUser) {
@@ -107,10 +119,13 @@ TEST_F(ArgsTestFixture, ParseCommandLineWithUser) {
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
 
-    ASSERT_TRUE(parsedArgs.has_value());
-    EXPECT_EQ(parsedArgs->command, "list");
-    ASSERT_TRUE(parsedArgs->user.has_value());
-    EXPECT_EQ(parsedArgs->user.value(), "root");
+    if (parsedArgs) {
+        EXPECT_EQ(parsedArgs.value().command, "list");
+        ASSERT_TRUE(parsedArgs.value().user.has_value());
+        EXPECT_EQ(parsedArgs.value().user.value(), "root");
+    } else {
+        FAIL() << "Expected a valid parsed argument object.";
+    }
 }
 
 TEST_F(ArgsTestFixture, ParseCommandLineWithBrief) {
@@ -118,9 +133,12 @@ TEST_F(ArgsTestFixture, ParseCommandLineWithBrief) {
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
 
-    ASSERT_TRUE(parsedArgs.has_value());
-    EXPECT_EQ(parsedArgs->command, "list");
-    EXPECT_TRUE(parsedArgs->briefMode);
+    if (parsedArgs) {
+        EXPECT_EQ(parsedArgs.value().command, "list");
+        EXPECT_TRUE(parsedArgs.value().briefMode);
+    } else {
+        FAIL() << "Expected a valid parsed argument object.";
+    }
 }
 
 TEST_F(ArgsTestFixture, ParseCommandLineWithColumns) {
@@ -128,12 +146,15 @@ TEST_F(ArgsTestFixture, ParseCommandLineWithColumns) {
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
 
-    ASSERT_TRUE(parsedArgs.has_value());
-    EXPECT_EQ(parsedArgs->command, "list");
-    ASSERT_EQ(parsedArgs->selectedColumns.size(), 3);
-    EXPECT_EQ(parsedArgs->selectedColumns[0], "pid");
-    EXPECT_EQ(parsedArgs->selectedColumns[1], "name");
-    EXPECT_EQ(parsedArgs->selectedColumns[2], "cpu");
+    if (parsedArgs) {
+        EXPECT_EQ(parsedArgs.value().command, "list");
+        ASSERT_EQ(parsedArgs.value().selectedColumns.size(), 3);
+        EXPECT_EQ(parsedArgs.value().selectedColumns[0], "pid");
+        EXPECT_EQ(parsedArgs.value().selectedColumns[1], "name");
+        EXPECT_EQ(parsedArgs.value().selectedColumns[2], "cpu");
+    } else {
+        FAIL() << "Expected a valid parsed argument object.";
+    }
 }
 
 TEST_F(ArgsTestFixture, ParseCommandLineWithNoTruncateCmdline) {
@@ -141,9 +162,12 @@ TEST_F(ArgsTestFixture, ParseCommandLineWithNoTruncateCmdline) {
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
 
-    ASSERT_TRUE(parsedArgs.has_value());
-    EXPECT_EQ(parsedArgs->command, "list");
-    EXPECT_TRUE(parsedArgs->noTruncateCmdline);
+    if (parsedArgs) {
+        EXPECT_EQ(parsedArgs.value().command, "list");
+        EXPECT_TRUE(parsedArgs.value().noTruncateCmdline);
+    } else {
+        FAIL() << "Expected a valid parsed argument object.";
+    }
 }
 
 TEST_F(ArgsTestFixture, ParseCommandLineWithOutput) {
@@ -151,10 +175,13 @@ TEST_F(ArgsTestFixture, ParseCommandLineWithOutput) {
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
 
-    ASSERT_TRUE(parsedArgs.has_value());
-    EXPECT_EQ(parsedArgs->command, "list");
-    ASSERT_TRUE(parsedArgs->outputFormat.has_value());
-    EXPECT_EQ(parsedArgs->outputFormat.value(), "json");
+    if (parsedArgs) {
+        EXPECT_EQ(parsedArgs.value().command, "list");
+        ASSERT_TRUE(parsedArgs.value().outputFormat.has_value());
+        EXPECT_EQ(parsedArgs.value().outputFormat.value(), "json");
+    } else {
+        FAIL() << "Expected a valid parsed argument object.";
+    }
 }
 
 TEST_F(ArgsTestFixture, ParseCommandLineWithVerticalOutput) {
@@ -162,10 +189,13 @@ TEST_F(ArgsTestFixture, ParseCommandLineWithVerticalOutput) {
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
 
-    ASSERT_TRUE(parsedArgs.has_value());
-    EXPECT_EQ(parsedArgs->command, "show");
-    ASSERT_TRUE(parsedArgs->outputFormat.has_value());
-    EXPECT_EQ(parsedArgs->outputFormat.value(), "vertical");
+    if (parsedArgs) {
+        EXPECT_EQ(parsedArgs.value().command, "show");
+        ASSERT_TRUE(parsedArgs.value().outputFormat.has_value());
+        EXPECT_EQ(parsedArgs.value().outputFormat.value(), "vertical");
+    } else {
+        FAIL() << "Expected a valid parsed argument object.";
+    }
 }
 
 TEST_F(ArgsTestFixture, ParseCommandLineWithStateFilter) {
@@ -173,10 +203,13 @@ TEST_F(ArgsTestFixture, ParseCommandLineWithStateFilter) {
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
 
-    ASSERT_TRUE(parsedArgs.has_value());
-    EXPECT_EQ(parsedArgs->command, "list");
-    ASSERT_TRUE(parsedArgs->stateFilter.has_value());
-    EXPECT_EQ(parsedArgs->stateFilter.value(), 'R');
+    if (parsedArgs) {
+        EXPECT_EQ(parsedArgs.value().command, "list");
+        ASSERT_TRUE(parsedArgs.value().stateFilter.has_value());
+        EXPECT_EQ(parsedArgs.value().stateFilter.value(), 'R');
+    } else {
+        FAIL() << "Expected a valid parsed argument object.";
+    }
 }
 
 TEST_F(ArgsTestFixture, ParseCommandLineWithSortByAscending) {
@@ -184,11 +217,14 @@ TEST_F(ArgsTestFixture, ParseCommandLineWithSortByAscending) {
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
 
-    ASSERT_TRUE(parsedArgs.has_value());
-    EXPECT_EQ(parsedArgs->command, "list");
-    ASSERT_TRUE(parsedArgs->sortBy.has_value());
-    EXPECT_EQ(parsedArgs->sortBy.value(), ProcessSortField::pid);
-    EXPECT_EQ(parsedArgs->sortOrder, SortOrder::asc); // Default
+    if (parsedArgs) {
+        EXPECT_EQ(parsedArgs.value().command, "list");
+        ASSERT_TRUE(parsedArgs.value().sortBy.has_value());
+        EXPECT_EQ(parsedArgs.value().sortBy.value(), ProcessSortField::pid);
+        EXPECT_EQ(parsedArgs.value().sortOrder, SortOrder::asc); // Default
+    } else {
+        FAIL() << "Expected a valid parsed argument object.";
+    }
 }
 
 TEST_F(ArgsTestFixture, ParseCommandLineWithSortByDescending) {
@@ -196,11 +232,14 @@ TEST_F(ArgsTestFixture, ParseCommandLineWithSortByDescending) {
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
 
-    ASSERT_TRUE(parsedArgs.has_value());
-    EXPECT_EQ(parsedArgs->command, "list");
-    ASSERT_TRUE(parsedArgs->sortBy.has_value());
-    EXPECT_EQ(parsedArgs->sortBy.value(), ProcessSortField::cpuUsage);
-    EXPECT_EQ(parsedArgs->sortOrder, SortOrder::desc);
+    if (parsedArgs) {
+        EXPECT_EQ(parsedArgs.value().command, "list");
+        ASSERT_TRUE(parsedArgs.value().sortBy.has_value());
+        EXPECT_EQ(parsedArgs.value().sortBy.value(), ProcessSortField::cpuUsage);
+        EXPECT_EQ(parsedArgs.value().sortOrder, SortOrder::desc);
+    } else {
+        FAIL() << "Expected a valid parsed argument object.";
+    }
 }
 
 TEST_F(ArgsTestFixture, ParseCommandLineWithHelp) {
@@ -208,8 +247,11 @@ TEST_F(ArgsTestFixture, ParseCommandLineWithHelp) {
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
 
-    ASSERT_TRUE(parsedArgs.has_value());
-    EXPECT_TRUE(parsedArgs->showHelp);
+    if (parsedArgs) {
+        EXPECT_TRUE(parsedArgs.value().showHelp);
+    } else {
+        FAIL() << "Expected a valid parsed argument object.";
+    }
 }
 
 TEST_F(ArgsTestFixture, ParseCommandLineWithChildren) {
@@ -217,9 +259,12 @@ TEST_F(ArgsTestFixture, ParseCommandLineWithChildren) {
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
 
-    ASSERT_TRUE(parsedArgs.has_value());
-    EXPECT_EQ(parsedArgs->command, "show");
-    EXPECT_TRUE(parsedArgs->showChildren);
+    if (parsedArgs) {
+        EXPECT_EQ(parsedArgs.value().command, "show");
+        EXPECT_TRUE(parsedArgs.value().showChildren);
+    } else {
+        FAIL() << "Expected a valid parsed argument object.";
+    }
 }
 
 TEST_F(ArgsTestFixture, ParseCommandLineWithOpenFiles) {
@@ -227,9 +272,12 @@ TEST_F(ArgsTestFixture, ParseCommandLineWithOpenFiles) {
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
 
-    ASSERT_TRUE(parsedArgs.has_value());
-    EXPECT_EQ(parsedArgs->command, "show");
-    EXPECT_TRUE(parsedArgs->showOpenFiles);
+    if (parsedArgs) {
+        EXPECT_EQ(parsedArgs.value().command, "show");
+        EXPECT_TRUE(parsedArgs.value().showOpenFiles);
+    } else {
+        FAIL() << "Expected a valid parsed argument object.";
+    }
 }
 
 TEST_F(ArgsTestFixture, ParseCommandLineWithThreads) {
@@ -237,9 +285,12 @@ TEST_F(ArgsTestFixture, ParseCommandLineWithThreads) {
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
 
-    ASSERT_TRUE(parsedArgs.has_value());
-    EXPECT_EQ(parsedArgs->command, "show");
-    EXPECT_TRUE(parsedArgs->showThreads);
+    if (parsedArgs) {
+        EXPECT_EQ(parsedArgs.value().command, "show");
+        EXPECT_TRUE(parsedArgs.value().showThreads);
+    } else {
+        FAIL() << "Expected a valid parsed argument object.";
+    }
 }
 
 TEST_F(ArgsTestFixture, ParseCommandLineWithNetwork) {
@@ -247,9 +298,12 @@ TEST_F(ArgsTestFixture, ParseCommandLineWithNetwork) {
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
 
-    ASSERT_TRUE(parsedArgs.has_value());
-    EXPECT_EQ(parsedArgs->command, "show");
-    EXPECT_TRUE(parsedArgs->showNetworkConnections);
+    if (parsedArgs) {
+        EXPECT_EQ(parsedArgs.value().command, "show");
+        EXPECT_TRUE(parsedArgs.value().showNetworkConnections);
+    } else {
+        FAIL() << "Expected a valid parsed argument object.";
+    }
 }
 
 TEST_F(ArgsTestFixture, ParseCommandLineWithPpidFilter) {
@@ -257,10 +311,13 @@ TEST_F(ArgsTestFixture, ParseCommandLineWithPpidFilter) {
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
 
-    ASSERT_TRUE(parsedArgs.has_value());
-    EXPECT_EQ(parsedArgs->command, "list");
-    ASSERT_TRUE(parsedArgs->ppidFilter.has_value());
-    EXPECT_EQ(parsedArgs->ppidFilter.value(), 5678);
+    if (parsedArgs) {
+        EXPECT_EQ(parsedArgs.value().command, "list");
+        ASSERT_TRUE(parsedArgs.value().ppidFilter.has_value());
+        EXPECT_EQ(parsedArgs.value().ppidFilter.value(), 5678);
+    } else {
+        FAIL() << "Expected a valid parsed argument object.";
+    }
 }
 
 TEST_F(ArgsTestFixture, ParseCommandLineWithConfigFile) {
@@ -268,10 +325,13 @@ TEST_F(ArgsTestFixture, ParseCommandLineWithConfigFile) {
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
 
-    ASSERT_TRUE(parsedArgs.has_value());
-    EXPECT_EQ(parsedArgs->command, "list");
-    ASSERT_TRUE(parsedArgs->configFilePath.has_value());
-    EXPECT_EQ(parsedArgs->configFilePath.value(), "/etc/processAnalyzer.conf");
+    if (parsedArgs) {
+        EXPECT_EQ(parsedArgs.value().command, "list");
+        ASSERT_TRUE(parsedArgs.value().configFilePath.has_value());
+        EXPECT_EQ(parsedArgs.value().configFilePath.value(), "/etc/processAnalyzer.conf");
+    } else {
+        FAIL() << "Expected a valid parsed argument object.";
+    }
 }
 
 TEST_F(ArgsTestFixture, ParseCommandLineInvalidPid) {
@@ -327,8 +387,11 @@ TEST_F(ArgsTestFixture, ParseCommandLineNoCommand) {
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
 
-    ASSERT_TRUE(parsedArgs.has_value());
-    EXPECT_EQ(parsedArgs->command, "list");
+    if (parsedArgs) {
+        EXPECT_EQ(parsedArgs.value().command, "list");
+    } else {
+        FAIL() << "Expected a valid parsed argument object.";
+    }
 }
 
 TEST_F(ArgsTestFixture, ParseCommandLineMultipleOptions) {
@@ -348,30 +411,33 @@ TEST_F(ArgsTestFixture, ParseCommandLineMultipleOptions) {
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
 
-    ASSERT_TRUE(parsedArgs.has_value());
-    EXPECT_EQ(parsedArgs->command, "list");
-    ASSERT_TRUE(parsedArgs->name.has_value());
-    EXPECT_EQ(parsedArgs->name.value(), "chrome");
-    ASSERT_TRUE(parsedArgs->user.has_value());
-    EXPECT_EQ(parsedArgs->user.value(), "user1");
-    ASSERT_TRUE(parsedArgs->stateFilter.has_value());
-    EXPECT_EQ(parsedArgs->stateFilter.value(), 'S');
-    ASSERT_TRUE(parsedArgs->sortBy.has_value());
-    // Note: "mem" argument maps to ProcessSortField::memoryPercentage
-    EXPECT_EQ(parsedArgs->sortBy.value(), ProcessSortField::memoryPercentage);
-    EXPECT_EQ(parsedArgs->sortOrder, SortOrder::desc);
-    ASSERT_EQ(parsedArgs->selectedColumns.size(), 3);
-    EXPECT_EQ(parsedArgs->selectedColumns[0], "pid");
-    EXPECT_EQ(parsedArgs->selectedColumns[1], "name");
-    EXPECT_EQ(parsedArgs->selectedColumns[2], "cmdline");
-    EXPECT_TRUE(parsedArgs->briefMode);
-    EXPECT_TRUE(parsedArgs->noTruncateCmdline);
-    ASSERT_TRUE(parsedArgs->outputFormat.has_value());
-    EXPECT_EQ(parsedArgs->outputFormat.value(), "csv");
-    ASSERT_TRUE(parsedArgs->ppidFilter.has_value());
-    EXPECT_EQ(parsedArgs->ppidFilter.value(), 1000);
-    ASSERT_TRUE(parsedArgs->configFilePath.has_value());
-    EXPECT_EQ(parsedArgs->configFilePath.value(), "my_config.ini");
+    if (parsedArgs) {
+        EXPECT_EQ(parsedArgs.value().command, "list");
+        ASSERT_TRUE(parsedArgs.value().name.has_value());
+        EXPECT_EQ(parsedArgs.value().name.value(), "chrome");
+        ASSERT_TRUE(parsedArgs.value().user.has_value());
+        EXPECT_EQ(parsedArgs.value().user.value(), "user1");
+        ASSERT_TRUE(parsedArgs.value().stateFilter.has_value());
+        EXPECT_EQ(parsedArgs.value().stateFilter.value(), 'S');
+        ASSERT_TRUE(parsedArgs.value().sortBy.has_value());
+        // Note: "mem" argument maps to ProcessSortField::memoryPercentage
+        EXPECT_EQ(parsedArgs.value().sortBy.value(), ProcessSortField::memoryPercentage);
+        EXPECT_EQ(parsedArgs.value().sortOrder, SortOrder::desc);
+        ASSERT_EQ(parsedArgs.value().selectedColumns.size(), 3);
+        EXPECT_EQ(parsedArgs.value().selectedColumns[0], "pid");
+        EXPECT_EQ(parsedArgs.value().selectedColumns[1], "name");
+        EXPECT_EQ(parsedArgs.value().selectedColumns[2], "cmdline");
+        EXPECT_TRUE(parsedArgs.value().briefMode);
+        EXPECT_TRUE(parsedArgs.value().noTruncateCmdline);
+        ASSERT_TRUE(parsedArgs.value().outputFormat.has_value());
+        EXPECT_EQ(parsedArgs.value().outputFormat.value(), "csv");
+        ASSERT_TRUE(parsedArgs.value().ppidFilter.has_value());
+        EXPECT_EQ(parsedArgs.value().ppidFilter.value(), 1000);
+        ASSERT_TRUE(parsedArgs.value().configFilePath.has_value());
+        EXPECT_EQ(parsedArgs.value().configFilePath.value(), "my_config.ini");
+    } else {
+        FAIL() << "Expected a valid parsed argument object.";
+    }
 }
 
 TEST_F(ArgsTestFixture, ParseCommandLineRejectsInvalidColumns) {
@@ -387,11 +453,14 @@ TEST_F(ArgsTestFixture, ParseCommandLinePositionalPidCommand) {
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
 
-    ASSERT_TRUE(parsedArgs.has_value());
-    EXPECT_EQ(parsedArgs->command, "pid");
-    ASSERT_TRUE(parsedArgs->pid.has_value());
-    EXPECT_EQ(parsedArgs->pid.value(), 1234);
-    EXPECT_TRUE(parsedArgs->showThreads);
+    if (parsedArgs) {
+        EXPECT_EQ(parsedArgs.value().command, "pid");
+        ASSERT_TRUE(parsedArgs.value().pid.has_value());
+        EXPECT_EQ(parsedArgs.value().pid.value(), 1234);
+        EXPECT_TRUE(parsedArgs.value().showThreads);
+    } else {
+        FAIL() << "Expected a valid parsed argument object.";
+    }
 }
 
 TEST_F(ArgsTestFixture, ParseCommandLinePositionalPidCommandMissingValue) {
@@ -415,10 +484,13 @@ TEST_F(ArgsTestFixture, ParseCommandLinePositionalNameCommand) {
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
 
-    ASSERT_TRUE(parsedArgs.has_value());
-    EXPECT_EQ(parsedArgs->command, "name");
-    ASSERT_TRUE(parsedArgs->name.has_value());
-    EXPECT_EQ(parsedArgs->name.value(), "firefox");
+    if (parsedArgs) {
+        EXPECT_EQ(parsedArgs.value().command, "name");
+        ASSERT_TRUE(parsedArgs.value().name.has_value());
+        EXPECT_EQ(parsedArgs.value().name.value(), "firefox");
+    } else {
+        FAIL() << "Expected a valid parsed argument object.";
+    }
 }
 
 TEST_F(ArgsTestFixture, ParseCommandLinePositionalUserCommand) {
@@ -426,10 +498,13 @@ TEST_F(ArgsTestFixture, ParseCommandLinePositionalUserCommand) {
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
 
-    ASSERT_TRUE(parsedArgs.has_value());
-    EXPECT_EQ(parsedArgs->command, "user");
-    ASSERT_TRUE(parsedArgs->user.has_value());
-    EXPECT_EQ(parsedArgs->user.value(), "root");
+    if (parsedArgs) {
+        EXPECT_EQ(parsedArgs.value().command, "user");
+        ASSERT_TRUE(parsedArgs.value().user.has_value());
+        EXPECT_EQ(parsedArgs.value().user.value(), "root");
+    } else {
+        FAIL() << "Expected a valid parsed argument object.";
+    }
 }
 
 TEST_F(ArgsTestFixture, ParseCommandLinePidCommandRejectsPpidFilter) {

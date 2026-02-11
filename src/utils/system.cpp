@@ -13,8 +13,14 @@
 // C++ standard library headers
 #include <array>
 #include <string>
+#include <vector>
 
 namespace utils {
+
+namespace {
+    constexpr int bufferSize = 4096;
+    constexpr int signalExitCodeBase = 128;
+} // namespace
 
 Result<::std::string> getEnv(::std::string_view name) {
     if (name.empty() || name.find('=') != ::std::string_view::npos ||
@@ -37,25 +43,23 @@ Result<CommandOutput> executeCommand(::std::string_view command) {
     }
 
     // Create a temporary file for stderr
-    char stderrPath[] = "/tmp/processAnalyzer_stderr_XXXXXX";
-    int stderrFd = mkstemp(stderrPath);
-    if (stderrFd == -1) {
+    std::vector<char> stderrPath(L_tmpnam);
+    if (tmpnam(stderrPath.data()) == nullptr) {
         return ::std::unexpected(make_error_code(UtilsError::commandExecutionError));
     }
-    close(stderrFd); // Close file descriptor, we only need the path.
 
     // Construct the command to redirect stderr. We use grouping to ensure
     // that stderr from the entire command is captured, even with pipes.
-    ::std::string fullCommand = "{ " + ::std::string(command) + "; } 2> " + stderrPath;
+    ::std::string fullCommand = "{ " + ::std::string(command) + "; } 2> " + stderrPath.data();
 
     FILE* pipe = popen(fullCommand.c_str(), "r");
     if (!pipe) {
-        unlink(stderrPath);
+        unlink(stderrPath.data());
         return ::std::unexpected(make_error_code(UtilsError::commandExecutionError));
     }
 
     ::std::string stdoutStr;
-    ::std::array<char, 4096> buffer;
+    ::std::array<char, bufferSize> buffer;
     while (size_t bytesRead = fread(buffer.data(), 1, buffer.size(), pipe)) {
         stdoutStr.append(buffer.data(), bytesRead);
     }
@@ -70,13 +74,13 @@ Result<CommandOutput> executeCommand(::std::string_view command) {
             exitCode = WEXITSTATUS(pcloseResult);
         } else if (WIFSIGNALED(pcloseResult)) {
             // If terminated by a signal, return 128 + signal number, a common convention.
-            exitCode = 128 + WTERMSIG(pcloseResult);
+            exitCode = signalExitCodeBase + WTERMSIG(pcloseResult);
         }
     }
 
     // Read stderr from the temporary file
     ::std::string stderrStr;
-    FILE* stderrFile = fopen(stderrPath, "r");
+    FILE* stderrFile = fopen(stderrPath.data(), "r");
     if (stderrFile) {
         while (size_t bytesRead = fread(buffer.data(), 1, buffer.size(), stderrFile)) {
             stderrStr.append(buffer.data(), bytesRead);
@@ -85,7 +89,7 @@ Result<CommandOutput> executeCommand(::std::string_view command) {
     }
 
     // Clean up the temporary file
-    unlink(stderrPath);
+    unlink(stderrPath.data());
 
     return CommandOutput{.stdoutStr = stdoutStr, .stderrStr = stderrStr, .exitCode = exitCode};
 }

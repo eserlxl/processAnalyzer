@@ -54,25 +54,24 @@ Follow these steps to clone the repository and compile the project:
 
 To verify the correctness of the application, you can run the included unit tests. The tests are automatically built if `gtest` is found or fetched.
 
-1.  **Run all tests**:
-    From the `build` directory, use `ctest` to run the entire test suite.
+1.  **Run all tests via CTest**:
+    From the `build` directory, use `ctest` to run the entire test suite. This is the recommended way to run all tests.
     ```bash
     ctest --output-on-failure
     ```
 
-2.  **Run individual test executables**:
-    While `ctest` is recommended for running all tests, you can also run specific test executables directly for more detailed output or debugging.
-    
-    To find the names of the available test executables, list the contents of the `build/tests/` directory:
+2.  **Run tests directly**:
+    The project builds a single test executable named `ProcessAnalyzerTests` that contains all unit tests. Running this executable directly is useful for debugging or for more granular control over which tests are run.
+
+    You can run it from the `build` directory:
     ```bash
-    ls tests/
+    ./tests/ProcessAnalyzerTests
     ```
-    
-    Then, you can run a specific test executable, for example:
+
+    You can also use GoogleTest flags to filter tests. For example, to run only the tests related to `Core`:
     ```bash
-    ./tests/MySpecificTest
+    ./tests/ProcessAnalyzerTests --gtest_filter="Core*"
     ```
-    *Note: The exact names and number of test executables are defined by the project's `CMakeLists.txt` configuration in the `tests/` directory.*
 
 ## Installation
 

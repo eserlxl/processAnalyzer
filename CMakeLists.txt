@@ -17,7 +17,7 @@ endif()
 # Find clang-tidy for static analysis
 find_program(CLANG_TIDY_EXE clang-tidy)
 if(CLANG_TIDY_EXE)
-    # set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY_EXE};-p;${CMAKE_BINARY_DIR}")
+    set(CMAKE_CXX_CLANG_TIDY "${CLANG_TIDY_EXE};-p;${CMAKE_BINARY_DIR}")
 else()
     message(WARNING "clang-tidy not found. Static analysis will be skipped.")
 endif()
@@ -27,8 +27,7 @@ option(ENABLE_COVERAGE "Enable code coverage reporting" OFF)
 if(ENABLE_COVERAGE)
     if(CMAKE_COMPILER_ID MATCHES "GNU|Clang")
         message(STATUS "Code coverage enabled.")
-        # add_compile_options(--coverage) # Replaced with target-specific options
-        # add_link_options(--coverage)
+
     else()
         message(WARNING "Code coverage is not supported for this compiler.")
     endif()
