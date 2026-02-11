@@ -17,6 +17,13 @@ inline unsigned char toLowerAscii(unsigned char c) {
     return c;
 }
 
+inline unsigned char toUpperAscii(unsigned char c) {
+    if (c >= 'a' && c <= 'z') {
+        return static_cast<unsigned char>(c - ('a' - 'A'));
+    }
+    return c;
+}
+
 } // namespace
 
 namespace utils {
@@ -39,7 +46,7 @@ bool endsWith(std::string_view s, std::string_view suffix) {
 }
 
 bool contains(std::string_view s, std::string_view substring) {
-    return s.find(substring) != std::string_view::npos;
+    return s.contains(substring);
 }
 
 bool startsWithIgnoreCase(std::string_view str, std::string_view prefix) {
@@ -63,44 +70,32 @@ bool endsWithIgnoreCase(std::string_view str, std::string_view suffix) {
 }
 
 bool containsIgnoreCase(std::string_view str, std::string_view subStr) {
-    if (subStr.empty()) return true;
-    if (str.length() < subStr.length()) return false;
-
-    for (size_t i = 0; i <= str.length() - subStr.length(); ++i) {
-        bool match = true;
-        for (size_t j = 0; j < subStr.length(); ++j) {
-            if (toLowerAscii(static_cast<unsigned char>(str[i + j])) != toLowerAscii(static_cast<unsigned char>(subStr[j]))) {
-                match = false;
-                break;
-            }
-        }
-        if (match) {
-            return true;
-        }
+    if (subStr.empty()) {
+        return true;
     }
-    return false;
+    if (str.length() < subStr.length()) {
+        return false;
+    }
+
+    auto it = std::ranges::search(
+        str,
+        subStr,
+        [](unsigned char c1, unsigned char c2) {
+            return toLowerAscii(c1) == toLowerAscii(c2);
+        }
+    );
+    return !it.empty();
 }
 
 std::string toLower(std::string_view s) {
-    std::string result;
-    result.reserve(s.length());
-    for (char c : s) {
-        result += static_cast<char>(toLowerAscii(static_cast<unsigned char>(c)));
-    }
+    std::string result(s.size(), '\0');
+    std::ranges::transform(s, result.begin(), toLowerAscii);
     return result;
 }
 
 std::string toUpper(std::string_view s) {
-    std::string result;
-    result.reserve(s.length());
-    for (char c : s) {
-        if (c >= 'a' && c <= 'z') {
-            result += static_cast<char>(c - ('a' - 'A'));
-        }
-        else {
-            result += c;
-        }
-    }
+    std::string result(s.size(), '\0');
+    std::ranges::transform(s, result.begin(), toUpperAscii);
     return result;
 }
 
@@ -221,9 +216,10 @@ std::vector<std::string> split(std::string_view s, std::string_view delimiter, b
         }
         return tokens;
     }
-    if (delimiter.empty()) { // Splitting by empty delimiter returns the whole string as one token
-        if (!skipEmpty) { // If delimiter is empty and we don't skip empty, add the whole string.
-            tokens.emplace_back(s);
+    if (delimiter.empty()) { // Splitting by empty delimiter now splits into characters.
+        tokens.reserve(s.size());
+        for(char c : s) {
+            tokens.emplace_back(1, c);
         }
         return tokens;
     }
@@ -249,83 +245,40 @@ std::vector<std::string> split(std::string_view s, std::string_view delimiter, b
 
 // Numeric Parsing/Validation
 
+template <typename T>
+Result<T> parseNumeric(std::string_view s, int base = default_radix);
+
 bool isInteger(std::string_view s) {
-    if (s.empty()) return false;
-    long long val; // Use long long to cover more range for checking
-    const char* first = s.data();
-    const char* last = s.data() + s.size();
-
-    // Skip leading/trailing whitespace
-    while (first < last && std::isspace(static_cast<unsigned char>(*first))) {
-        ++first;
-    }
-    // Handle optional plus sign before parsing - std::from_chars should handle it, but explicit handling can prevent issues
-    if (first < last && *first == '+') {
-        ++first;
-    }
-    while (first < last && std::isspace(static_cast<unsigned char>(last[-1]))) {
-        --last;
-    }
-
-    if (first == last) return false; // String was all whitespace or empty after trimming, or only a sign
-
-    auto res = std::from_chars(first, last, val);
-    return res.ptr == last && res.ec == std::errc();
+    long long val;
+    return tryParse(s, val);
 }
 
 bool isFloatingPoint(std::string_view s) {
-    if (s.empty()) return false;
     double val;
-    const char* first = s.data();
-    const char* last = s.data() + s.size();
-
-    // Skip leading/trailing whitespace
-    while (first < last && std::isspace(static_cast<unsigned char>(*first))) {
-        ++first;
-    }
-    // Handle optional plus sign before parsing
-    if (first < last && *first == '+') {
-        ++first;
-    }
-    while (first < last && std::isspace(static_cast<unsigned char>(last[-1]))) {
-        --last;
-    }
-
-    if (first == last) return false; // String was all whitespace or empty after trimming, or only a sign
-
-    auto res = std::from_chars(first, last, val);
-    return res.ptr == last && res.ec == std::errc();
+    return tryParse(s, val);
 }
 
 template <typename T>
-Result<T> parseNumeric(std::string_view s, int base = default_radix) {
-    if (s.empty()) {
+Result<T> parseNumeric(std::string_view s, int base) {
+    constexpr std::string_view whitespace = " \t\n\r\f\v";
+    auto firstCharPos = s.find_first_not_of(whitespace);
+    if (firstCharPos == std::string_view::npos) {
         return std::unexpected(make_error_code(UtilsError::invalidArgument));
     }
-
-    const char* first = s.data();
-    const char* last = s.data() + s.size();
-
-    // Skip leading/trailing whitespace
-    while (first < last && std::isspace(static_cast<unsigned char>(*first))) {
-        ++first;
-    }
-    // Handle optional plus sign before parsing
-    if (first < last && *first == '+') {
-        ++first;
-    }
-    while (first < last && std::isspace(static_cast<unsigned char>(last[-1]))) {
-        --last;
-    }
-
-    if (first == last) { // String was all whitespace or empty after trimming, or only a sign
-        return std::unexpected(make_error_code(UtilsError::invalidArgument));
-    }
+    auto lastCharPos = s.find_last_not_of(whitespace);
+    std::string_view trimmedSv = s.substr(firstCharPos, lastCharPos - firstCharPos + 1);
 
     T value;
     std::from_chars_result res;
+    const char* first = trimmedSv.data();
+    const char* last = trimmedSv.data() + trimmedSv.size();
 
     if constexpr (std::is_integral_v<T>) {
+        // std::from_chars for integers does not support leading '+'.
+        if (!trimmedSv.empty() && trimmedSv.front() == '+') {
+            trimmedSv.remove_prefix(1);
+            first = trimmedSv.data();
+        }
         res = std::from_chars(first, last, value, base);
     } else { // Floating point types
         res = std::from_chars(first, last, value);

@@ -226,7 +226,7 @@ TEST(StringTest, ToUpperEmptyString) {
 }
 
 TEST(StringTest, ToUpperUnicode) {
-    EXPECT_EQ(utils::toUpper("Grüße"), "GRüßE"); // 'ü' and 'ß' are not converted as they are non-ASCII.
+    EXPECT_EQ(utils::toUpper("Grüße"), "GRüßE"); // 'ü' and 'ß' are not converted as they are non-ASCII. 
 }
 
 // --- replaceAll ---
@@ -452,8 +452,8 @@ TEST(StringTest, SplitStringViewOnlyDelimitersSkipEmptyFalse) {
 }
 
 TEST(StringTest, SplitStringViewEmptyDelimiter) {
-    std::vector<std::string> expected = {"hello"};
-    EXPECT_EQ(utils::split("hello", "", false), expected); // Empty delimiter, returns original string
+    std::vector<std::string> expected = {"h", "e", "l", "l", "o"};
+    EXPECT_EQ(utils::split("hello", "", false), expected); // Empty delimiter now splits to chars
 }
 
 TEST(StringTest, SplitStringViewEmptyStringSkipEmptyFalse) {
@@ -568,6 +568,18 @@ TEST(StringTest, ToDoubleOutOfRange) {
     EXPECT_TRUE(hasError(utils::toDouble(underflowStr), utils::UtilsError::outOfRange));
 }
 
+TEST(StringTest, ToDoubleSpecialValues) {
+    // Test for infinity
+    EXPECT_TRUE(hasError(utils::toDouble("inf"), utils::UtilsError::outOfRange));
+    EXPECT_TRUE(hasError(utils::toDouble("+inf"), utils::UtilsError::outOfRange));
+    EXPECT_TRUE(hasError(utils::toDouble("-inf"), utils::UtilsError::outOfRange));
+    EXPECT_TRUE(hasError(utils::toDouble("inf"), utils::UtilsError::outOfRange)); // Check case sensitivity implicitly
+
+    // Test for NaN
+    EXPECT_TRUE(hasError(utils::toDouble("nan"), utils::UtilsError::outOfRange));
+    EXPECT_TRUE(hasError(utils::toDouble("NaN"), utils::UtilsError::outOfRange));
+}
+
 // --- parseBool ---
 TEST(StringTest, ParseBoolValid) {
     EXPECT_TRUE(utils::parseBool("true").value());
@@ -646,5 +658,127 @@ TEST(StringTest, ToFloatOutOfRange) {
     std::string underflowStr = "-1e+100";
     EXPECT_TRUE(hasError(utils::toFloat(underflowStr), utils::UtilsError::outOfRange));
 }
+
+TEST(StringTest, ToFloatSpecialValues) {
+    // Test for infinity
+    EXPECT_TRUE(hasError(utils::toFloat("inf"), utils::UtilsError::outOfRange));
+    EXPECT_TRUE(hasError(utils::toFloat("+inf"), utils::UtilsError::outOfRange));
+    EXPECT_TRUE(hasError(utils::toFloat("-inf"), utils::UtilsError::outOfRange));
+    EXPECT_TRUE(hasError(utils::toFloat("inf"), utils::UtilsError::outOfRange)); // Check case sensitivity implicitly
+
+    // Test for NaN
+    EXPECT_TRUE(hasError(utils::toFloat("nan"), utils::UtilsError::outOfRange));
+    EXPECT_TRUE(hasError(utils::toFloat("NaN"), utils::UtilsError::outOfRange));
+}
+
+// --- tryParse ---
+TEST(StringTest, TryParseIntegerValid) {
+    int val;
+    EXPECT_TRUE(utils::tryParse("123", val));
+    EXPECT_EQ(val, 123);
+
+    EXPECT_TRUE(utils::tryParse("-456", val));
+    EXPECT_EQ(val, -456);
+
+    EXPECT_TRUE(utils::tryParse("0", val));
+    EXPECT_EQ(val, 0);
+
+    EXPECT_TRUE(utils::tryParse("+789", val));
+    EXPECT_EQ(val, 789);
+
+    EXPECT_TRUE(utils::tryParse("   1000   ", val)); // With whitespace
+    EXPECT_EQ(val, 1000);
+}
+
+TEST(StringTest, TryParseIntegerInvalid) {
+    int val;
+    EXPECT_FALSE(utils::tryParse("123.45", val));
+    EXPECT_FALSE(utils::tryParse("abc", val));
+    EXPECT_FALSE(utils::tryParse("", val));
+    EXPECT_FALSE(utils::tryParse("   ", val));
+    EXPECT_FALSE(utils::tryParse("12a", val));
+    EXPECT_FALSE(utils::tryParse("123a", val)); // Partial parse
+}
+
+TEST(StringTest, TryParseDoubleValid) {
+    double val;
+    EXPECT_TRUE(utils::tryParse("123.45", val));
+    EXPECT_DOUBLE_EQ(val, 123.45);
+
+    EXPECT_TRUE(utils::tryParse("-123.45", val));
+    EXPECT_DOUBLE_EQ(val, -123.45);
+
+    EXPECT_TRUE(utils::tryParse("0.0", val));
+    EXPECT_DOUBLE_EQ(val, 0.0);
+
+    EXPECT_TRUE(utils::tryParse("123", val)); // Integers are valid doubles
+    EXPECT_DOUBLE_EQ(val, 123.0);
+
+    EXPECT_TRUE(utils::tryParse("   123.45   ", val)); // With whitespace
+    EXPECT_DOUBLE_EQ(val, 123.45);
+}
+
+TEST(StringTest, TryParseDoubleInvalid) {
+    double val;
+    EXPECT_FALSE(utils::tryParse("abc", val));
+    EXPECT_FALSE(utils::tryParse("", val));
+    EXPECT_FALSE(utils::tryParse("   ", val));
+    EXPECT_FALSE(utils::tryParse("12a.45", val)); // Partial parse
+}
+
+TEST(StringTest, TryParseOutOfRange) {
+    // Test with values that should cause out_of_range for std::from_chars
+    int val_int;
+    long val_long;
+    double val_double;
+
+    std::string overflow_int_str = std::to_string(static_cast<long long>(std::numeric_limits<int>::max()) + 1);
+    EXPECT_FALSE(utils::tryParse(overflow_int_str, val_int));
+
+    std::string underflow_int_str = std::to_string(static_cast<long long>(std::numeric_limits<int>::min()) - 1);
+    EXPECT_FALSE(utils::tryParse(underflow_int_str, val_int));
+
+    std::string overflow_long_str = std::to_string(std::numeric_limits<long>::max()) + "0";
+    EXPECT_FALSE(utils::tryParse(overflow_long_str, val_long));
+
+    std::string large_float_str = "1e+50"; // Exceeds double range
+    EXPECT_FALSE(utils::tryParse(large_float_str, val_double));
+}
+
+// --- isInteger and isFloatingPoint Tests (Already Present) ---
+// ... (Existing tests for isInteger and isFloatingPoint)
+
+// --- toLong, toDouble, toInt, toFloat Tests (Already Present) ---
+// ... (Existing tests for numeric parsing)
+
+// --- parseBool Tests (Already Present) ---
+// ... (Existing tests for parseBool)
+
+// --- split(char) Tests (Already Present) ---
+// ... (Existing tests for split with char delimiter)
+
+// --- split(string_view) Tests (Already Present) ---
+// ... (Existing tests for split with string_view delimiter)
+
+// --- format Tests (Already Present) ---
+// ... (Existing tests for format)
+
+// --- replaceAll, replaceFirst, replaceN Tests (Already Present) ---
+// ... (Existing tests for replace functions)
+
+// --- join Tests (Already Present) ---
+// ... (Existing tests for join)
+
+// --- contains, startsWith, endsWith Tests (Already Present) ---
+// ... (Existing tests for basic string checks)
+
+// --- startsWithIgnoreCase, endsWithIgnoreCase, containsIgnoreCase Tests (Already Present) ---
+// ... (Existing tests for case-insensitive checks)
+
+// --- toLower, toUpper Tests (Already Present) ---
+// ... (Existing tests for case conversion)
+
+// --- trim Tests (Already Present) ---
+// ... (Existing tests for trim)
 
 } // namespace utils

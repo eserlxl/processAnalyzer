@@ -184,7 +184,9 @@ utils::Result<std::vector<MountPointInfo>> ProcessAnalyzer::getSystemDiskUsage()
     std::string line;
     while(std::getline(ss, line)) {
         std::stringstream lineSs(line);
-        std::string device, mountPoint, filesystemType;
+        std::string device;
+        std::string mountPoint;
+        std::string filesystemType;
         lineSs >> device >> mountPoint >> filesystemType;
 
         struct statvfs vfs;
@@ -221,7 +223,14 @@ utils::Result<PerCpuUsage> ProcessAnalyzer::getPerCpuUsage(std::chrono::millisec
                 std::string label;
                 lineSs >> label;
                 
-                unsigned long long user, nice, system, idle, iowait, irq, softirq, steal;
+                unsigned long long user;
+                unsigned long long nice;
+                unsigned long long system;
+                unsigned long long idle;
+                unsigned long long iowait;
+                unsigned long long irq;
+                unsigned long long softirq;
+                unsigned long long steal;
                 lineSs >> user >> nice >> system >> idle >> iowait >> irq >> softirq >> steal;
                  
                 snapshots.push_back({
@@ -269,7 +278,8 @@ utils::Result<std::vector<DiskIoDeviceStats>> ProcessAnalyzer::getSystemDiskIoSt
     while(std::getline(ss, line)) {
         if (utils::trim(line).empty()) continue;
         std::stringstream lineSs(line);
-        int major, minor;
+        int major;
+        int minor;
         std::string deviceName;
         if (!(lineSs >> major >> minor >> deviceName)) continue;
         

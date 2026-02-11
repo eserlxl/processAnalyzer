@@ -10,6 +10,7 @@
 #include <vector>
 #include <format> // For std::format_string and std::vformat
 #include <charconv> // For std::from_chars
+#include <cmath> // Include for std::isfinite
 
 namespace utils {
 
@@ -28,16 +29,30 @@ namespace utils {
  */
 template<typename T>
 [[nodiscard]] inline bool tryParse(std::string_view s, T& out) {
-    T temp_val{};
-    auto [ptr, ec] = std::from_chars(s.data(), s.data() + s.size(), temp_val);
-    if (ec == std::errc{} && ptr == s.data() + s.size()) {
-        out = temp_val;
+    constexpr std::string_view whitespace = " \t\n\r\f\v";
+    auto firstCharPos = s.find_first_not_of(whitespace);
+    if (firstCharPos == std::string_view::npos) {
+        return false;
+    }
+    auto lastCharPos = s.find_last_not_of(whitespace);
+    std::string_view trimmedSv = s.substr(firstCharPos, lastCharPos - firstCharPos + 1);
+
+    T tempVal{};
+    auto [ptr, ec] = std::from_chars(trimmedSv.data(), trimmedSv.data() + trimmedSv.size(), tempVal);
+
+    if (ec == std::errc{} && ptr == trimmedSv.data() + trimmedSv.size()) {
+        if constexpr (std::is_floating_point_v<T>) {
+            if (!std::isfinite(tempVal)) {
+                return false;
+            }
+        }
+        out = tempVal;
         return true;
     }
     return false;
 }
 
-inline constexpr int default_radix = 10;
+inline constexpr int defaultRadix = 10;
 
 /**
  * @brief Provides utility functions for string manipulation and parsing.
@@ -227,7 +242,7 @@ template<typename... Args>
  * @param base The numeric base to use (e.g., 10 for decimal, 16 for hexadecimal).
  * @return A `Result<long>` containing the converted value or an error.
  */
-[[nodiscard]] Result<long> toLong(std::string_view s, int base = default_radix);
+[[nodiscard]] Result<long> toLong(std::string_view s, int base = defaultRadix);
 
 /**
  * @brief Converts a string view to a double-precision floating-point number.
@@ -259,7 +274,7 @@ template<typename... Args>
  * @param base The numeric base to use (e.g., 10 for decimal, 16 for hexadecimal).
  * @return A `Result<int>` containing the converted value or an error.
  */
-[[nodiscard]] Result<int> toInt(std::string_view s, int base = default_radix);
+[[nodiscard]] Result<int> toInt(std::string_view s, int base = defaultRadix);
 
 /**
  * @brief Converts a string view to a single-precision floating-point number.

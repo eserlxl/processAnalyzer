@@ -10,25 +10,21 @@
 
 processAnalyzer is a modern, high-performance system diagnostics tool and C++ library for Linux. Built with **C++23**, it provides a powerful and efficient interface to the `/proc` filesystem, allowing developers and system administrators to inspect, monitor, and analyze processes and system-wide metrics with precision.
 
----
-
-## ⭐ Motivation
-
-`processAnalyzer` is a high-performance C++ command-line utility for real-time inspection and monitoring of system processes. It delivers detailed resource usage metrics and execution statistics to facilitate efficient system diagnostics and performance optimization.
+It delivers detailed resource usage metrics and execution statistics to facilitate efficient system diagnostics and performance optimization.
 
 ---
 
 ## 📑 Table of Contents
 
-- [Motivation](#-motivation)
 - [Key Features](#-key-features)
 - [Core Technologies](#-core-technologies)
+- [Project Structure](#-project-structure)
 - [Installation](#-installation)
 - [Quick Start](#-quick-start)
 - [API Usage Example](#-api-usage-example)
 - [Documentation](#-documentation)
 - [Testing](#-testing)
-- [Security](#-security)
+- [Security Considerations](#-security-considerations)
 - [Contributing](#-contributing)
 - [License](#-license)
 
@@ -63,15 +59,35 @@ For a complete list of features and detailed explanations, see [docs/features.md
 
 ## 🛠 Core Technologies
 
-- **C++23 Features**: Utilizes `std::generator` for lazy-loaded process streaming and `std::expected` for robust error handling.
-- **Modern Architecture**: Minimal dependencies, high performance, and thread-safe design.
-- **Zero-Cost Abstractions**: Direct interface to Linux `/proc` and `/sys` filesystems without unnecessary overhead.
+- **C++23**: Leverages the latest standard for high-performance, modern code.
+  - `std::generator`: Enables efficient, lazy-loaded streaming of process data, minimizing memory footprint.
+  - `std::expected`: Provides robust, clear, and explicit error handling without exceptions.
+- **CMake**: Modern, cross-platform build system for easy configuration and compilation.
+- **High-Performance Design**:
+  - **Zero-Cost Abstractions**: Direct, low-level interface to Linux `/proc` and `/sys` filesystems, avoiding unnecessary overhead.
+  - **Minimal Dependencies**: Keeps the project lightweight and easy to deploy.
+  - **Thread-Safe**: Designed for safe concurrent use in multithreaded applications.
+
+---
+
+## 🏗️ Project Structure
+
+The project is organized into several key directories:
+
+-   `src/`: Contains the main application source code.
+    -   `analyzer/`: Core library for process and system analysis.
+    -   `cli/`: Command-line interface logic.
+    -   `utils/`: Shared utility functions.
+-   `include/`: Public headers for the `processAnalyzer` library.
+-   `tests/`: Unit and integration tests.
+-   `docs/`: Detailed documentation files.
+-   `CMakeLists.txt`: Main CMake build script.
+
+A more detailed overview is available in [docs/project-structure.md](docs/project-structure.md).
 
 ---
 
 ## 📦 Installation
-
-For detailed build and installation instructions, please see [docs/build.md](docs/build.md).
 
 ### Prerequisites
 
@@ -79,27 +95,48 @@ For detailed build and installation instructions, please see [docs/build.md](doc
 - **Compiler**: GCC 12+ or Clang 16+ (C++23 support required)
 - **Build Tools**: CMake 3.17+ and Make/Ninja
 
+### Build Steps
+
+1.  **Clone the Repository**
+    ```bash
+    git clone https://github.com/eserlxl/processAnalyzer.git
+    cd processAnalyzer
+    ```
+
+2.  **Configure with CMake**
+    ```bash
+    cmake -B build -DCMAKE_BUILD_TYPE=Release
+    ```
+
+3.  **Build the Project**
+    ```bash
+    cmake --build build
+    ```
+The executable will be available at `build/bin/processAnalyzer`.
+
+For more advanced build options, such as building with debug symbols or running sanitizers, please see the [detailed build guide](docs/build.md).
+
 ---
 
 ## ⚡ Quick Start
 
-Run `processAnalyzer` from the `build/` directory:
+After building, you can run `processAnalyzer` from the `build/bin` directory.
 
 ```bash
 # List all running processes with default columns
-./processAnalyzer list
+./build/bin/processAnalyzer list
 
 # Find processes by name and sort by RSS memory (descending)
-./processAnalyzer list --name nginx --sort-by rss --sort-order desc
+./build/bin/processAnalyzer list --name nginx --sort-by rss --sort-order desc
 
 # Show detailed info for a specific PID (children, open files, threads, network)
-./processAnalyzer show --pid 1234 --children --open-files --threads --network
+./build/bin/processAnalyzer show --pid 1234 --children --open-files --threads --network
 
 # Export high-memory processes to JSON
-./processAnalyzer list --sort-by rss --output json > heavy_procs.json
+./build/bin/processAnalyzer list --sort-by rss --output json > heavy_procs.json
 
 # Display help menu for all options
-./processAnalyzer --help
+./build/bin/processAnalyzer --help
 ```
 
 For a full command reference, see [docs/usage.md](docs/usage.md).
@@ -144,6 +181,8 @@ int main() {
 
 For comprehensive details on the library's classes, functions, and advanced usage, please refer to the [API Reference](docs/api-reference.md).
 
+To compile and run this example, you would typically link against the `processAnalyzer` library (`libanalyzer.a`) and ensure the headers from the `include/` directory are available to your compiler.
+
 ---
 
 ## 📚 Documentation
@@ -167,7 +206,7 @@ See [docs/testing.md](docs/testing.md) for details on testing.
 
 ---
 
-## 🔒 Security
+## 🔒 Security Considerations
 
 `processAnalyzer` interacts directly with the Linux `/proc` filesystem to gather system and process information. While designed with security in mind, users should be aware of the following:
 

@@ -123,7 +123,7 @@ namespace {
             return std::unexpected(utils::make_error_code(utils::UtilsError::analyzerProcessNotFound));
         }
         try {
-            fs::directory_iterator test_iter(pidPath);
+            fs::directory_iterator testIter(pidPath);
         } catch (const fs::filesystem_error&) {
             return std::unexpected(utils::make_error_code(utils::UtilsError::analyzerPermissionDenied));
         }
@@ -169,7 +169,7 @@ utils::Result<ProcessInfo> ProcessAnalyzer::getProcessDetails(pid_t pid) const {
 
             std::string key = utils::trim(line.substr(0, colonPos));
             std::string value = utils::trim(line.substr(colonPos + 1));
-            std::replace(value.begin(), value.end(), '\t', ' ');
+            std::ranges::replace(value.begin(), value.end(), '\t', ' ');
 
             if (key == "Name") info.name = value;
             else if (key == "State") info.state = value;
@@ -184,18 +184,24 @@ utils::Result<ProcessInfo> ProcessAnalyzer::getProcessDetails(pid_t pid) const {
     }
 
     if (auto statContentOpt = utils::readTextFile((pidPath / "stat").string())) {
-        std::string content = *statContentOpt;
-        size_t lastRParen = content.rfind(')');
+                        const std::string& content = *statContentOpt;        size_t lastRParen = content.rfind(')');
         if (lastRParen != std::string::npos) {
             std::vector<std::string> stat_fields = utils::split(utils::trim(content.substr(lastRParen + 1)), ' ', true);
-            if (stat_fields.size() > 19) {
-                (void)utils::tryParse(stat_fields[1], info.ppid);
-                (void)utils::tryParse(stat_fields[11], info.cpuUserTimeTicks);
-                (void)utils::tryParse(stat_fields[12], info.cpuKernelTimeTicks);
-                long nice_val = 0;
-                (void)utils::tryParse(stat_fields[16], nice_val);
-                info.priority = static_cast<int>(nice_val);
-                (void)utils::tryParse(stat_fields[19], info.startTimeTicks);
+            constexpr int PROCESS_STAT_FIELD_COUNT = 19;
+            constexpr int PROCESS_STAT_PPID_INDEX = 1;
+            constexpr int PROCESS_STAT_CPU_USER_TIME_INDEX = 11;
+            constexpr int PROCESS_STAT_CPU_KERNEL_TIME_INDEX = 12;
+            constexpr int PROCESS_STAT_NICE_INDEX = 16;
+            constexpr int PROCESS_STAT_START_TIME_INDEX = 19;
+
+            if (statFields.size() > PROCESS_STAT_FIELD_COUNT) {
+                (void)utils::tryParse(statFields[PROCESS_STAT_PPID_INDEX], info.ppid);
+                (void)utils::tryParse(statFields[PROCESS_STAT_CPU_USER_TIME_INDEX], info.cpuUserTimeTicks);
+                (void)utils::tryParse(statFields[PROCESS_STAT_CPU_KERNEL_TIME_INDEX], info.cpuKernelTimeTicks);
+                long niceVal = 0;
+                (void)utils::tryParse(statFields[PROCESS_STAT_NICE_INDEX], niceVal);
+                info.priority = static_cast<int>(niceVal);
+                (void)utils::tryParse(statFields[PROCESS_STAT_START_TIME_INDEX], info.startTimeTicks);
             }
         }
     }
@@ -211,12 +217,16 @@ utils::Result<ProcessInfo> ProcessAnalyzer::getProcessDetails(pid_t pid) const {
         }
     }
 
+    constexpr int PROCESS_IO_READ_BYTES_OFFSET = 11;
+    constexpr int PROCESS_IO_WRITE_BYTES_OFFSET = 12;
+    constexpr int PROCESS_IO_RCHAR_OFFSET = 6;
+    constexpr int PROCESS_IO_WCHAR_OFFSET = 6;
     if (auto ioContentOpt = utils::readTextFile((pidPath / "io").string())) {
         for (const auto& line : utils::split(*ioContentOpt, '\n')) {
-            if (line.starts_with("read_bytes:")) std::stringstream(line.substr(11)) >> info.ioReadBytes;
-            else if (line.starts_with("write_bytes:")) std::stringstream(line.substr(12)) >> info.ioWriteBytes;
-            else if (line.starts_with("rchar:")) std::stringstream(line.substr(6)) >> info.ioReadBytes;
-            else if (line.starts_with("wchar:")) std::stringstream(line.substr(6)) >> info.ioWriteBytes;
+            if (line.starts_with("read_bytes:")) std::stringstream(line.substr(PROCESS_IO_READ_BYTES_OFFSET)) >> info.ioReadBytes;
+            else if (line.starts_with("write_bytes:")) std::stringstream(line.substr(PROCESS_IO_WRITE_BYTES_OFFSET)) >> info.ioWriteBytes;
+            else if (line.starts_with("rchar:")) std::stringstream(line.substr(PROCESS_IO_RCHAR_OFFSET)) >> info.ioReadBytes;
+            else if (line.starts_with("wchar:")) std::stringstream(line.substr(PROCESS_IO_WCHAR_OFFSET)) >> info.ioWriteBytes;
         }
     }
 
@@ -410,7 +420,7 @@ utils::Result<std::vector<ThreadInfo>> ProcessAnalyzer::getProcessThreads(pid_t 
             }
 
             if (auto statContentOpt = utils::readTextFile((entry.path() / "stat").string())) {
-                std::string content = *statContentOpt;
+                const std::string& content = *statContentOpt;
                 auto lastParen = content.rfind(')');
                 if (lastParen != std::string::npos) {
                     std::vector<std::string> stat_fields = utils::split(utils::trim(content.substr(lastParen + 1)), ' ', true);

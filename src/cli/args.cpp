@@ -119,7 +119,8 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
         if (arg == "--help" || arg == "-h") {
             args.showHelp = true;
             return args;
-        } else if (arg == "--pid" || arg == "-p") {
+        }
+        if (arg == "--pid" || arg == "-p") {
             if (i + 1 >= cliArgs.size()) {
                 std::cerr << "Error: --pid requires an argument.\n";
                 return std::nullopt;
@@ -219,7 +220,7 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
                 return std::nullopt;
             }
             if (auto ppid = parseIntWithinRange(cliArgs[++i])) {
-                args.ppidFilter = *ppid;
+                args.ppidFilter = ppid.value();
             } else {
                 std::cerr << "Error: Invalid PPID '" << cliArgs[i] << "'.\n";
                 return std::nullopt;

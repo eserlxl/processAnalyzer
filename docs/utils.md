@@ -4,18 +4,12 @@ The `utils` namespace provides a collection of general-purpose utility functions
 
 ## Usage
 
-To utilize the `utils` library in your C++ project, simply include the main umbrella header:
+To use the utility functions, include the specific header file that contains the functionality you need. All utility headers are located in the `include/utils/` directory.
+
+For example, to use file-related functions, you would include `utils/file.h`:
 
 ```cpp
-#include <utils.h>
-```
-
-This single include provides access to all the utility functions and types defined across the various modules (e.g., `Core.h`, `File.h`, `Path.h`, `String.h`, `System.h`, `Time.h`, `Types.h`) within the `include/utils/` directory. This approach simplifies dependency management and reduces boilerplate when you need to use multiple utility features.
-
-You can then access the utilities via the `utils` namespace:
-
-```cpp
-#include <utils.h>
+#include "utils/file.h"
 #include <iostream>
 
 int main() {
@@ -25,13 +19,13 @@ int main() {
     } else {
         std::cerr << "Error reading file: " << result.error().message() << std::endl;
     }
-
-    std::string uuid = utils::generateUuid().value_or("error");
-    std::cout << "Generated UUID: " << uuid << std::endl;
-
     return 0;
 }
 ```
+
+This modular approach ensures that you only include what is necessary, which can help reduce compilation times.
+
+You can then access the utilities via the `utils` namespace.
 
 Many functions now return `Result<T>` which is a `std::expected<T, std::error_code>`, allowing for robust error handling. Older functions using `std::optional` or out-parameters for error codes are being deprecated.
 
