@@ -38,6 +38,7 @@ namespace {
     constexpr std::string_view anyIpV4AddrPort = "00000000:0000";
     constexpr std::string_view anyIpV6AddrPort = "00000000000000000000000000000000:0000";
     constexpr int hexBase = 16;
+    constexpr int decimalBase = 10;
     constexpr size_t ipv4HexLen = 8;
     constexpr size_t ipv6HexLen = 32;
     constexpr size_t ipv6ChunkLen = 8;
@@ -226,7 +227,7 @@ namespace {
             InternalNetworkConnection internalConn;
             internalConn.baseConn.protocol = protocolPrefix;
             internalConn.inode = 0;
-            if (auto inode = utils::parseIntegerNoThrow<unsigned long>(inodeStr)) {
+            if (auto inode = utils::parseIntegerNoThrow<unsigned long>(inodeStr, decimalBase)) {
                 internalConn.inode = *inode;
             }
 
@@ -465,7 +466,7 @@ utils::Result<std::vector<int>> ProcessAnalyzer::getPids() const {
             if (entry.is_directory()) {
                 std::string filename = entry.path().filename().string();
                 if (utils::isInteger(filename)) {
-                    if (auto parsedPid = utils::parseIntegerNoThrow<int>(filename)) {
+                    if (auto parsedPid = utils::parseIntegerNoThrow<int>(filename, decimalBase)) {
                         pids.push_back(*parsedPid);
                     }
                 }
@@ -486,7 +487,7 @@ std::generator<int> ProcessAnalyzer::streamPids() const {
         if (entry.is_directory()) {
             std::string filename = entry.path().filename().string();
             if (utils::isInteger(filename)) {
-                if (auto parsedPid = utils::parseIntegerNoThrow<int>(filename)) {
+                if (auto parsedPid = utils::parseIntegerNoThrow<int>(filename, decimalBase)) {
                     co_yield *parsedPid;
                 }
             }
@@ -975,7 +976,7 @@ utils::Result<std::vector<ThreadInfo>> ProcessAnalyzer::getProcessThreads(pid_t 
     try {
         for (const auto& entry : fs::directory_iterator(taskPath)) {
             if (!entry.is_directory()) continue;
-            auto tid = utils::parseIntegerNoThrow<int>(entry.path().filename().string());
+            auto tid = utils::parseIntegerNoThrow<int>(entry.path().filename().string(), decimalBase);
             if (!tid) continue;
             
             ThreadInfo thread;
@@ -1072,7 +1073,7 @@ utils::Result<std::vector<OpenFileDescriptorInfo>> ProcessAnalyzer::getProcessOp
     try {
         for (const auto& entry : fs::directory_iterator(fdPath)) {
             if (!entry.is_symlink()) continue;
-            auto fd = utils::parseIntegerNoThrow<int>(entry.path().filename().string());
+            auto fd = utils::parseIntegerNoThrow<int>(entry.path().filename().string(), decimalBase);
             if (!fd) continue;
 
             OpenFileDescriptorInfo info;
@@ -1226,7 +1227,7 @@ utils::Result<std::vector<NetworkConnection>> ProcessAnalyzer::getNetworkConnect
                                 std::string_view inodeView = std::string_view(fdInfo.path.data() + socketInodePrefixLen, fdInfo.path.length() - socketInodePrefixLen - socketInodeSuffixLen);
                                 
                                 if (utils::isInteger(inodeView)) { // Ensure it's a valid integer string
-                                    if (auto parsedInode = utils::parseIntegerNoThrow<unsigned long>(inodeView)) {
+                                    if (auto parsedInode = utils::parseIntegerNoThrow<unsigned long>(inodeView, decimalBase)) {
                                         socketInodes.insert(*parsedInode);
                                     }
                                 }

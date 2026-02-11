@@ -30,7 +30,7 @@ To get your development environment ready, follow the "Building from Source" ins
 
 Unit tests are a crucial part of `processAnalyzer` and are located in the `tests/` directory. We use Google Test as our testing framework.
 
-When writing tests for components that interact with the `/proc` filesystem, you should use the `MockProc` utility class found in `tests/TestUtils.h`. This class provides a convenient way to create a mock `/proc` directory structure for your tests, ensuring they are hermetic and repeatable.
+When writing tests for components that interact with the `/proc` filesystem, you should use the `MockProc` utility class found in `tests/utils/test.h`. This class provides a convenient way to create a mock `/proc` directory structure for your tests, ensuring they are hermetic and repeatable.
 
 ### Using the `MockProc` Utility
 

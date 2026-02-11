@@ -65,17 +65,17 @@ Result<::std::string> formatTimestamp(long long unixTimestamp) {
 
     // Use thread-safe C runtime functions for time conversion
 #ifdef _WIN32
-    if (::localtime_s(&tmBuf, &tt) == 0) {
+    if (::gmtime_s(&tmBuf, &tt) == 0) {
         success = true;
     }
 #elif defined(__unix__) || defined(__unix) || defined(__linux__) || defined(__APPLE__)
-    // Use standard POSIX localtime_r.
-    if (localtime_r(&tt, &tmBuf) != nullptr) {
+    // Use standard POSIX gmtime_r.
+    if (gmtime_r(&tt, &tmBuf) != nullptr) {
         success = true;
     }
 #else
     // Fallback for other systems, less thread-safe.
-    if (::std::tm* tmp = ::std::localtime(&tt)) {
+    if (::std::tm* tmp = ::std::gmtime(&tt)) {
         tmBuf = *tmp;
         success = true;
     }
@@ -124,16 +124,16 @@ Result<::std::string> formatTimestamp(::std::chrono::system_clock::time_point tp
 
     // Use thread-safe C runtime functions for time conversion
 #ifdef _WIN32
-    if (::localtime_s(&tmBuf, &tt) == 0) {
+    if (::gmtime_s(&tmBuf, &tt) == 0) {
         success = true;
     }
 #elif defined(__unix__) || defined(__unix) || defined(__linux__) || defined(__APPLE__)
-    // Use standard POSIX localtime_r.
-    if (localtime_r(&tt, &tmBuf) != nullptr) {
+    // Use standard POSIX gmtime_r.
+    if (gmtime_r(&tt, &tmBuf) != nullptr) {
         success = true;
     }
 #else
-    if (::std::tm* tmp = ::std::localtime(&tt)) {
+    if (::std::tm* tmp = ::std::gmtime(&tt)) {
         tmBuf = *tmp;
         success = true;
     }
@@ -180,50 +180,55 @@ Result<::std::chrono::system_clock::time_point> parseTimestamp(const ::std::stri
     
     if (ss.fail()) {
         // Parsing failed, return error
-        return ::std::unexpected(make_error_code(UtilsError::invalidArgument));
+        return ::std::unexpected(make_error_code(UtilsError::timeParseError));
     }
 
-    // Ensure mktime correctly handles time zones and DST.
-    // tm_isdst = -1 tells mktime to determine if DST is in effect.
-    tmBuf.tm_isdst = -1; 
-    
-    ::std::time_t tt = ::std::mktime(&tmBuf);
+    // Set tm_isdst to 0 because we are parsing a UTC timestamp.
+    tmBuf.tm_isdst = 0;
+    ::std::time_t tt;
+
+#ifdef _WIN32
+    tt = _mkgmtime(&tmBuf);
+#else
+    tt = timegm(&tmBuf);
+#endif
+
     if (tt == -1) {
-         // mktime failed, likely due to an invalid date/time combination that it couldn't normalize.
-         return ::std::unexpected(make_error_code(UtilsError::invalidArgument));
+         // timegm/_mkgmtime failed, likely due to an invalid date/time combination.
+         return ::std::unexpected(make_error_code(UtilsError::invalidTimeFormat));
     }
 
-    // Round-trip check: Convert the time_t back to tm, format it, and compare with the original string.
-    // This is crucial for detecting invalid dates like Feb 30th that mktime might normalize.
+    // Round-trip check: Convert the time_t back to tm using gmtime, format it, and compare.
+    // This is crucial for detecting invalid dates like Feb 30th that get_time might parse but timegm rejects.
     ::std::tm tmBufCheck{};
     bool success = false;
 #ifdef _WIN32
-    if (::localtime_s(&tmBufCheck, &tt) == 0) {
+    if (::gmtime_s(&tmBufCheck, &tt) == 0) {
         success = true;
     }
 #elif defined(__unix__) || defined(__unix) || defined(__linux__) || defined(__APPLE__)
-    // Use standard POSIX localtime_r.
-    if (localtime_r(&tt, &tmBufCheck) != nullptr) {
+    if (gmtime_r(&tt, &tmBufCheck) != nullptr) {
         success = true;
     }
 #else
-    if (::std::tm* tmp = ::std::localtime(&tt)) {
+    if (::std::tm* tmp = ::std::gmtime(&tt)) {
         tmBufCheck = *tmp;
         success = true;
     }
 #endif
 
     if (!success) {
-        return ::std::unexpected(make_error_code(UtilsError::unknownError)); // Should not happen if mktime succeeded
+        // This should theoretically not happen if timegm succeeded
+        return ::std::unexpected(make_error_code(UtilsError::unknownError));
     }
 
     ::std::stringstream checkSs;
     checkSs << ::std::put_time(&tmBufCheck, formatStr.c_str());
-    
-    // Compare the formatted string with the original input string.
-    // If they don't match, it means mktime normalized an invalid date/time.
+
+    // Compare the re-formatted string with the original input string.
+    // If they don't match, it means an invalid date/time was entered and normalized differently.
     if (checkSs.fail() || checkSs.str() != timestampStr) {
-        return ::std::unexpected(make_error_code(UtilsError::invalidArgument));
+        return ::std::unexpected(make_error_code(UtilsError::invalidTimeFormat));
     }
     
     return ::std::chrono::system_clock::from_time_t(tt);

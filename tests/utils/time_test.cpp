@@ -21,11 +21,11 @@ constexpr long long year2038MaxSignedTimestamp = 2147483647LL;
 // Value that would overflow a 32-bit signed time_t
 constexpr long long year2038OverflowTimestamp = 2147483648LL;
 // A specific leap year date (e.g., March 1, 2024) timestamp
-constexpr long long leapYearTimestamp = 1709145600LL; // March 1, 2024 00:00:00 UTC
+constexpr long long leapYearTimestamp = 1709251200LL; // March 1, 2024 00:00:00 UTC
 // A specific non-leap year date (e.g., March 1, 2023) timestamp
-constexpr long long nonLeapYearTimestamp = 1677648000LL; // March 1, 2023 00:00:00 UTC
+constexpr long long nonLeapYearTimestamp = 1677628800LL; // March 1, 2023 00:00:00 UTC
 // A specific date for testing formatTimestamp with time_point
-constexpr long long specificDateTimestamp = 1698377400LL; // October 27, 2023 07:30:00 UTC
+constexpr long long specificDateTimestamp = 1698391800LL; // October 27, 2023 07:30:00 UTC
 
 // Define constants for magic numbers used in tests
 constexpr long long fiftyNineSeconds = 59LL;
@@ -194,17 +194,17 @@ TEST(TimeUtilsTest, ParseTimestamp) {
     ASSERT_TRUE(resultAltFormat.has_value());
     auto tpAlt = resultAltFormat.value();
     // This timestamp corresponds to 2024-03-01 10:30:00 UTC
-    EXPECT_EQ(std::chrono::system_clock::to_time_t(tpAlt), 1709308200LL);
+    EXPECT_EQ(std::chrono::system_clock::to_time_t(tpAlt), 1709289000LL);
 
     // Test invalid timestamp strings (format mismatch)
     auto resultMismatch = utils::parseTimestamp("2023/10/27 07:30:00", formatStr); // Mismatched separator '/' vs '-'
     EXPECT_FALSE(resultMismatch.has_value());
-    EXPECT_EQ(resultMismatch.error(), utils::make_error_code(utils::UtilsError::invalidArgument));
+    EXPECT_EQ(resultMismatch.error(), utils::make_error_code(utils::UtilsError::timeParseError));
 
     // Test rejection of mktime-normalized invalid dates (e.g., Feb 30th)
     auto resultInvalidDate = utils::parseTimestamp("2023-02-30 12:00:00", formatStr); // Feb 30th does not exist
     EXPECT_FALSE(resultInvalidDate.has_value());
-    EXPECT_EQ(resultInvalidDate.error(), utils::make_error_code(utils::UtilsError::invalidArgument));
+    EXPECT_EQ(resultInvalidDate.error(), utils::make_error_code(utils::UtilsError::invalidTimeFormat));
 
     // Test error handling for empty timestamp string
     auto resultEmptyTimestamp = utils::parseTimestamp("", formatStr);

@@ -25,6 +25,7 @@ namespace fs = std::filesystem;
 
 namespace {
     constexpr double msInSecond = 1000.0;
+    constexpr int decimalBase = 10;
     constexpr long defaultSystemClockTicks = 100;
     constexpr size_t pwBufSize = 1024;
 
@@ -397,7 +398,7 @@ utils::Result<std::vector<ThreadInfo>> ProcessAnalyzer::getProcessThreads(pid_t 
     try {
         for (const auto& entry : fs::directory_iterator(taskPath)) {
             if (!entry.is_directory()) continue;
-            auto tid = parseIntegerNoThrow<int>(entry.path().filename().string());
+            auto tid = utils::parseIntegerNoThrow<int>(entry.path().filename().string(), decimalBase);
             if (!tid) continue;
             
             ThreadInfo thread;
@@ -494,7 +495,7 @@ utils::Result<std::vector<OpenFileDescriptorInfo>> ProcessAnalyzer::getProcessOp
     try {
         for (const auto& entry : fs::directory_iterator(fdPath)) {
             if (!entry.is_symlink()) continue;
-            auto fd = parseIntegerNoThrow<int>(entry.path().filename().string());
+            auto fd = utils::parseIntegerNoThrow<int>(entry.path().filename().string(), decimalBase);
             if (!fd) continue;
 
             OpenFileDescriptorInfo info;

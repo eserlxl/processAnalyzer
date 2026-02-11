@@ -18,6 +18,7 @@ namespace {
     constexpr std::string_view anyIpV4AddrPort = "00000000:0000";
     constexpr std::string_view anyIpV6AddrPort = "00000000000000000000000000000000:0000";
     constexpr int hexBase = 16;
+    constexpr int decimalBase = 10;
     constexpr size_t ipv4HexLen = 8;
     constexpr size_t ipv6HexLen = 32;
     constexpr size_t ipv6ChunkLen = 8;
@@ -77,7 +78,7 @@ namespace {
             InternalNetworkConnection internalConn;
             internalConn.baseConn.protocol = protocolPrefix;
             internalConn.inode = 0;
-            if (auto inode = utils::parseIntegerNoThrow<unsigned long>(inodeStr)) {
+            if (auto inode = utils::parseIntegerNoThrow<unsigned long>(inodeStr, decimalBase)) {
                 internalConn.inode = *inode;
             }
 

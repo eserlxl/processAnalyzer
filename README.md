@@ -79,7 +79,7 @@ Ensure the [system requirements](#-system-requirements) are met. All major depen
     # Build
     cmake --build --preset release
     ```
-    The executable will be located at `build/bin/processAnalyzer`.
+    The executable will be located at `build/processAnalyzer`.
 
 For advanced build options, see the [Build Guide](docs/build.md).
 
@@ -89,21 +89,21 @@ For advanced build options, see the [Build Guide](docs/build.md).
 
 ### Command-Line Interface (CLI)
 
-After building, you can run `processAnalyzer` from the `build/bin` directory.
+After building, you can run `processAnalyzer` from the `build` directory.
 
 ```bash
 # List all running processes
-./build/bin/processAnalyzer list
+./build/processAnalyzer list
 
 # Find processes by name and sort by RSS memory (descending)
-./build/bin/processAnalyzer list --name nginx --sort-by rss --sort-order desc
+./build/processAnalyzer list --name nginx --sort-by rss --sort-order desc
 
 # Show detailed info for a specific PID (may require sudo)
 # This example includes children and open files for the given process
-sudo ./build/bin/processAnalyzer show --pid 1 --children --open-files
+sudo ./build/processAnalyzer show --pid 1 --children --open-files
 
 # Display the help menu
-./build/bin/processAnalyzer --help
+./build/processAnalyzer --help
 ```
 
 For a full command reference, see the [Usage Guide](docs/usage.md).
