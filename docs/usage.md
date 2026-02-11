@@ -1,6 +1,6 @@
 # Usage Guide for processAnalyzer
 
-This document provides detailed instructions on how to use the `processAnalyzer` command-line tool, including available commands, arguments, and practical examples.
+This document provides detailed instructions on how to use the `processAnalyzer` command-line tool, including available commands, arguments, and practical examples. For C++ library usage, see the [Code Examples](code-examples.md).
 
 ## Basic Structure
 
@@ -106,33 +106,3 @@ These options are only valid with the `show` and `pid` commands.
 *   `--help`, `-h`: Show help message.
 *   `--pid <pid>`, `-p <pid>`: Target process ID for `show`.
 *   `--config-file <path>`: Specify a configuration file path.
-
-## Examples
-
-### JSON Output
-
-Generate a JSON report of all processes consuming significant memory:
-
-```bash
-./processAnalyzer list --sort-by rss --sort-order desc --output json
-```
-
-### Investigating a Process Tree
-
-Find a process by name, then inspect its parent or children:
-
-```bash
-# Find the PID
-./processAnalyzer list --name nginx
-
-# Inspect specific PID (e.g., 567)
-./processAnalyzer show --pid 567 --children
-```
-
-### Custom Column View
-
-View only specific columns for a cleaner output:
-
-```bash
-./processAnalyzer list --columns pid,user,state,rss,name
-```

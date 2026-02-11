@@ -9,9 +9,7 @@
 [![C++23](https://img.shields.io/badge/C%2B%2B-23-blue.svg)](https://en.cppreference.com/w/cpp/23)
 [![CMake](https://img.shields.io/badge/CMake-3.17%2B-blue.svg)](https://cmake.org/)
 
-processAnalyzer is a modern, high-performance system diagnostics tool and C++ library for Linux. Built with **C++23**, it provides a powerful and efficient interface to the `/proc` filesystem, allowing developers and system administrators to inspect, monitor, and analyze processes and system-wide metrics with precision.
-
-It delivers detailed resource usage metrics and execution statistics to facilitate efficient system diagnostics and performance optimization.
+**processAnalyzer** is a high-performance system diagnostics tool and C++23 library for Linux. It offers a powerful and efficient interface to the `/proc` filesystem, allowing developers and administrators to monitor, analyze, and manage processes and system metrics with precision.
 
 ---
 
@@ -21,9 +19,8 @@ It delivers detailed resource usage metrics and execution statistics to facilita
 - [Project Structure](#️-project-structure)
 - [System Requirements](#-system-requirements)
 - [Installation](#-installation)
+- [Building](#-building)
 - [Quick Start](#-quick-start)
-- [Usage](#-usage)
-- [Code Examples](#-code-examples)
 - [Documentation](#-documentation)
 - [Security Considerations](#-security-considerations)
 - [Contributing](#-contributing)
@@ -36,11 +33,11 @@ It delivers detailed resource usage metrics and execution statistics to facilita
 `processAnalyzer` offers a robust set of functionalities for in-depth system and process analysis:
 
 *   **Lazy-Loaded Process Streaming**: Efficiently stream process data using C++23 `std::generator`.
-*   **Deep Process Inspection**: Access detailed process context, including CPU, memory, disk I/O, threads, open files, network connections, environment variables, and resource limits.
-*   **Process Hierarchy Traversal**: Navigate parent, child, and descendant process relationships with ease.
-*   **Advanced Filtering & Sorting**: Query processes by name, user, resource usage, and more.
-*   **Comprehensive System Metrics**: Monitor global and per-CPU usage, memory statistics, load average, system uptime, disk I/O, and network interface statistics.
-*   **Process Control (API Only)**: Programmatically send signals to processes and adjust their niceness or CPU affinity.
+*   **Deep Process Inspection**: Access detailed process context, including CPU, memory, disk I/O, threads, open files, network connections, and more.
+*   **Process Hierarchy Traversal**: Navigate parent, child, and descendant process relationships.
+*   **Advanced Filtering & Sorting**: Query processes by name, user, resource usage, and other attributes.
+*   **Comprehensive System Metrics**: Monitor global and per-CPU usage, memory statistics, load average, and network interfaces.
+*   **Process Control (API Only)**: Programmatically send signals to processes and adjust their priorities.
 
 For a complete list of features, see [docs/features.md](docs/features.md).
 
@@ -48,27 +45,25 @@ For a complete list of features, see [docs/features.md](docs/features.md).
 
 ## 🏗️ Project Structure
 
-The project follows a standard CMake structure. Detailed organization of the source code, headers, and build files can be found in [docs/project-structure.md](docs/project-structure.md).
+The project follows a standard CMake structure. For a detailed breakdown of the source code, headers, and build files, see the [Project Structure Guide](docs/project-structure.md).
 
 ---
 
 ## 💻 System Requirements
 
 - **Operating System**: Linux (Kernel version 5.x or newer recommended)
-- **Compiler**: A C++23 compatible compiler, such as:
+- **Compiler**: A C++23 compatible compiler:
   - GCC 12 or newer
   - Clang 16 or newer
 - **Build Tools**:
   - CMake 3.17 or newer
   - Make or Ninja
 
+---
+
 ## 📦 Installation
 
-### Prerequisites
-
-All major dependencies are automatically fetched by CMake. You only need the system requirements listed above.
-
-### Build Steps
+Ensure the [system requirements](#-system-requirements) are met. All major dependencies are fetched automatically by CMake during the build process.
 
 1.  **Clone the Repository**
     ```bash
@@ -76,17 +71,23 @@ All major dependencies are automatically fetched by CMake. You only need the sys
     cd processAnalyzer
     ```
 
-2.  **Configure and Build**
+---
+
+## 🛠️ Building
+
+1.  **Configure and Build**
     ```bash
     cmake -B build -DCMAKE_BUILD_TYPE=Release
     cmake --build build
     ```
 
-The executable will be available at `build/bin/processAnalyzer`. See [docs/build.md](docs/build.md) for advanced build options.
+The executable will be located at `build/bin/processAnalyzer`. For advanced build configurations, such as building with sanitizers, see the [Build Guide](docs/build.md).
 
 ---
 
 ## ⚡ Quick Start
+
+### Command-Line Interface (CLI)
 
 After building, you can run `processAnalyzer` from the `build/bin` directory.
 
@@ -97,32 +98,16 @@ After building, you can run `processAnalyzer` from the `build/bin` directory.
 # Find processes by name and sort by RSS memory (descending)
 ./build/bin/processAnalyzer list --name nginx --sort-by rss --sort-order desc
 
-# Show detailed info for a specific PID
+# Show detailed info for a specific PID, including children and open files
 ./build/bin/processAnalyzer show --pid 1234 --children --open-files
 
-# Display help menu
+# Display the help menu
 ./build/bin/processAnalyzer --help
 ```
 
-For a full command reference, see [docs/usage.md](docs/usage.md).
+For a full command reference, see the [Usage Guide](docs/usage.md).
 
----
-
-## 🚀 Usage
-
-`processAnalyzer` can be used as a command-line tool or integrated as a C++ library.
-
-### Command-Line Interface (CLI)
-
-The CLI provides several commands to inspect and manage processes:
-
-- **`list`**: Streams all running processes with optional filtering and sorting.
-- **`show`**: Displays detailed information for a specific process ID (PID).
-- **`help`**: Displays help information and usage details.
-
-For a complete CLI reference and examples, see the [Usage Guide](docs/usage.md).
-
-### C++ Library
+### C++ Library Usage
 
 The C++ API allows you to integrate process and system monitoring directly into your applications.
 
@@ -145,7 +130,7 @@ int main() {
 }
 ```
 
-For more advanced examples, check out the [Code Examples](docs/examples.md) and the complete [API Reference](docs/api-reference.md).
+For more examples, see the [Code Examples](docs/code-examples.md) and the complete [API Reference](docs/api-reference.md).
 
 ---
 
@@ -156,31 +141,31 @@ Detailed documentation is available in the [docs/](docs/) folder:
 | Document | Description |
 | :--- | :--- |
 | [**Usage Guide**](docs/usage.md) | Command-line reference and examples. |
-| [**API Reference**](docs/api-reference.md) | Comprehensive C++ API details. |
-| [**Code Examples**](docs/examples.md) | C++ API integration examples. |
-| [**Build Details**](docs/build.md) | Compilation and installation guide. |
-| [**Features**](docs/features.md) | Exhaustive list of capabilities. |
-| [**Configuration**](docs/configuration.md) | Customizing tool behavior. |
-| [**Project Structure**](docs/project-structure.md) | Codebase organization. |
-| [**Utility Library**](docs/utils.md) | Guide to the internal `utils` library. |
-| [**Changelog**](docs/changelog.md) | History of version changes. |
-| [**Testing**](docs/testing.md) | Testing strategy and instructions. |
+| [**API Reference**](docs/api-reference.md) | Comprehensive C++ API documentation. |
+| [**Code Examples**](docs/code-examples.md) | C++ API integration examples. |
+| [**Build Guide**](docs/build.md) | Detailed compilation and installation instructions. |
+| [**Features**](docs/features.md) | An exhaustive list of all capabilities. |
+| [**Configuration**](docs/configuration.md) | Instructions for customizing tool behavior. |
+| [**Project Structure**](docs/project-structure.md) | A guide to the codebase organization. |
+| [**Utility Library**](docs/utils.md) | A guide to the internal `utils` library. |
+| [**Changelog**](docs/changelog.md) | A history of all version changes. |
+| [**Testing**](docs/testing.md) | The project's testing strategy and instructions. |
 
 ---
 
 ## 🔒 Security Considerations
 
-`processAnalyzer` interacts directly with the Linux `/proc` filesystem.
+`processAnalyzer` interacts directly with the Linux `/proc` filesystem, which requires careful handling of permissions and data.
 
--   **Permissions**: Running with `sudo` grants access to sensitive process info.
--   **Output Handling**: Secure exported data (JSON/CSV) containing sensitive info.
--   **Integration**: Validate inputs when using with external scripts.
+-   **Permissions**: Running the tool with `sudo` may be necessary to access detailed information for all processes.
+-   **Output Handling**: Be cautious when exporting data (e.g., to JSON or CSV), as it may contain sensitive process or environment details.
+-   **Integration**: When integrating the library, validate and sanitize all inputs to prevent potential security vulnerabilities.
 
 ---
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please see [docs/contributing.md](docs/contributing.md) for guidelines.
+Contributions are welcome! Please read our [Contributing Guidelines](docs/contributing.md) to get started.
 
 ---
 
