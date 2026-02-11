@@ -98,8 +98,9 @@ After building, you can run `processAnalyzer` from the `build/bin` directory.
 # Find processes by name and sort by RSS memory (descending)
 ./build/bin/processAnalyzer list --name nginx --sort-by rss --sort-order desc
 
-# Show detailed info for a specific PID, including children and open files
-./build/bin/processAnalyzer show --pid 1234 --children --open-files
+# Show detailed info for a specific PID (may require sudo)
+# This example includes children and open files for the given process
+sudo ./build/bin/processAnalyzer show --pid 1 --children --open-files
 
 # Display the help menu
 ./build/bin/processAnalyzer --help
