@@ -42,6 +42,32 @@ The `utils` namespace offers a robust set of helper functions. The main header i
 
 For a comprehensive overview and usage examples of the utility library, please refer to **[docs/utils.md](utils.md)**.
 
+## Usage Example
+
+`processAnalyzer` can be used as a header-only or compiled library in your C++ projects.
+
+```cpp
+#include <analyzer/core.h>
+#include <iostream>
+
+int main() {
+    ProcessAnalyzer analyzer("/proc");
+
+    // Use C++23 generators for efficient streaming
+    for (const auto& proc : analyzer.streamProcesses()) {
+        std::cout << "PID: " << proc.pid << " Name: " << proc.name << "\n";
+    }
+
+    // Query specific process details
+    auto result = analyzer.getProcessDetails(1);
+    if (result) {
+        std::cout << "Init Memory: " << result->rss << " KB\n";
+    }
+
+    return 0;
+}
+```
+
 ## Future Enhancements
 
 We plan to integrate Doxygen or a similar tool in the future to generate comprehensive, browsable API documentation automatically.

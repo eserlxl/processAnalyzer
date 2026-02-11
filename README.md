@@ -36,12 +36,9 @@
 
 ## 🚀 Key Features
 
-- **Deep Process Inspection**: Analyze memory maps, environment variables, open files, network connections (TCP/UDP), and resource limits.
-- **Advanced Filtering & Sorting**: Precise filtering by PID, user, state, name, or memory usage. Sort by any field (e.g., CPU %, RSS, threads).
-- **Thread-Level Analysis**: Inspect individual threads within a process to debug concurrency issues and performance bottlenecks.
-- **System-Wide Metrics**: Monitor global CPU load (per-core), memory utilization, disk I/O, network interface statistics, and filesystem usage.
-- **Flexible Output Formats**: Export data as **Table**, **Vertical**, **JSON**, or **CSV** for easy integration with external tools (Splunk, ELK, Excel).
-- **Process Control**: Send signals, modify process niceness, and set CPU affinity directly from the API.
+`processAnalyzer` provides a rich set of features for deep process inspection, advanced filtering, and system-wide monitoring.
+
+For a complete list of features, see [docs/features.md](docs/features.md).
 
 ---
 
@@ -55,26 +52,13 @@
 
 ## 📦 Installation
 
+For detailed build and installation instructions, please see [docs/build.md](docs/build.md).
+
 ### Prerequisites
 
 - **OS**: Linux (Kernel 5.x+)
 - **Compiler**: GCC 12+ or Clang 16+ (C++23 support required)
 - **Build Tools**: CMake 3.17+ and Make/Ninja
-
-### Build from Source
-
-```bash
-# Clone the repository
-git clone https://github.com/eserlxl/processAnalyzer.git
-cd processAnalyzer
-
-# Configure and build
-mkdir build && cd build
-cmake ..
-cmake --build . -j$(nproc)
-```
-
-For more details, see [docs/build.md](docs/build.md).
 
 ---
 
@@ -103,33 +87,9 @@ For a full command reference, see [docs/usage.md](docs/usage.md).
 
 ---
 
-## 💻 API Usage Example
+## 💻 API Usage
 
-`processAnalyzer` can also be used as a header-only or compiled library in your C++ projects.
-
-```cpp
-#include <analyzer/core.h>
-#include <iostream>
-
-int main() {
-    ProcessAnalyzer analyzer("/proc");
-
-    // Use C++23 generators for efficient streaming
-    for (const auto& proc : analyzer.streamProcesses()) {
-        std::cout << "PID: " << proc.pid << " Name: " << proc.name << "\n";
-    }
-
-    // Query specific process details
-    auto result = analyzer.getProcessDetails(1);
-    if (result) {
-        std::cout << "Init Memory: " << result->rss << " KB\n";
-    }
-
-    return 0;
-}
-```
-
-Refer to [docs/api-reference.md](docs/api-reference.md) for the full API documentation.
+`processAnalyzer` can be used as a C++ library in your own projects. For details on how to use the API and code examples, please refer to the [API Reference](docs/api-reference.md).
 
 ---
 
@@ -148,34 +108,9 @@ Detailed documentation is available in the [docs/](docs/) folder:
 | [**Utility Library**](docs/utils.md) | Guide to the internal `utils` library. |
 | [**Changelog**](docs/changelog.md) | History of version changes. |
 
----
-
 ## 🧪 Testing
 
-The project uses **GoogleTest** for unit testing. Tests are automatically discovered and built when you follow the standard build instructions.
-
-### Running the Test Suite
-
-After building the project, you can run tests in two ways:
-
-1.  **Run all tests with CTest**:
-    This is the recommended way to run the entire test suite. From your `build` directory, execute:
-    ```bash
-    ctest --output-on-failure
-    ```
-
-2.  **Run the test executable directly**:
-    This method allows for more granular control, such as running specific test cases or using GoogleTest flags. The single test executable is located at `build/tests/ProcessAnalyzerTests`.
-
-    ```bash
-    # Run all tests directly
-    ./build/tests/ProcessAnalyzerTests
-
-    # Example: Run only tests related to the Core library
-    ./build/tests/ProcessAnalyzerTests --gtest_filter="Core*"
-    ```
-
-For more detailed information on the build process and testing, see the [Build Details](docs/build.md) document.
+See [docs/testing.md](docs/testing.md) for details on testing.
 
 ---
 

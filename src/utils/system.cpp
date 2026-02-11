@@ -42,19 +42,21 @@ Result<CommandOutput> executeCommand(::std::string_view command) {
         return ::std::unexpected(make_error_code(UtilsError::invalidArgument));
     }
 
-    // Create a temporary file for stderr
-    std::vector<char> stderrPath(L_tmpnam);
-    if (tmpnam(stderrPath.data()) == nullptr) {
+    // Create a temporary file for stderr using a safer method
+    std::string stderrPathStr = "/tmp/process-analyzer-stderr-XXXXXX";
+    int stderrFd = mkstemp(stderrPathStr.data());
+    if (stderrFd == -1) {
         return ::std::unexpected(make_error_code(UtilsError::commandExecutionError));
     }
+    close(stderrFd); // We only needed the unique name, not to keep it open.
 
     // Construct the command to redirect stderr. We use grouping to ensure
     // that stderr from the entire command is captured, even with pipes.
-    ::std::string fullCommand = "{ " + ::std::string(command) + "; } 2> " + stderrPath.data();
+    ::std::string fullCommand = "{ " + ::std::string(command) + "; } 2> " + stderrPathStr;
 
     FILE* pipe = popen(fullCommand.c_str(), "r");
     if (!pipe) {
-        unlink(stderrPath.data());
+        unlink(stderrPathStr.c_str());
         return ::std::unexpected(make_error_code(UtilsError::commandExecutionError));
     }
 
@@ -80,7 +82,7 @@ Result<CommandOutput> executeCommand(::std::string_view command) {
 
     // Read stderr from the temporary file
     ::std::string stderrStr;
-    FILE* stderrFile = fopen(stderrPath.data(), "r");
+    FILE* stderrFile = fopen(stderrPathStr.c_str(), "r");
     if (stderrFile) {
         while (size_t bytesRead = fread(buffer.data(), 1, buffer.size(), stderrFile)) {
             stderrStr.append(buffer.data(), bytesRead);
@@ -89,7 +91,7 @@ Result<CommandOutput> executeCommand(::std::string_view command) {
     }
 
     // Clean up the temporary file
-    unlink(stderrPath.data());
+    unlink(stderrPathStr.c_str());
 
     return CommandOutput{.stdoutStr = stdoutStr, .stderrStr = stderrStr, .exitCode = exitCode};
 }
