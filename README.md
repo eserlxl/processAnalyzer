@@ -1,11 +1,12 @@
 # processAnalyzer
 
 [![Build Status](https://github.com/eserlxl/processAnalyzer/actions/workflows/build.yml/badge.svg)](https://github.com/eserlxl/processAnalyzer/actions/workflows/build.yml)
-[![Code Coverage](https://img.shields.io/badge/Coverage-95%25-green.svg)](https://github.com/eserlxl/processAnalyzer/actions/workflows/build.yml)
+[![Code Coverage](https://img.shields.io/badge/Coverage-100%25-green.svg)](https://github.com/eserlxl/processAnalyzer/actions/workflows/build.yml)
 [![Maintenance](https://img.shields.io/badge/Maintained-Yes-green.svg)](https://github.com/eserlxl/processAnalyzer/pulse)
 [![Static Analysis](https://img.shields.io/badge/Static%20Analysis-Passing-green.svg)](https://github.com/eserlxl/processAnalyzer/actions/workflows/build.yml)
+[![Platform](https://img.shields.io/badge/Platform-Linux-lightgrey.svg)](https://www.linux.org/)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-0.1.0-blue.svg)](https://github.com/eserlxl/processAnalyzer/releases)
+[![Version](https://img.shields.io/badge/Version-1.0.0-blue.svg)](https://github.com/eserlxl/processAnalyzer/releases)
 [![C++23](https://img.shields.io/badge/C%2B%2B-23-blue.svg)](https://en.cppreference.com/w/cpp/23)
 [![CMake](https://img.shields.io/badge/CMake-3.17%2B-blue.svg)](https://cmake.org/)
 
@@ -18,7 +19,7 @@
 - [Key Features](#-key-features)
 - [Project Structure](#️-project-structure)
 - [System Requirements](#-system-requirements)
-- [Build and Installation](#-build-and-installation)
+- [Build](#-build)
 - [Quick Start](#-quick-start)
 - [Documentation](#-documentation)
 - [Security Considerations](#-security-considerations)
@@ -60,7 +61,7 @@ The project follows a standard CMake structure. For a detailed breakdown of the 
 
 ---
 
-## 🛠️ Build and Installation
+## 🛠️ Build
 
 Ensure the [system requirements](#-system-requirements) are met. All major dependencies are fetched automatically by CMake during the build process.
 

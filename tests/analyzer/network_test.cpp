@@ -14,6 +14,11 @@
 #include <algorithm>
 #include <cstdint>
 
+// Define constants for network states used in tests
+// These are mock inode values for specific network states for testing purposes.
+constexpr uint64_t establishedInode = 1001ULL;
+constexpr uint64_t timeWaitInode = 1002ULL;
+
 // Test suite for ProcessAnalyzer::getNetworkConnections
 class GetNetworkConnectionsTest : public ::testing::Test {
 protected:
@@ -149,6 +154,7 @@ TEST_F(GetNetworkConnectionsTest, ParseLocalhostIPv6) {
     EXPECT_EQ(conn.socketType, SocketType::tcp);
 }
 
+
 TEST_F(GetNetworkConnectionsTest, ParseIPv4MappedIPv6Address) {
     const uint64_t inode = 12347;
     constexpr int mappedIpv6Fd = 11;
@@ -182,8 +188,6 @@ TEST_F(GetNetworkConnectionsTest, ParseIPv4MappedIPv6Address) {
 TEST_F(GetNetworkConnectionsTest, ParseStatesAndRemoteAddress) {
     constexpr int establishedFd = 20;
     constexpr int timeWaitFd = 21;
-    constexpr uint64_t establishedInode = 1001;
-    constexpr uint64_t timeWaitInode = 1002;
     mockProc->createProcFdLink(testPid, establishedFd, "socket:[" + std::to_string(establishedInode) + "]"); // ESTABLISHED
     mockProc->createProcFdLink(testPid, timeWaitFd, "socket:[" + std::to_string(timeWaitInode) + "]"); // TIME_WAIT
 
@@ -191,8 +195,8 @@ TEST_F(GetNetworkConnectionsTest, ParseStatesAndRemoteAddress) {
     // Local: 127.0.0.1:81 (LE: 0100007F:0051) Remote: 0.0.0.0:0 (*)
     std::string mockTcpContent =
         "  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode\n"
-        "   0: 0100007F:0050 0100007F:3039 01 00000000:0000 00:00000000 00000000  1000        0 1000 1 " + std::to_string(ESTABLISHED_INODE) + " 1 c4f48000 300 0 0 2 -1\n"
-        "   1: 0100007F:0051 00000000:0000 06 00000000:0000 00:00000000 00000000  1000        0 1000 1 " + std::to_string(TIME_WAIT_INODE) + " 1 c4f48000 300 0 0 2 -1\n";
+        "   0: 0100007F:0050 0100007F:3039 01 00000000:0000 00:00000000 00000000  1000        0 1000 1 " + std::to_string(establishedInode) + " 1 c4f48000 300 0 0 2 -1\n"
+        "   1: 0100007F:0051 00000000:0000 06 00000000:0000 00:00000000 00000000  1000        0 1000 1 " + std::to_string(timeWaitInode) + " 1 c4f48000 300 0 0 2 -1\n";
 
     mockProc->createFile("net/tcp", mockTcpContent);
 
@@ -210,7 +214,7 @@ TEST_F(GetNetworkConnectionsTest, ParseStatesAndRemoteAddress) {
     EXPECT_EQ(connEst.localPort, 80);
     EXPECT_EQ(connEst.remoteAddress, "127.0.0.1");
     EXPECT_EQ(connEst.remotePort, 12345);
-    EXPECT_EQ(connEst.inode, 1001);
+    EXPECT_EQ(connEst.inode, establishedInode);
 
     const auto& connTw = connections[1];
     EXPECT_EQ(connTw.state, "TIME_WAIT");
@@ -218,7 +222,7 @@ TEST_F(GetNetworkConnectionsTest, ParseStatesAndRemoteAddress) {
     EXPECT_EQ(connTw.localPort, 81);
     EXPECT_EQ(connTw.remoteAddress, "*");
     EXPECT_EQ(connTw.remotePort, 0);
-    EXPECT_EQ(connTw.inode, 1002);
+    EXPECT_EQ(connTw.inode, timeWaitInode);
 }
 
 TEST_F(GetNetworkConnectionsTest, MalformedNetFileLines) {
@@ -304,13 +308,13 @@ class TcpStateTest : public GetNetworkConnectionsTest, public ::testing::WithPar
 
 TEST_P(TcpStateTest, ParseAllTcpStates) {
     const auto& [stateHex, expectedState] = GetParam();
-    const uint64_t inode = 6001;
+    // const uint64_t inode = 6001; // This was not used, removed
 
-    mockProc->createProcFdLink(testPid, 1, "socket:[" + std::to_string(inode) + "]");
+    mockProc->createProcFdLink(testPid, 1, "socket:[6001]"); // Mock inode for this test
 
     std::string mockTcpContent =
         "  sl  local_address                         remote_address                        st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode\n"
-        "   0: 0100007F:0050 0100007F:3039 " + stateHex + " 00000000:0000 00:00000000 00000000  1000        0 1000 1 " + std::to_string(inode) + " 1 c4f48000 300 0 0 2 -1\n";
+        "   0: 0100007F:0050 0100007F:3039 " + stateHex + " 00000000:0000 00:00000000 00000000  1000        0 1000 1 6001 1 c4f48000 300 0 0 2 -1\n";
     mockProc->createFile("net/tcp", mockTcpContent);
 
     auto connectionsResult = analyzer.getNetworkConnections(testPid);
