@@ -82,11 +82,11 @@ Ensure the [system requirements](#-system-requirements) are met. All major depen
     You can use standard CMake commands with presets:
     ```bash
     # Configure using the Release preset
-    cmake --preset release
+    cmake --preset default
     # Build
-    cmake --build --preset release
+    cmake --build --preset default
     ```
-    The executable will be located at `build/bin/processAnalyzer`.
+    The executable will be located at `build/processAnalyzer`.
 
 For advanced options, including debug builds and running tests, see the [Build Guide](docs/build.md).
 
@@ -98,8 +98,8 @@ To install `processAnalyzer` system-wide (e.g., to `/usr/local/bin`), use the `i
 
 1.  **Configure and Build** (if not already done)
     ```bash
-    cmake --preset release
-    cmake --build --preset release
+    cmake --preset default
+    cmake --build --preset default
     ```
 
 2.  **Install**
@@ -121,22 +121,22 @@ After building, you can run `processAnalyzer` from the build directory or from a
 
 1.  **List all processes** in a table (the default view):
     ```bash
-    ./build/bin/processAnalyzer
+    ./build/processAnalyzer
     ```
 
 2.  **Find processes by name** and sort by memory usage:
     ```bash
-    ./build/bin/processAnalyzer list --name nginx --sort-by rss --sort-order desc
+    ./build/processAnalyzer list --name nginx --sort-by rss --sort-order desc
     ```
 
 3.  **Show detailed info for a PID**, including open files and network connections (may require `sudo`):
     ```bash
-    sudo ./build/bin/processAnalyzer show --pid 1 --open-files --network
+    sudo ./build/processAnalyzer show --pid 1 --open-files --network
     ```
 
 4.  **Export process data to JSON** for scripting:
     ```bash
-    ./build/bin/processAnalyzer list --user www-data --output json > web-processes.json
+    ./build/processAnalyzer list --user www-data --output json > web-processes.json
     ```
 
 For a full command reference and more examples, see the [Usage Guide](docs/usage.md).

@@ -18,10 +18,12 @@ processAnalyzer/
 │   ├───api-reference.md        # Detailed API documentation.
 │   ├───build.md                # Detailed instructions on how to build the project.
 │   ├───changelog.md            # Project change history.
+│   ├───code-examples.md        # C++ API integration examples.
 │   ├───configuration.md        # Guide to configuring the tool.
 │   ├───contributing.md         # Guidelines for contributing to the project.
 │   ├───features.md             # List of features.
 │   ├───project-structure.md    # This file, detailing the project's directory structure.
+│   ├───testing.md              # The project's testing strategy and instructions.
 │   ├───usage.md                # Detailed guide on using the processAnalyzer tool.
 │   ├───utils.md                # Documentation for the internal 'utils' library.
 │   └───audit/                  # Directory for audit-related documentation or logs.
@@ -37,6 +39,7 @@ processAnalyzer/
 │   └───utils/                  # Headers for the utility library modules.
 │       ├───core.h
 │       ├───file.h
+│       ├───general.h
 │       ├───path.h
 │       ├───string.h
 │       ├───system.h
@@ -64,20 +67,23 @@ processAnalyzer/
 └───tests/                      # Source files for unit and integration tests.
     ├───CMakeLists.txt          # CMake configuration for building the tests.
     ├───analyzer/
-    │   ├───core.cpp            # Tests for the analysis engine.
-    │   ├───network.cpp
-    │   ├───process.cpp
-    │   └───system.cpp
+    │   └───network.cpp
     ├───cli/                    # Tests for the CLI components.
     │   ├───args.cpp
     │   └───output.cpp
     └───utils/                  # Tests for the utility library.
         ├───core.cpp
         ├───file.cpp
+        ├───filesystem.cpp
         ├───path.cpp
         ├───string.cpp
         ├───system.cpp
+        ├───test.cpp
         ├───test.h
         ├───time.cpp
-        └───types.cpp
+        ├───types.cpp
+        └───mock_proc/
+            ├───basic.cpp
+            ├───process.cpp
+            └───system.cpp
 ```
