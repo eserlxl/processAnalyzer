@@ -8,168 +8,231 @@
 #include <sstream>
 #include <vector>
 #include <charconv>
+#include <format>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <arpa/inet.h>
 #include <set>
 #include <bit>
 #include <cstring>
 
+constexpr int decimalBase = 10;
+
 namespace {
     constexpr std::string_view anyIpV4AddrPort = "00000000:0000";
     constexpr std::string_view anyIpV6AddrPort = "00000000000000000000000000000000:0000";
     constexpr int hexBase = 16;
-    constexpr int decimalBase = 10;
     constexpr size_t ipv4HexLen = 8;
     constexpr size_t ipv6HexLen = 32;
     constexpr size_t ipv6ChunkLen = 8;
     constexpr size_t ipv6ChunkCount = 4;
+    constexpr std::string_view ipv4MappedPrefix = "0000000000000000FFFF0000";
+    constexpr size_t ipv4HexLenInIpv6 = 8;
 
-    // Internal struct to temporarily hold NetworkConnection data along with its inode
-    // for filtering purposes before converting to the public NetworkConnection struct.
-    struct InternalNetworkConnection {
-        NetworkConnection baseConn;
-        unsigned long inode;
+    // Holds the result of parsing a procfs network address entry.
+    struct IpPortInfo {
+        std::string ip;
+        uint16_t port = 0;
+        AddressFamily family = AddressFamily::unknown;
+        bool success = false;
     };
 
-    enum class TcpState : std::uint8_t {
-        established = 1,
-        synSent,
-        synRecv,
-        finWait1,
-        finWait2,
-        timeWait,
-        close,
-        closeWait,
-        lastAck,
-        listen,
-        closing,
-        unknown
-    };
 
-    std::vector<InternalNetworkConnection> parseNetFileHelper(const std::filesystem::path& filePath, std::string_view protocolPrefix) {
-        std::vector<InternalNetworkConnection> internalConnections;
+    IpPortInfo parseIpPort(const std::string& addrStr) {
+        IpPortInfo result;
+        size_t colonPos = addrStr.find(':');
+        if (colonPos == std::string::npos) return result;
+
+        std::string ipHex = addrStr.substr(0, colonPos);
+        std::string portHex = addrStr.substr(colonPos + 1);
+
+        if (auto parsedPort = utils::parseIntegerNoThrow<long>(portHex, hexBase)) {
+            result.port = static_cast<uint16_t>(*parsedPort);
+        } else {
+            return result; // Invalid port
+        }
+
+        if (ipHex.length() == ipv4HexLen) { // IPv4
+            auto ipValue = utils::parseIntegerNoThrow<uint32_t>(ipHex, hexBase);
+            if (!ipValue) return result;
+
+            // The IP address in /proc/net/tcp is a little-endian hex number.
+            // We need to format it to the standard dot-decimal notation.
+            // Example: 0100007F -> 7F.00.00.01 -> 127.0.0.1
+            const unsigned octet1 = *ipValue & 0xFFU;
+            const unsigned octet2 = (*ipValue >> 8U) & 0xFFU;
+            const unsigned octet3 = (*ipValue >> 16U) & 0xFFU;
+            const unsigned octet4 = (*ipValue >> 24U) & 0xFFU;
+            result.ip = std::format("{}.{}.{}.{}", octet1, octet2, octet3, octet4);
+            result.family = AddressFamily::iPv4;
+            result.success = true;
+        } else if (ipHex.length() == ipv6HexLen) { // IPv6
+            // The /proc/net/tcp6 file stores IPv6 address chunks in host-byte order (so, little-endian on x86).
+            // We need to convert them to network byte order (big-endian) for standard library functions.
+            
+            // Handle IPv4-mapped IPv6 addresses (::ffff:a.b.c.d) explicitly for clarity and to avoid
+            // potential formatting issues with inet_ntop.
+            if (ipHex.starts_with(ipv4MappedPrefix)) {
+                auto ipValue = utils::parseIntegerNoThrow<uint32_t>(ipHex.substr(ipv4MappedPrefix.length(), ipv4HexLenInIpv6), hexBase);
+                if (!ipValue) return result;
+
+                // The IPv4 part is also stored little-endian, so we read it the same way as a normal IPv4 address.
+                const unsigned octet1 = *ipValue & 0xFFU;
+                const unsigned octet2 = (*ipValue >> 8U) & 0xFFU;
+                const unsigned octet3 = (*ipValue >> 16U) & 0xFFU;
+                const unsigned octet4 = (*ipValue >> 24U) & 0xFFU;
+                result.ip = std::format("::ffff:{}.{}.{}.{}", octet1, octet2, octet3, octet4);
+                result.family = AddressFamily::iPv6;
+                result.success = true;
+                return result;
+            }
+            
+            struct in6_addr in6{};
+            for(size_t i = 0; i < ipv6ChunkCount; ++i) {
+                auto chunkValue = utils::parseIntegerNoThrow<uint32_t>(ipHex.substr(i * ipv6ChunkLen, ipv6ChunkLen), hexBase);
+                if (!chunkValue) return result;
+                // Assign to the 32-bit representation of the IPv6 address, swapping bytes if needed.
+                in6.s6_addr32[i] = *chunkValue;
+            }
+
+            std::array<char, INET6_ADDRSTRLEN> buf{};
+            if (inet_ntop(AF_INET6, &in6, buf.data(), buf.size())) {
+                result.ip = std::string(buf.data());
+                result.family = AddressFamily::iPv6;
+                result.success = true;
+            }
+        }
+        return result;
+    }
+
+    std::string getTcpState(const std::string& stateHex) {
+        if (auto stateInt = utils::parseIntegerNoThrow<int>(stateHex, hexBase)) {
+            switch (*stateInt) {
+                case TCP_ESTABLISHED: return "ESTABLISHED";
+                case TCP_SYN_SENT: return "SYN_SENT";
+                case TCP_SYN_RECV: return "SYN_RECV";
+                case TCP_FIN_WAIT1: return "FIN_WAIT1";
+                case TCP_FIN_WAIT2: return "FIN_WAIT2";
+                case TCP_TIME_WAIT: return "TIME_WAIT";
+                case TCP_CLOSE: return "CLOSE";
+                case TCP_CLOSE_WAIT: return "CLOSE_WAIT";
+                case TCP_LAST_ACK: return "LAST_ACK";
+                case TCP_LISTEN: return "LISTEN";
+                case TCP_CLOSING: return "CLOSING";
+                default: return "UNKNOWN";
+            }
+        }
+        return "UNKNOWN";
+    }
+
+    constexpr size_t kMinNetFileColumns = 10; // Minimum columns expected, inode is at index 9.
+    constexpr size_t kNetFileInodeColumn = 9;
+    
+    std::vector<NetworkConnection> parseNetFile(const std::filesystem::path& filePath, std::string_view protocolName) {
+        std::vector<NetworkConnection> connections;
         auto content = utils::readTextFile(filePath);
         if (!content) {
-            return internalConnections;
+            return connections;
         }
 
         std::stringstream ss(*content);
         std::string line;
-        std::getline(ss, line); // Skip header
+        // Skip header line.
+        if (!std::getline(ss, line)) {
+            return connections;
+        }
 
-        bool isUdp = protocolPrefix.starts_with("UDP");
+        const bool isUdp = protocolName.starts_with("UDP");
 
         while (std::getline(ss, line)) {
             std::stringstream lineSs(line);
-            std::string dummySl;
-            std::string localAddrStr;
-            std::string remoteAddrStr;
-            std::string stStr;
-            std::string dummyTxRxQueue;
-            std::string dummyTrTmWhen;
-            std::string dummyRetrnsmt;
-            std::string dummyUid;
-            std::string dummyTimeout;
-            std::string inodeStr;
-            
-            if (!(lineSs >> dummySl >> localAddrStr >> remoteAddrStr >> stStr >> dummyTxRxQueue >> dummyTrTmWhen >> dummyRetrnsmt >> dummyUid >> dummyTimeout >> inodeStr)) {
-                continue;
+            std::vector<std::string> tokens;
+            std::string token;
+            while(lineSs >> token) {
+                tokens.push_back(token);
             }
-            InternalNetworkConnection internalConn;
-            internalConn.baseConn.protocol = protocolPrefix;
-            internalConn.inode = 0;
-            if (auto inode = utils::parseIntegerNoThrow<unsigned long>(inodeStr, decimalBase)) {
-                internalConn.inode = *inode;
-            }
+
+            constexpr size_t tcpStateTokenIndex = 3;
+            constexpr size_t tcpTimeoutTokenIndex = 10;
+            constexpr size_t tcpInodeTokenIndex = 11;
+            constexpr size_t udpTimeoutTokenIndex = 8;
+            constexpr size_t udpInodeTokenIndex = 9;
+
+            size_t stateTokenIndex = tcpStateTokenIndex;
+            size_t timeoutTokenIndex = tcpTimeoutTokenIndex;
+            size_t inodeTokenIndex = tcpInodeTokenIndex;
 
             if (isUdp) {
-                internalConn.baseConn.state = "UNKNOWN";
-            } else {
-                int stateInt = 0;
-                if (auto parsedState = utils::parseIntegerNoThrow<int>(stStr, hexBase)) {
-                    stateInt = *parsedState;
-                }
-                
-                switch (static_cast<TcpState>(stateInt)) {
-                    case TcpState::established: internalConn.baseConn.state = "ESTABLISHED"; break;
-                    case TcpState::synSent: internalConn.baseConn.state = "SYN_SENT"; break;
-                    case TcpState::synRecv: internalConn.baseConn.state = "SYN_RECV"; break;
-                    case TcpState::finWait1: internalConn.baseConn.state = "FIN_WAIT1"; break;
-                    case TcpState::finWait2: internalConn.baseConn.state = "FIN_WAIT2"; break;
-                    case TcpState::timeWait: internalConn.baseConn.state = "TIME_WAIT"; break;
-                    case TcpState::close: internalConn.baseConn.state = "CLOSE"; break;
-                    case TcpState::closeWait: internalConn.baseConn.state = "CLOSE_WAIT"; break;
-                    case TcpState::lastAck: internalConn.baseConn.state = "LAST_ACK"; break;
-                    case TcpState::listen: internalConn.baseConn.state = "LISTEN"; break;
-                    case TcpState::closing: internalConn.baseConn.state = "CLOSING"; break;
-                    default: internalConn.baseConn.state = "UNKNOWN"; break;
-                }
+                // UDP format differs:
+                // sl local_address rem_address rx_queue tr tm->when retrnsmt uid timeout inode ...
+                // Indices: 0  1               2           3     4  5        6        7   8       9
+                stateTokenIndex = -1; // No direct state field for UDP
+                timeoutTokenIndex = udpTimeoutTokenIndex;
+                inodeTokenIndex = udpInodeTokenIndex;
             }
 
-            auto parseIpPort = [](const std::string& addrStr) -> std::string {
-                size_t colonPos = addrStr.find(':');
-                if (colonPos == std::string::npos) return addrStr;
-                
-                std::string ipHex = addrStr.substr(0, colonPos);
-                std::string portHex = addrStr.substr(colonPos + 1);
-                
-                long port = 0;
-                if (auto parsedPort = utils::parseIntegerNoThrow<long>(portHex, hexBase)) {
-                    port = *parsedPort;
-                }
-                
-                if (ipHex.length() == ipv4HexLen) { // IPv4
-                    auto ipValue = utils::parseIntegerNoThrow<unsigned int>(ipHex, hexBase);
-                    if (!ipValue) return addrStr;
-                    
-                    const unsigned octet1 = *ipValue & 0xFFU;
-                    const unsigned octet2 = (*ipValue >> 8U) & 0xFFU;
-                    const unsigned octet3 = (*ipValue >> 16U) & 0xFFU;
-                    const unsigned octet4 = (*ipValue >> 24U) & 0xFFU;
-                    return std::to_string(octet1) + "." + std::to_string(octet2) + "." +
-                           std::to_string(octet3) + "." + std::to_string(octet4) + ":" +
-                           std::to_string(port);
-                } 
-                
-                if (ipHex.length() == ipv6HexLen) { // IPv6
-                    struct in6_addr in6{};
-                    for(size_t i = 0; i < ipv6ChunkCount; ++i) {
-                        auto chunkValue = utils::parseIntegerNoThrow<uint32_t>(ipHex.substr(i * ipv6ChunkLen, ipv6ChunkLen), hexBase);
-                        if (!chunkValue) return addrStr;
-                        
-                        uint32_t val = *chunkValue;
-                        // The kernel /proc/net/tcp6 exposes 32-bit chunks in host-byte order (usually Little Endian).
-                        // We read them as integers.
-                        // To get the correct bytes in memory (Network Byte Order for in6_addr), 
-                        // we should NOT swap if we are on Little Endian, because the integer reading already gave us the value 
-                        // whose in-memory representation (on LE) matches the byte sequence we want?
-                        // Wait, logic check:
-                        // File: "01000000" -> Value 0x01000000.
-                        // LE Memory: 00 00 00 01.
-                        // Desired: 00 00 00 01 (::1).
-                        // So LE machine -> No swap.
-                        // BE machine -> Value 0x01000000. Memory: 01 00 00 00.
-                        // Desired: 00 00 00 01.
-                        // BE machine -> Swap.
-                        if constexpr (std::endian::native == std::endian::big) {
-                            val = std::byteswap(val);
-                        }
-                        std::memcpy(&in6.s6_addr[i * 4], &val, sizeof(val));
-                    }
-                    std::array<char, INET6_ADDRSTRLEN> buf{};
-                    if (inet_ntop(AF_INET6, &in6, buf.data(), buf.size())) {
-                        return std::string(buf.data()) + ":" + std::to_string(port);
-                    }
-                }
-                return addrStr;
-            };
+            // Ensure we have enough tokens for the required fields.
+            // Min size for UDP is 10 (up to inode).
+            // Min size for TCP is 12 (up to timeout, then inode).
+            if (isUdp) {
+                if (tokens.size() <= inodeTokenIndex) continue;
+            } else { // TCP
+                if (tokens.size() <= timeoutTokenIndex) continue;
+            }
+            
+            const auto& localAddrStr = tokens[1];
+            const auto& remoteAddrStr = tokens[2];
+            
+            auto localInfo = parseIpPort(localAddrStr);
+            if (!localInfo.success) continue;
 
-            internalConn.baseConn.localAddress = parseIpPort(localAddrStr);
-            internalConn.baseConn.remoteAddress = (remoteAddrStr == anyIpV4AddrPort || remoteAddrStr == anyIpV6AddrPort) ? "*" : parseIpPort(remoteAddrStr);
+            auto remoteInfo = parseIpPort(remoteAddrStr);
+            // Allow "any" addresses but continue if parsing fails for other addresses.
+            if (!remoteInfo.success && remoteAddrStr != anyIpV4AddrPort && remoteAddrStr != anyIpV6AddrPort) {
+                 continue;
+            }
 
-            internalConnections.push_back(internalConn);
+            NetworkConnection conn;
+            conn.protocol = std::string(protocolName);
+            conn.addressFamily = localInfo.family;
+            conn.socketType = isUdp ? SocketType::udp : SocketType::tcp;
+            conn.localAddress = localInfo.ip;
+            conn.localPort = localInfo.port;
+
+            // Correctly handle "any" addresses for remote IP.
+            if (remoteAddrStr == anyIpV4AddrPort || remoteAddrStr == anyIpV6AddrPort) {
+                conn.remoteAddress = "*";
+                conn.remotePort = 0;
+            } else {
+                conn.remoteAddress = remoteInfo.ip;
+                conn.remotePort = remoteInfo.port;
+            }
+            
+            // Assign state
+            if (isUdp) {
+                conn.state = "UNKNOWN";
+            } else { // TCP
+                // stateStr is tokens[stateTokenIndex] which is tokens[3]
+                conn.state = getTcpState(tokens[stateTokenIndex]); 
+            }
+
+            // Parse timeout
+            if (auto timeoutVal = utils::parseIntegerNoThrow<uint64_t>(tokens[timeoutTokenIndex], decimalBase)) {
+                conn.timeout = *timeoutVal; // Assuming NetworkConnection has a 'timeout' member
+            } else {
+                conn.timeout = 0; // Default or error value
+            }
+
+            // Parse inode
+            if (auto inodeVal = utils::parseIntegerNoThrow<uint64_t>(tokens[inodeTokenIndex], decimalBase)) {
+                conn.inode = *inodeVal;
+            } else {
+                conn.inode = 0; // Default or error value
+            }
+            
+            connections.push_back(conn);
         }
-        return internalConnections;
+        return connections;
     }
 }
 
@@ -179,51 +242,43 @@ utils::Result<std::vector<NetworkConnection>> ProcessAnalyzer::getNetworkConnect
         return std::unexpected(fdsResult.error());
     }
 
-    std::set<unsigned long> socketInodes;
+    std::set<uint64_t> socketInodes;
     constexpr int socketInodePrefixLen = 8; // "socket:["
     constexpr int socketInodeSuffixLen = 1; // "]"
 
     for (const auto& fdInfo : *fdsResult) {
         if (fdInfo.type == OpenFileType::Socket) {
-                            // Check if the path starts with "socket:[" and ends with "]"
-                            // and has enough characters for an inode number between them.
-                            if (fdInfo.path.starts_with("socket:[") && fdInfo.path.back() == ']' &&
-                                fdInfo.path.length() > (socketInodePrefixLen + socketInodeSuffixLen))
-                            {
-                                // Extract the substring for the inode number.
-                                // Use std::string_view for efficiency and safety.
-                                std::string_view inodeView = std::string_view(fdInfo.path.data() + socketInodePrefixLen, fdInfo.path.length() - socketInodePrefixLen - socketInodeSuffixLen);
-                                
-                                if (utils::isInteger(inodeView)) { // Ensure it's a valid integer string
-                                    if (auto parsedInode = utils::parseIntegerNoThrow<unsigned long>(inodeView)) {
-                                        socketInodes.insert(*parsedInode);
-                                    }
-                                }
-                            }        }
+            if (fdInfo.path.starts_with("socket:[") && fdInfo.path.back() == ']' &&
+                fdInfo.path.length() > (socketInodePrefixLen + socketInodeSuffixLen))
+            {
+                std::string_view inodeView(fdInfo.path.data() + socketInodePrefixLen, fdInfo.path.length() - socketInodePrefixLen - socketInodeSuffixLen);
+                if (auto parsedInode = utils::parseIntegerNoThrow<uint64_t>(inodeView, decimalBase)) {
+                    socketInodes.insert(*parsedInode);
+                }
+            }
+        }
+    }
+
+    if (socketInodes.empty()) {
+        return std::vector<NetworkConnection>{};
     }
 
     std::vector<NetworkConnection> connections;
     std::filesystem::path netPath = procPath / "net";
 
-    auto tcp4Internal = parseNetFileHelper(netPath / "tcp", "TCP");
-    for(const auto& conn : tcp4Internal) {
-        if(socketInodes.contains(conn.inode)) connections.push_back(conn.baseConn);
-    }
+    auto processConnection = [&](const std::filesystem::path& path, std::string_view protoName) {
+        auto parsedConnections = parseNetFile(path, protoName);
+        for(const auto& conn : parsedConnections) {
+            if(socketInodes.contains(conn.inode)) {
+                connections.push_back(conn);
+            }
+        }
+    };
 
-    auto tcp6Internal = parseNetFileHelper(netPath / "tcp6", "TCP6");
-    for(const auto& conn : tcp6Internal) {
-        if(socketInodes.contains(conn.inode)) connections.push_back(conn.baseConn);
-    }
-
-    auto udp4Internal = parseNetFileHelper(netPath / "udp", "UDP");
-    for(const auto& conn : udp4Internal) {
-        if(socketInodes.contains(conn.inode)) connections.push_back(conn.baseConn);
-    }
-
-    auto udp6Internal = parseNetFileHelper(netPath / "udp6", "UDP6");
-    for(const auto& conn : udp6Internal) {
-        if(socketInodes.contains(conn.inode)) connections.push_back(conn.baseConn);
-    }
+    processConnection(netPath / "tcp", "TCP");
+    processConnection(netPath / "tcp6", "TCP6");
+    processConnection(netPath / "udp", "UDP");
+    processConnection(netPath / "udp6", "UDP6");
 
     return connections;
 }
@@ -256,10 +311,10 @@ utils::Result<std::vector<NetworkInterfaceStats>> ProcessAnalyzer::getNetworkInt
         NetworkInterfaceStats stat;
         stat.interfaceName = interfaceName;
         
-        unsigned long dummy1;
-        unsigned long dummy2;
-        unsigned long dummy3;
-        unsigned long dummy4; // For skipping fifo, frame, compressed, multicast
+        uint64_t dummy1;
+        uint64_t dummy2;
+        uint64_t dummy3;
+        uint64_t dummy4; // For skipping fifo, frame, compressed, multicast
         if (!(lineSs >> stat.rxBytes >> stat.rxPackets >> stat.rxErrors >> stat.rxDropped
                      >> dummy1 >> dummy2 >> dummy3 >> dummy4
                      >> stat.txBytes >> stat.txPackets >> stat.txErrors >> stat.txDropped)) {

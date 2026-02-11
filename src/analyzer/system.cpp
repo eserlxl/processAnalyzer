@@ -18,8 +18,9 @@
 namespace fs = std::filesystem;
 
 namespace {
+    constexpr int kDecimalBase = 10;
     template <typename TInt>
-    std::optional<TInt> parseIntegerNoThrow(std::string_view text, int base = 10) {
+    std::optional<TInt> parseIntegerNoThrow(std::string_view text, int base = kDecimalBase) {
         TInt value{};
         const char* begin = text.data();
         const char* end = begin + text.size();

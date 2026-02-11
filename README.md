@@ -99,8 +99,8 @@ After building, you can run `processAnalyzer` from the `build` directory.
 ./build/processAnalyzer list --name nginx --sort-by rss --sort-order desc
 
 # Show detailed info for a specific PID (may require sudo)
-# This example includes children and open files for the given process
-sudo ./build/processAnalyzer show --pid 1 --children --open-files
+# This example includes children, open files, and network connections
+sudo ./build/processAnalyzer show --pid 1 --children --open-files --network
 
 # Display the help menu
 ./build/processAnalyzer --help

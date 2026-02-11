@@ -31,7 +31,8 @@ struct NetworkConnection {
     uint16_t localPort = 0;        // Local port number
     uint16_t remotePort = 0;       // Remote port number (0 if not connected/LISTEN)
     std::string state = "";       // Connection state, e.g., "ESTABLISHED", "LISTEN", "TIME_WAIT"
-    int inode = 0;               // Socket inode number
+    uint64_t inode = 0;               // Socket inode number
+    uint64_t timeout = 0;             // Connection timeout
     AddressFamily addressFamily = AddressFamily::unknown; // IPv4 or IPv6
     SocketType socketType = SocketType::unknown;     // TCP or UDP (or RAW/UNIX if expanded)
 };
