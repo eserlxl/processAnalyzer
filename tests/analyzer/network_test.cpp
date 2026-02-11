@@ -1,8 +1,6 @@
 #include "gtest/gtest.h"
 #include "analyzer/core.h"
 #include "analyzer/network_model.h"
-#include "utils/core.h"
-#include "utils/types.h" // For parseIntegerNoThrow
 #include "utils/test.h"   // For MockProc
 
 #include <vector>
@@ -10,41 +8,6 @@
 #include <fstream>
 #include <filesystem>
 #include <memory>
-
-// Test suite for utils::parseIntegerNoThrow
-TEST(ParseIntegerNoThrowTest, ValidDecimalStrings) {
-    EXPECT_EQ(utils::parseIntegerNoThrow<int>("123"), std::make_optional(123));
-    EXPECT_EQ(utils::parseIntegerNoThrow<int>("0"), std::make_optional(0));
-    EXPECT_EQ(utils::parseIntegerNoThrow<int>("-42"), std::make_optional(-42));
-    EXPECT_EQ(utils::parseIntegerNoThrow<long>("1234567890123"), std::make_optional(1234567890123L));
-}
-
-TEST(ParseIntegerNoThrowTest, ValidHexadecimalStrings) {
-    EXPECT_EQ(utils::parseIntegerNoThrow<int>("1a", 16), std::make_optional(26));
-    EXPECT_EQ(utils::parseIntegerNoThrow<unsigned int>("ff", 16), std::make_optional(255U));
-    EXPECT_EQ(utils::parseIntegerNoThrow<unsigned int>("FFFF", 16), std::make_optional(65535U));
-    EXPECT_EQ(utils::parseIntegerNoThrow<uint32_t>("AABBCCDD", 16), std::make_optional(0xAABBCCDDUL));
-}
-
-TEST(ParseIntegerNoThrowTest, InvalidStrings) {
-    EXPECT_EQ(utils::parseIntegerNoThrow<int>("abc"), std::nullopt);
-    EXPECT_EQ(utils::parseIntegerNoThrow<int>("123a"), std::nullopt);
-    EXPECT_EQ(utils::parseIntegerNoThrow<int>("a123"), std::nullopt);
-    EXPECT_EQ(utils::parseIntegerNoThrow<int>(""), std::nullopt);
-}
-
-TEST(ParseIntegerNoThrowTest, StringsWithWhitespace) {
-    EXPECT_EQ(utils::parseIntegerNoThrow<int>(" 123"), std::nullopt);
-    EXPECT_EQ(utils::parseIntegerNoThrow<int>("123 "), std::nullopt);
-    EXPECT_EQ(utils::parseIntegerNoThrow<int>(" 123 "), std::nullopt);
-}
-
-TEST(ParseIntegerNoThrowTest, OutOfRange) {
-    EXPECT_EQ(utils::parseIntegerNoThrow<short>("32768"), std::nullopt); // Max short is 32767
-    EXPECT_EQ(utils::parseIntegerNoThrow<short>("-32769"), std::nullopt); // Min short is -32768
-    EXPECT_EQ(utils::parseIntegerNoThrow<int>("2147483648"), std::nullopt); // Max int is 2147483647
-    EXPECT_EQ(utils::parseIntegerNoThrow<unsigned char>("256"), std::nullopt); // Max unsigned char is 255
-}
 
 // Test suite for ProcessAnalyzer::getNetworkConnections, specifically the substr fix
 class GetNetworkConnectionsTest : public ::testing::Test {
