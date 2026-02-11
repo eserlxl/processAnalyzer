@@ -52,7 +52,7 @@ add_library(processAnalyzerLib STATIC
     src/utils/types.cpp
 )
 # Add include directory correctly to the library target
-target_include_directories(processAnalyzerLib PUBLIC ${CMAKE_SOURCE_DIR}/include)
+target_include_directories(processAnalyzerLib PUBLIC ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src/analyzer)
 
 # Apply coverage options to the library
 if(ENABLE_COVERAGE AND (CMAKE_COMPILER_ID MATCHES "GNU|Clang"))
@@ -66,6 +66,8 @@ add_library(processAnalyzerCliLib STATIC
     src/cli/output.cpp
 )
 target_include_directories(processAnalyzerCliLib PUBLIC ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(processAnalyzerCliLib PRIVATE processAnalyzerLib)
+
 
 # Main executable
 add_executable(processAnalyzer src/main.cpp)

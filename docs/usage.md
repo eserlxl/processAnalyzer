@@ -215,3 +215,26 @@ Use these options with the `show` command to include additional details. May req
     ```bash
     ./processAnalyzer show --pid 1 --output vertical
     ```
+## ⚡ Quick Start Examples
+
+Here are some quick examples to get you started with `processAnalyzer`s command-line interface:
+
+1.  **List all processes** in a table (the default view):
+    ```bash
+    ./build/processAnalyzer
+    ```
+
+2.  **Find processes by name** and sort by memory usage:
+    ```bash
+    ./build/processAnalyzer list --name nginx --sort-by rss --sort-order desc
+    ```
+
+3.  **Show detailed info for a PID**, including open files and network connections (may require `sudo`):
+    ```bash
+    sudo ./build/processAnalyzer show --pid 1 --open-files --network
+    ```
+
+4.  **Export process data to JSON** for scripting:
+    ```bash
+    ./build/processAnalyzer list --user www-data --output json > web-processes.json
+    ```

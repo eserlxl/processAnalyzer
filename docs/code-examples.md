@@ -114,3 +114,41 @@ int main() {
 
 For more details on the API, refer to the [API Reference](api-reference.md).
 
+## ⚡ Library Quick Start
+
+The C++ API allows you to integrate process and system monitoring directly into your applications. You can link against the library by adding the project as a subdirectory in your CMake configuration.
+
+**Example `main.cpp`:**
+```cpp
+#include <iostream>
+#include "analyzer/process_analyzer.h"
+
+int main() {
+    try {
+        ProcessAnalyzer analyzer;
+        // Stream all running processes and print their PID and name
+        for (const auto& process : analyzer.streamProcesses()) {
+            std::cout << "PID: " << process.pid
+                      << ", Name: " << process.name << std::endl;
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+        return 1;
+    }
+    return 0;
+}
+```
+
+**Example `CMakeLists.txt`:**
+```cmake
+cmake_minimum_required(VERSION 3.17)
+project(MyMonitor)
+
+set(CMAKE_CXX_STANDARD 23)
+
+# Add processAnalyzer as a subdirectory
+add_subdirectory(path/to/processAnalyzer)
+
+add_executable(MyMonitor main.cpp)
+target_link_libraries(MyMonitor PRIVATE processAnalyzerLib)
+```

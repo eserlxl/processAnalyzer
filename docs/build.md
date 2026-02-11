@@ -30,25 +30,18 @@ Follow these steps to clone the repository and compile the project:
     cd processAnalyzer
     ```
 
-2.  **Create a build directory**:
-    It is best practice to create a separate build directory to keep the source tree clean.
-    ```bash
-    mkdir build
-    cd build
-    ```
+2.  **Configure and Build**
 
-3.  **Configure the project with CMake**:
-    This step generates the build files for Make (or your chosen build system).
+    You can use standard CMake commands with presets to configure and build the project:
     ```bash
-    cmake ..
+    # Configure using the Release preset (creates a 'build' directory if it doesn't exist)
+    cmake --preset default
+    # Build the project
+    cmake --build --preset default
     ```
+    The executable will be located at `build/processAnalyzer`.
 
-4.  **Build the executable**:
-    This compiles the source code and creates the `processAnalyzer` executable in the `build` directory.
-    ```bash
-    make
-    ```
-    The main executable will be located at `build/processAnalyzer`.
+    For advanced options, including debug builds and running tests, refer to the relevant sections below.
 
 ## Running Tests
 
@@ -75,14 +68,22 @@ To verify the correctness of the application, you can run the included unit test
 
 ## Installation
 
-The project does not currently provide an automatic install target (e.g., `make install`). To install the application, simply copy the executable to a directory in your system's `PATH`.
+To install `processAnalyzer` system-wide (e.g., to `/usr/local/bin`), use the CMake install target after building.
 
-From the `build` directory:
-```bash
-sudo cp processAnalyzer /usr/local/bin/
-```
+1.  **Configure and Build** (if not already done, execute the steps above)
+    ```bash
+    cmake --preset default
+    cmake --build --preset default
+    ```
 
-You can then run it from any terminal:
-```bash
-processAnalyzer --help
-```
+2.  **Install**
+    ```bash
+    # This may require sudo depending on the install prefix (default is /usr/local)
+    sudo cmake --install build
+    ```
+
+3.  **Verify Installation**:
+    After successful installation, the `processAnalyzer` executable should be available in your system's PATH.
+    ```bash
+    processAnalyzer --help
+    ```

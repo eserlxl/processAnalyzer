@@ -143,8 +143,8 @@ struct ProcessFilter {
     std::optional<std::string> userFilter;
     std::optional<char> stateFilter;
 
-    std::optional<int> minThreads;
-    std::optional<int> maxThreads;
+    std::optional<long> minThreads;
+    std::optional<long> maxThreads;
     std::optional<long long> minResidentMemoryKB;
     std::optional<long long> maxResidentMemoryKB;
     std::optional<long long> minVirtualMemoryKB;
@@ -160,10 +160,10 @@ struct ProcessFilter {
     std::optional<int> maxPriority;
     std::optional<pid_t> ppidFilter;
 
-    std::optional<double> minCpuUsage;          // New: Filter by CPU usage percentage
-    std::optional<double> maxCpuUsage;          // New
-    std::optional<double> minMemoryPercentage;  // New: Filter by memory usage percentage
-    std::optional<double> maxMemoryPercentage;  // New
+    std::optional<float> minCpuUsage;          // New: Filter by CPU usage percentage
+    std::optional<float> maxCpuUsage;          // New
+    std::optional<float> minMemoryPercentage;  // New: Filter by memory usage percentage
+    std::optional<float> maxMemoryPercentage;  // New
 
     // New: Filter processes with network connections matching criteria
     struct NetworkFilterCriteria {

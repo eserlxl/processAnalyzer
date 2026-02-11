@@ -67,79 +67,18 @@ The project follows a standard CMake structure. For a detailed breakdown of the 
 
 ---
 
-## 🛠️ Build
+## 🛠️ Build and Installation
 
-Ensure the [system requirements](#-system-requirements) are met. All major dependencies are fetched automatically by CMake during the build process.
+For detailed instructions on building, installing, and running tests, please refer to the [Build Guide](docs/build.md).
 
-1.  **Clone the Repository**
-    ```bash
-    git clone https://github.com/eserlxl/processAnalyzer.git
-    cd processAnalyzer
-    ```
-
-2.  **Configure and Build**
-
-    You can use standard CMake commands with presets:
-    ```bash
-    # Configure using the Release preset
-    cmake --preset default
-    # Build
-    cmake --build --preset default
-    ```
-    The executable will be located at `build/processAnalyzer`.
-
-For advanced options, including debug builds and running tests, see the [Build Guide](docs/build.md).
 
 ---
-
-## 🚀 Installation
-
-To install `processAnalyzer` system-wide (e.g., to `/usr/local/bin`), use the `install` target.
-
-1.  **Configure and Build** (if not already done)
-    ```bash
-    cmake --preset default
-    cmake --build --preset default
-    ```
-
-2.  **Install**
-    ```bash
-    # This may require sudo depending on the install prefix
-    sudo cmake --install build
-    ```
-
-3.  **Run from anywhere**
-    ```bash
-    processAnalyzer --help
-    ```
-
 ---
 
-## ⚡ CLI Quick Start
+## ⚡ CLI Usage
 
-After building, you can run `processAnalyzer` from the build directory or from anywhere if installed.
+For a comprehensive guide to the command-line interface, including detailed commands, options, and practical examples, see the [Usage Guide](docs/usage.md).
 
-1.  **List all processes** in a table (the default view):
-    ```bash
-    ./build/processAnalyzer
-    ```
-
-2.  **Find processes by name** and sort by memory usage:
-    ```bash
-    ./build/processAnalyzer list --name nginx --sort-by rss --sort-order desc
-    ```
-
-3.  **Show detailed info for a PID**, including open files and network connections (may require `sudo`):
-    ```bash
-    sudo ./build/processAnalyzer show --pid 1 --open-files --network
-    ```
-
-4.  **Export process data to JSON** for scripting:
-    ```bash
-    ./build/processAnalyzer list --user www-data --output json > web-processes.json
-    ```
-
-For a full command reference and more examples, see the [Usage Guide](docs/usage.md).
 
 ## ⚡ Library Quick Start
 
