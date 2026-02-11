@@ -142,8 +142,8 @@ public:
 
     struct NetDevStats {
         std::string interface;
-        unsigned long long rx_bytes = 0, rx_packets = 0, rx_errs = 0, rx_drop = 0;
-        unsigned long long tx_bytes = 0, tx_packets = 0, tx_errs = 0, tx_drop = 0;
+        unsigned long long rx_bytes = 0, rx_packets = 0, rx_errs = 0, rx_drop = 0, fifo_rx = 0, frame_rx = 0, compressed_rx = 0, multicast_rx = 0;
+        unsigned long long tx_bytes = 0, tx_packets = 0, tx_errs = 0, tx_drop = 0, fifo_tx = 0, colls_tx = 0, carrier_tx = 0, compressed_tx = 0;
         [[nodiscard]] std::string toString() const;
     };
 

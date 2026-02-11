@@ -43,7 +43,7 @@ constexpr unsigned long stime45 = 45;
 constexpr int ppid50 = 50;
 constexpr unsigned long ioRchar5000 = 5000;
 constexpr unsigned long ioWriteBytes10000 = 10000;
-constexpr int fd_10 = 10;
+constexpr int fd10 = 10;
 
 // Helper to read file content for verification
 std::optional<std::string> readFileContent(const fs::path& filePath) {
@@ -158,7 +158,7 @@ TEST_F(MockProcTest, ProcMapEntryToString) {
         .inode = inode,
         .pathname = "/usr/lib/mylib.so"
     };
-    std::string expected = "7f000000-7f010000 r-xp 00001000 08:01 12345 /usr/lib/mylib.so";
+    std::string expected = "7f000000-7f010000 r-xp 0000000000001000 08:01 12345 /usr/lib/mylib.so";
     ASSERT_EQ(entry.toString(), expected);
 }
 
@@ -383,7 +383,7 @@ TEST_F(MockProcTest, AddProcessWithFdDir) {
     const int testPid = 205;
     MockProc::AddProcessOptions options;
     options.name = "fd_proc";
-    options.fds = {{0, "/dev/null"}, {fd_10, "/var/log/my.log"}};
+    options.fds = {{0, "/dev/null"}, {fd10, "/var/log/my.log"}};
 
     mockProc->addProcess(testPid, options);
 

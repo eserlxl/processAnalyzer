@@ -5,7 +5,6 @@
 
 #include <sstream>
 #include <iomanip>
-#include <algorithm>
 #include <string>
 #include <vector>
 #include <map>
@@ -15,31 +14,46 @@
 namespace fs = std::filesystem;
 
 constexpr int addressWidth = 16;
-constexpr int flagsWidth = 8;
-constexpr int addressPartWidth = 8;
+constexpr int flagsWidth = 16;
+constexpr int addressPartWidth = 16;
+constexpr int procStatPrecision = 6;
+
+// Constants for /proc/net/dev formatting
+constexpr int netDevInterfaceWidth = 7;
+constexpr int netDevRxBytesWidth = 7;
+constexpr int netDevRxPacketsWidth = 8;
+constexpr int netDevRxErrsWidth = 5;
+constexpr int netDevRxDropWidth = 5;
+constexpr int netDevRxFifoWidth = 5;
+constexpr int netDevRxFrameWidth = 6;
+constexpr int netDevRxCompressedWidth = 11;
+constexpr int netDevRxMulticastWidth = 10;
+constexpr int netDevTxBytesWidth = 9;
+constexpr int netDevTxPacketsWidth = 8;
+constexpr int netDevTxErrsWidth = 5;
+constexpr int netDevTxDropWidth = 5;
+constexpr int netDevTxFifoWidth = 5;
+constexpr int netDevTxCollsWidth = 6;
+constexpr int netDevTxCarrierWidth = 8;
+constexpr int netDevTxCompressedWidth = 11;
 
 MockProc::MockProc(const std::string& basePath) : root(basePath) {
     fs::create_directories(root);
 }
 
 MockProc::~MockProc() {
-    std::error_code ec;
-    // Try to remove directly first
-    fs::remove_all(root, ec);
-    
-    if (ec) {
-        // If failed (likely permission denied), try to restore permissions
-        try {
-            for (const auto& entry : fs::recursive_directory_iterator(root, fs::directory_options::skip_permission_denied)) {
-                try {
-                    fs::permissions(entry.path(), fs::perms::all, fs::perm_options::replace);
-                } catch (...) {}
-            }
-            fs::permissions(root, fs::perms::all, fs::perm_options::replace);
-        } catch (...) {}
-        
-        // Try removing again
+    if (fs::exists(root)) {
+        std::error_code ec;
+        // Attempt to remove the directory and its contents.
+        // If this fails, it will set `ec`.
         fs::remove_all(root, ec);
+
+        if (ec) {
+            // Log the error to stderr for visibility during tests.
+            std::cerr << "MockProc: Failed to clean up mock directory '" << root.string() << "'. Error: " << ec.message() << std::endl;
+            // No further attempts to fix permissions and retry, as this was brittle.
+            // The test environment might be in a bad state if this happens.
+        }
     }
 }
 
@@ -55,13 +69,38 @@ void MockProc::createProcFile(int pid, const std::string& filename, const std::s
 
 void MockProc::createSymlink(int pid, const std::string& linkname, const std::string& target) {
     fs::path pidPath = root / std::to_string(pid);
-    fs::create_directory(pidPath);
+    std::error_code ec;
+
+    // Create parent directory if it doesn't exist, handling errors
+    fs::create_directory(pidPath, ec);
+    if (ec) {
+        std::cerr << "MockProc: Failed to create directory '" << pidPath.string() << "'. Error: " << ec.message() << std::endl;
+        return;
+    }
+
     fs::path linkPath = pidPath / linkname;
-    try {
-        if (fs::exists(linkPath)) fs::remove(linkPath);
-        fs::create_symlink(target, linkPath);
-    } catch (const std::exception& e) {
-        (void)e;
+    
+    // Remove existing symlink if it exists
+    if (fs::exists(linkPath, ec)) {
+        if (ec) {
+            std::cerr << "MockProc: Error checking existence of " << linkPath.string() << ": " << ec.message() << std::endl;
+            ec.clear(); // Clear error to allow subsequent operations
+        } else {
+            fs::remove(linkPath, ec); // Remove with error code
+            if (ec) {
+                std::cerr << "MockProc: Error removing existing symlink " << linkPath.string() << ": " << ec.message() << std::endl;
+                return; // Exit if cannot remove existing
+            }
+        }
+    } else if (ec) { // If error occurred during fs::exists
+         std::cerr << "MockProc: Error checking existence of " << linkPath.string() << ": " << ec.message() << std::endl;
+         return; // Exit if cannot check existence
+    }
+
+    // Create the new symlink
+    fs::create_symlink(target, linkPath, ec);
+    if (ec) {
+        std::cerr << "MockProc: Failed to create symlink '" << linkPath.string() << "' to '" << target << "'. Error: " << ec.message() << std::endl;
     }
 }
 
@@ -71,20 +110,6 @@ void MockProc::createPidDir(int pid) {
 
 void MockProc::createFile(const std::string& filename, const std::string& content) {
     std::ofstream(root / filename) << content;
-}
-
-void MockProc::removeFile(const std::string& filename) {
-    fs::path filePath = root / filename;
-    if (fs::exists(filePath)) {
-        fs::remove(filePath);
-    }
-}
-
-void MockProc::removeDirectoryAt(const std::filesystem::path& relativePath) {
-    fs::path dirPath = root / relativePath;
-    if (fs::exists(dirPath) && fs::is_directory(dirPath)) {
-        fs::remove_all(dirPath);
-    }
 }
 
 void MockProc::createFileAt(const std::filesystem::path& relativePath, const std::string& content) {
@@ -99,12 +124,36 @@ void MockProc::createDirectoryAt(const std::filesystem::path& relativePath) {
 
 void MockProc::createSymlinkAt(const std::filesystem::path& relativeLinkPath, const std::filesystem::path& targetPath) {
     fs::path fullLinkPath = root / relativeLinkPath;
-    fs::create_directories(fullLinkPath.parent_path());
-    try {
-        if (fs::exists(fullLinkPath)) fs::remove(fullLinkPath);
-        fs::create_symlink(targetPath, fullLinkPath);
-    } catch (...) { // NOLINT
-        // ignore
+    std::error_code ec;
+    
+    // Create parent directories if they don't exist, handling errors
+    fs::create_directories(fullLinkPath.parent_path(), ec);
+    if (ec) {
+        std::cerr << "MockProc: Failed to create parent directories for " << fullLinkPath.string() << ". Error: " << ec.message() << std::endl;
+        return;
+    }
+
+    // Remove existing symlink if it exists
+    if (fs::exists(fullLinkPath, ec)) {
+        if (ec) {
+            std::cerr << "MockProc: Error checking existence of " << fullLinkPath.string() << ": " << ec.message() << std::endl;
+            ec.clear();
+        } else {
+            fs::remove(fullLinkPath, ec);
+            if (ec) {
+                std::cerr << "MockProc: Error removing existing symlink " << fullLinkPath.string() << ": " << ec.message() << std::endl;
+                return;
+            }
+        }
+    } else if (ec) {
+        std::cerr << "MockProc: Error checking existence of " << fullLinkPath.string() << ": " << ec.message() << std::endl;
+        return;
+    }
+
+    // Create the new symlink
+    fs::create_symlink(targetPath, fullLinkPath, ec);
+    if (ec) {
+        std::cerr << "MockProc: Failed to create symlink '" << fullLinkPath.string() << "' to '" << targetPath.string() << "'. Error: " << ec.message() << std::endl;
     }
 }
 
@@ -153,18 +202,6 @@ void MockProc::createProcFdLink(int pid, int fd, const std::string& target) {
     fs::path fdPath = root / std::to_string(pid) / "fd";
     fs::create_directories(fdPath);
     fs::create_symlink(target, fdPath / std::to_string(fd));
-}
-
-void MockProc::setPermissions(const fs::path& relativePath, fs::perms prms, fs::perm_options opts) {
-    std::error_code ec;
-    fs::permissions(root / relativePath, prms, opts, ec);
-    if (ec) {
-        // In a real test utils lib, you might throw or log here.
-        // For this context, we'll ignore errors to keep it simple,
-        // as permission errors on the test runner's temp dir are unlikely
-        // and would cause other failures anyway.
-        std::cerr << "Failed to set permissions on " << (root / relativePath) << ": " << ec.message() << std::endl;
-    }
 }
 
 void MockProc::createExeSymlink(int pid, const fs::path& targetPath) {
@@ -220,12 +257,16 @@ std::string MockProc::ProcStatData::toString() const {
        << cutime << " " << cstime << " "
        << priority << " " << nice << " "
        << num_threads << " "
-       << itrealvalue << " "
+       // itrealvalue: The time the process was waiting for the CPU to become free (float).
+       // Formatting as fixed precision float for consistency.
+       << std::fixed << std::setprecision(procStatPrecision) << itrealvalue << " "
        << starttime << " " << vsize << " " << rss << " " << rsslim << " "
        << startcode << " " << endcode << " " << startstack << " "
        << kstkesp << " " << kstkeip << " "
        << signal << " " << blocked << " " << sigignore << " " << sigcatch << " "
-       << wchan << " "
+       // wchan: The address of the kernel function in which the process is sleeping.
+       // Printing as hex, as it's typically a memory address. Empty if not sleeping.
+       << std::hex << std::setfill('0') << wchan << " " << std::dec << std::setfill('0')
        << nswap << " " << cnswap << " "
        << exit_signal << " " << processor << " "
        << rt_priority << " " << policy << " "
@@ -271,29 +312,30 @@ std::string MockProc::SystemStatData::toString() const {
 
 std::string MockProc::NetDevStats::toString() const {
     std::stringstream ss;
-    ss << "   " << std::left << std::setw(7) << (interface + ":") << std::right
-       << std::setw(7) << rx_bytes
-       << std::setw(8) << rx_packets
-       << std::setw(5) << rx_errs
-       << std::setw(5) << rx_drop
-       << std::setw(5) << 0
-       << std::setw(6) << 0
-       << std::setw(11) << 0
-       << std::setw(10) << 0
-       << std::setw(9) << tx_bytes
-       << std::setw(8) << tx_packets
-       << std::setw(5) << tx_errs
-       << std::setw(5) << tx_drop
-       << std::setw(5) << 0
-       << std::setw(6) << 0
-       << std::setw(8) << 0
-       << std::setw(11) << 0;
+    ss << "   " << std::left << std::setw(netDevInterfaceWidth) << (interface + ":") << std::right
+       << std::setw(netDevRxBytesWidth) << rx_bytes
+       << std::setw(netDevRxPacketsWidth) << rx_packets
+       << std::setw(netDevRxErrsWidth) << rx_errs
+       << std::setw(netDevRxDropWidth) << rx_drop
+       << std::setw(netDevRxFifoWidth) << fifo_rx // Use member for RX FIFO
+       << std::setw(netDevRxFrameWidth) << frame_rx // Use member for RX frame
+       << std::setw(netDevRxCompressedWidth) << compressed_rx // Use member for RX compressed
+       << std::setw(netDevRxMulticastWidth) << multicast_rx // Use member for RX multicast
+       << std::setw(netDevTxBytesWidth) << tx_bytes
+       << std::setw(netDevTxPacketsWidth) << tx_packets
+       << std::setw(netDevTxErrsWidth) << tx_errs
+       << std::setw(netDevTxDropWidth) << tx_drop
+       << std::setw(netDevTxFifoWidth) << fifo_tx // Use member for TX FIFO
+       << std::setw(netDevTxCollsWidth) << colls_tx // Use member for TX collisions
+       << std::setw(netDevTxCarrierWidth) << carrier_tx // Use member for TX carrier
+       << std::setw(netDevTxCompressedWidth) << compressed_tx; // Use member for TX compressed
     return ss.str();
 }
 
 void MockProc::createStat(int pid, const ProcStatData& data) {
     createProcFile(pid, "stat", data.toString());
 }
+
 
 void MockProc::createIo(int pid, const ProcIoStats& stats) {
     createProcFile(pid, "io", stats.toString());
@@ -463,7 +505,7 @@ void MockProc::addProcess(int pid, const AddProcessOptions& options) {
         if (options.populateDefaultStat) {
             if (statToCreate.pid == 0) statToCreate.pid = pid;
             if (statToCreate.comm.empty() && !options.name.empty()) statToCreate.comm = options.name;
-            if (statToCreate.ppid == 0) statToCreate.ppid = 1; 
+            if (statToCreate.ppid == 0) statToCreate.ppid = 1; // Default PPID to 1 if not specified and populating defaults
             if (statToCreate.state == '\0') statToCreate.state = 'R';
         }
         if (options.ppid != -1) {
@@ -490,7 +532,7 @@ ProcessBuilder& ProcessBuilder::withName(const std::string& name) {
     return *this;
 }
 ProcessBuilder& ProcessBuilder::withComm(const std::string& commName) {
-    options_.name = commName; 
+    options_.name = commName; // Alias for withName, populates process name.
     return *this;
 }
 ProcessBuilder& ProcessBuilder::withCmdline(const std::vector<std::string>& args) {

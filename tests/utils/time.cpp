@@ -11,6 +11,33 @@
 #include <iomanip>
 #include <sstream>
 
+constexpr std::size_t maxTimeFormatBuffer = 64;
+constexpr int sleepDurationMs = 10;
+constexpr int timeToleranceSec = 5;
+constexpr long long testTimeEpoch = 1673793000LL;
+constexpr long long negativeTime = -1000LL;
+constexpr long long negativeOne = -1LL;
+constexpr int tmYear1970 = 70;
+constexpr int tmYear2023 = 123; // 2023 - 1900
+constexpr int tmYear2024 = 124; // 2024 - 1900
+constexpr int tmYear2025 = 125; // 2025 - 1900
+
+constexpr long long elapsedTime0s = 0LL;
+constexpr long long elapsedTime1s = 1LL;
+constexpr long long elapsedTime59s = 59LL;
+constexpr long long elapsedTime60s = 60LL;
+constexpr long long elapsedTime61s = 61LL;
+constexpr long long elapsedTime59m59s = 3599LL;
+constexpr long long elapsedTime1h = 3600LL;
+constexpr long long elapsedTime1h1s = 3601LL;
+constexpr long long elapsedTime23h59m59s = 86399LL;
+constexpr long long elapsedTime1d = 86400LL;
+constexpr long long elapsedTime1d1s = 86401LL;
+constexpr long long elapsedTime2d = 172800LL;
+constexpr long long elapsedTime365d = 365LL;
+constexpr long long factor100 = 100LL;
+
+
 // Helper to get current local time's tm struct
 std::tm getLocalTm(std::chrono::system_clock::time_point tp) {
     std::tm tmBuf{};
@@ -25,9 +52,9 @@ std::tm getLocalTm(std::chrono::system_clock::time_point tp) {
 
 // Helper to format a tm struct into a string using the system's local time
 std::string formatTmLocal(const std::tm& tmBuf, const char* formatStr) {
-    char buffer[64]; // Sufficient buffer size for common formats
-    if (std::strftime(buffer, sizeof(buffer), formatStr, &tmBuf)) {
-        return buffer;
+    std::array<char, maxTimeFormatBuffer> buffer{}; // Sufficient buffer size for common formats
+    if (std::strftime(buffer.data(), buffer.size(), formatStr, &tmBuf)) {
+        return buffer.data();
     }
     return "ERROR_FORMATTING";
 }
@@ -37,8 +64,8 @@ TEST(TimeTests, GetCurrentSystemTime) {
     ASSERT_TRUE(result.has_value());
     // Basic check: current time should be within a reasonable range of 'now'
     auto now = std::chrono::system_clock::now();
-    EXPECT_GE(result.value(), now - std::chrono::seconds(5));
-    EXPECT_LE(result.value(), now + std::chrono::seconds(5));
+    EXPECT_GE(result.value(), now - std::chrono::seconds(timeToleranceSec));
+    EXPECT_LE(result.value(), now + std::chrono::seconds(timeToleranceSec));
 }
 
 TEST(TimeTests, GetCurrentSteadyTime) {
@@ -46,7 +73,7 @@ TEST(TimeTests, GetCurrentSteadyTime) {
     ASSERT_TRUE(result.has_value());
     // Basic check: steady clock should progress
     auto first = result.value();
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    std::this_thread::sleep_for(std::chrono::milliseconds(sleepDurationMs));
     auto second = utils::getCurrentSteadyTime();
     ASSERT_TRUE(second.has_value());
     EXPECT_GT(second.value(), first);
@@ -54,7 +81,7 @@ TEST(TimeTests, GetCurrentSteadyTime) {
 
 TEST(TimeTests, FormatTimestamp) {
     // Known UTC time: Jan 15, 2023, 14:30:00 UTC
-    std::time_t timeSinceEpoch = 1673793000LL;
+    std::time_t timeSinceEpoch = testTimeEpoch;
     auto tpUtc = std::chrono::system_clock::from_time_t(timeSinceEpoch);
 
     std::tm localTm = getLocalTm(tpUtc);
@@ -89,7 +116,7 @@ TEST(TimeTests, FormatTimestampUnix) {
     EXPECT_EQ(formattedEpoch.value(), formatTmLocal(epochTm, "%Y-%m-%d %H:%M:%S"));
 
     // Some arbitrary time (Jan 15, 2023, 14:30:00 UTC)
-    long long unixTime = 1673793000LL;
+    long long unixTime = testTimeEpoch;
     auto formattedTime = utils::formatTimestamp(unixTime);
     ASSERT_TRUE(formattedTime.has_value());
 
@@ -98,11 +125,11 @@ TEST(TimeTests, FormatTimestampUnix) {
 }
 
 TEST(TimeTests, FormatTimestampUnixNegative) {
-    auto res1 = utils::formatTimestamp(-1LL);
+    auto res1 = utils::formatTimestamp(negativeOne);
     ASSERT_FALSE(res1.has_value());
     EXPECT_EQ(res1.error(), utils::make_error_code(utils::UtilsError::invalidArgument));
 
-    auto res2 = utils::formatTimestamp(-1000LL);
+    auto res2 = utils::formatTimestamp(negativeTime);
     ASSERT_FALSE(res2.has_value());
     EXPECT_EQ(res2.error(), utils::make_error_code(utils::UtilsError::invalidArgument));
 }
@@ -115,7 +142,7 @@ TEST(TimeTests, ParseTimestamp) {
 
     std::tm parsedLocalTm = getLocalTm(result.value());
 
-    EXPECT_EQ(parsedLocalTm.tm_year, 2023 - 1900);
+    EXPECT_EQ(parsedLocalTm.tm_year, tmYear2023);
     EXPECT_EQ(parsedLocalTm.tm_mon, 0); // January
     EXPECT_EQ(parsedLocalTm.tm_mday, 15);
     EXPECT_EQ(parsedLocalTm.tm_hour, 14);
@@ -138,13 +165,13 @@ TEST(TimeTests, ParseTimestampVariousFormats) {
     auto result1 = utils::parseTimestamp("2024/03/10", "%Y/%m/%d");
     ASSERT_TRUE(result1.has_value());
     std::tm tm1 = getLocalTm(result1.value());
-    EXPECT_EQ(tm1.tm_year, 2024 - 1900); EXPECT_EQ(tm1.tm_mon, 2); EXPECT_EQ(tm1.tm_mday, 10);
+    EXPECT_EQ(tm1.tm_year, tmYear2024); EXPECT_EQ(tm1.tm_mon, 2); EXPECT_EQ(tm1.tm_mday, 10);
 
     // Test with DD-Mon-YYYY (e.g., 25-Dec-2025)
     auto result2 = utils::parseTimestamp("25-12-2025", "%d-%m-%Y");
     ASSERT_TRUE(result2.has_value());
     std::tm tm2 = getLocalTm(result2.value());
-    EXPECT_EQ(tm2.tm_year, 2025 - 1900); EXPECT_EQ(tm2.tm_mon, 11); EXPECT_EQ(tm2.tm_mday, 25);
+    EXPECT_EQ(tm2.tm_year, tmYear2025); EXPECT_EQ(tm2.tm_mon, 11); EXPECT_EQ(tm2.tm_mday, 25);
 }
 
 TEST(TimeTests, ParseTimestampLeapYear) {
@@ -152,7 +179,7 @@ TEST(TimeTests, ParseTimestampLeapYear) {
     auto leapYear = utils::parseTimestamp("2024-02-29", "%Y-%m-%d");
     ASSERT_TRUE(leapYear.has_value());
     std::tm tmLeap = getLocalTm(leapYear.value());
-    EXPECT_EQ(tmLeap.tm_year, 2024 - 1900);
+    EXPECT_EQ(tmLeap.tm_year, tmYear2024);
     EXPECT_EQ(tmLeap.tm_mon, 1); // Feb
     EXPECT_EQ(tmLeap.tm_mday, 29);
 
@@ -227,7 +254,8 @@ TEST(TimeTests, ParseTimestampEpochAndFarFuture) {
     std::time_t tEpoch = std::chrono::system_clock::to_time_t(epochStart.value());
 
     std::tm expectedLocalEpochTm{};
-    expectedLocalEpochTm.tm_year = 70; // 1970 + 70 = 1970
+    expectedLocalEpochTm.tm_year = tmYear1970; // 1970 + 70 = 1970 (This seems wrong comment in original, but code was 70)
+                                            // Wait, tm_year is years since 1900. So 1970 is 70.
     expectedLocalEpochTm.tm_mon = 0;   // January
     expectedLocalEpochTm.tm_mday = 1;   // 1st
     expectedLocalEpochTm.tm_hour = 0;
@@ -255,65 +283,65 @@ TEST(TimeTests, ParseTimestampEpochAndFarFuture) {
 }
 
 TEST(TimeTests, FormatElapsedTime) {
-    auto res0 = utils::formatElapsedTime(0LL);
+    auto res0 = utils::formatElapsedTime(elapsedTime0s);
     ASSERT_TRUE(res0.has_value());
     EXPECT_EQ(res0.value(), "0s");
 
-    auto res1 = utils::formatElapsedTime(1LL);
+    auto res1 = utils::formatElapsedTime(elapsedTime1s);
     ASSERT_TRUE(res1.has_value());
     EXPECT_EQ(res1.value(), "1s");
 
-    auto res59 = utils::formatElapsedTime(59LL);
+    auto res59 = utils::formatElapsedTime(elapsedTime59s);
     ASSERT_TRUE(res59.has_value());
     EXPECT_EQ(res59.value(), "59s");
 
-    auto res60 = utils::formatElapsedTime(60LL);
+    auto res60 = utils::formatElapsedTime(elapsedTime60s);
     ASSERT_TRUE(res60.has_value());
     EXPECT_EQ(res60.value(), "1m 0s");
 
-    auto res61 = utils::formatElapsedTime(61LL);
+    auto res61 = utils::formatElapsedTime(elapsedTime61s);
     ASSERT_TRUE(res61.has_value());
     EXPECT_EQ(res61.value(), "1m 1s");
 
-    auto res3599 = utils::formatElapsedTime(3599LL);
+    auto res3599 = utils::formatElapsedTime(elapsedTime59m59s);
     ASSERT_TRUE(res3599.has_value());
     EXPECT_EQ(res3599.value(), "59m 59s");
 
-    auto res3600 = utils::formatElapsedTime(3600LL);
+    auto res3600 = utils::formatElapsedTime(elapsedTime1h);
     ASSERT_TRUE(res3600.has_value());
     EXPECT_EQ(res3600.value(), "1h 0m 0s");
 
-    auto res3601 = utils::formatElapsedTime(3601LL);
+    auto res3601 = utils::formatElapsedTime(elapsedTime1h1s);
     ASSERT_TRUE(res3601.has_value());
     EXPECT_EQ(res3601.value(), "1h 0m 1s");
 
-    auto res86399 = utils::formatElapsedTime(86399LL);
+    auto res86399 = utils::formatElapsedTime(elapsedTime23h59m59s);
     ASSERT_TRUE(res86399.has_value());
     EXPECT_EQ(res86399.value(), "23h 59m 59s");
 
-    auto res86400 = utils::formatElapsedTime(86400LL);
+    auto res86400 = utils::formatElapsedTime(elapsedTime1d);
     ASSERT_TRUE(res86400.has_value());
     EXPECT_EQ(res86400.value(), "1d 0h 0m 0s");
 
-    auto res86401 = utils::formatElapsedTime(86401LL);
+    auto res86401 = utils::formatElapsedTime(elapsedTime1d1s);
     ASSERT_TRUE(res86401.has_value());
     EXPECT_EQ(res86401.value(), "1d 0h 0m 1s");
 
-    auto res172800 = utils::formatElapsedTime(172800LL);
+    auto res172800 = utils::formatElapsedTime(elapsedTime2d);
     ASSERT_TRUE(res172800.has_value());
     EXPECT_EQ(res172800.value(), "2d 0h 0m 0s");
 
-    auto resLong = utils::formatElapsedTime(365LL * 86400LL + 3600LL);
+    auto resLong = utils::formatElapsedTime((elapsedTime365d * elapsedTime1d) + elapsedTime1h);
     ASSERT_TRUE(resLong.has_value());
     EXPECT_EQ(resLong.value(), "365d 1h 0m 0s");
 }
 
 TEST(TimeTests, FormatElapsedTimeNegative) {
-    auto resNeg = utils::formatElapsedTime(-100LL);
+    auto resNeg = utils::formatElapsedTime(negativeOne * factor100);
     ASSERT_FALSE(resNeg.has_value());
     EXPECT_EQ(resNeg.error(), utils::make_error_code(utils::UtilsError::invalidArgument));
 
-    auto resNeg2 = utils::formatElapsedTime(-1LL);
+    auto resNeg2 = utils::formatElapsedTime(negativeOne);
     ASSERT_FALSE(resNeg2.has_value());
     EXPECT_EQ(resNeg2.error(), utils::make_error_code(utils::UtilsError::invalidArgument));
 }

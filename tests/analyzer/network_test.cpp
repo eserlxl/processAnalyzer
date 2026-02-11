@@ -3,13 +3,69 @@
 #include "analyzer/network_model.h"
 #include "utils/test.h" // For MockProc
 
-#include <algorithm>
+// #include <algorithm> // Removed duplicate include
 #include <vector>
 #include <string>
 #include <filesystem>
 #include <memory>
-#include <algorithm>
+#include <algorithm> // Keep one instance
 #include <cstdint>
+
+// Constants for network connection parsing and testing
+constexpr int netConnSocketFd1 = 12; // General FD for specific test cases
+constexpr int netConnMalformedSocketFd1 = 1;
+constexpr int netConnMalformedSocketFd2 = 2;
+constexpr int netConnMalformedSocketFd3 = 3;
+constexpr int netConnMalformedSocketFd4 = 4;
+constexpr int netConnMalformedSocketFd5 = 5;
+constexpr int netConnMalformedSocketFd6 = 6;
+constexpr int netConnMalformedSocketFd7 = 7;
+constexpr int netConnEstablishedSocketFd = 10; // Corresponds to ESTABLISHED state in test
+constexpr int netConnTimeWaitSocketFd = 11; // Corresponds to TIME_WAIT state in test
+constexpr int netConnSocketFd10 = 10; // General FD for specific test cases
+constexpr int netConnSocketFd11 = 11; // General FD for specific test cases
+constexpr int netConnSocketFd20 = 20; // General FD for specific test cases
+constexpr int netConnSocketFd21 = 21; // General FD for specific test cases
+constexpr int netConnSocketFd30 = 30; // General FD for specific test cases
+constexpr int netConnSocketFd40 = 40; // General FD for specific test cases
+constexpr int netConnSocketFd50 = 50; // General FD for specific test cases
+constexpr int netConnSocketFd80 = 80; // General FD for specific test cases
+constexpr int netConnSocketFd101 = 101; // FD for TCP connection test
+constexpr int netConnSocketFd102 = 102; // FD for TCP6 connection test
+constexpr int netConnSocketFd103 = 103; // FD for UDP connection test
+constexpr int netConnNonExistentPid = 99999; // Placeholder for a PID that does not exist
+
+// Constants for formatting widths in /proc/net/tcp and tcp6
+constexpr int netConnHexAddressWidth = 8; // Each part of IPv4/IPv6 address is 8 hex chars
+constexpr int netConnHexPortWidth = 4;    // Port is 4 hex chars
+constexpr int netConnStateWidth = 2;
+constexpr int netConnQueueWidth = 8;
+constexpr int netConnWhenWidth = 8;
+constexpr int netConnRetrnsmtWidth = 8;
+constexpr int netConnUidWidth = 8;
+constexpr int netConnTimeoutWidth = 8;
+constexpr int netConnInodeWidth = 16; // Inode can be large
+constexpr int netConnLocalAddressColWidth = 17; // Width for "local_address" column header and data alignment
+constexpr int netConnRemoteAddressColWidth = 25; // Width for "remote_address" column header and data alignment
+
+// Constants for /proc/net/dev formatting (from test.cpp, to be consistent)
+constexpr int netDevInterfaceWidth = 7;
+constexpr int netDevRxBytesWidth = 7;
+constexpr int netDevRxPacketsWidth = 8;
+constexpr int netDevRxErrsWidth = 5;
+constexpr int netDevRxDropWidth = 5;
+constexpr int netDevRxFifoWidth = 5;
+constexpr int netDevRxFrameWidth = 6;
+constexpr int netDevRxCompressedWidth = 11;
+constexpr int netDevRxMulticastWidth = 10;
+constexpr int netDevTxBytesWidth = 9;
+constexpr int netDevTxPacketsWidth = 8;
+constexpr int netDevTxErrsWidth = 5;
+constexpr int netDevTxDropWidth = 5;
+constexpr int netDevTxFifoWidth = 5;
+constexpr int netDevTxCollsWidth = 6;
+constexpr int netDevTxCarrierWidth = 8;
+constexpr int netDevTxCompressedWidth = 11;
 
 // Test suite for ProcessAnalyzer::getNetworkConnections
 class GetNetworkConnectionsTest : public ::testing::Test {
@@ -40,13 +96,13 @@ protected:
 };
 
 TEST_F(GetNetworkConnectionsTest, SocketInodeExtractionWithMalformedPaths) {
-    mockProc->createProcFdLink(testPid, 1, "socket:[12345]");      // Valid
-    mockProc->createProcFdLink(testPid, 2, "socket:[");            // Malformed: no closing bracket
-    mockProc->createProcFdLink(testPid, 3, "socket:[123");          // Malformed: incomplete
-    mockProc->createProcFdLink(testPid, 4, "socket:[]");            // Malformed: empty inode
-    mockProc->createProcFdLink(testPid, 5, "socket:[abc]");         // Malformed: non-numeric inode
-    mockProc->createProcFdLink(testPid, 6, "socket:[12345");        // Malformed: missing ']'
-    mockProc->createProcFdLink(testPid, 7, "something_else");       // Not a socket
+    mockProc->createProcFdLink(testPid, netConnMalformedSocketFd1, "socket:[12345]");      // Valid
+    mockProc->createProcFdLink(testPid, netConnMalformedSocketFd2, "socket:[");            // Malformed: no closing bracket
+    mockProc->createProcFdLink(testPid, netConnMalformedSocketFd3, "socket:[123");          // Malformed: incomplete
+    mockProc->createProcFdLink(testPid, netConnMalformedSocketFd4, "socket:[]");            // Malformed: empty inode
+    mockProc->createProcFdLink(testPid, netConnMalformedSocketFd5, "socket:[abc]");         // Malformed: non-numeric inode
+    mockProc->createProcFdLink(testPid, netConnMalformedSocketFd6, "socket:[12345");        // Malformed: missing ']'
+    mockProc->createProcFdLink(testPid, netConnMalformedSocketFd7, "something_else");       // Not a socket
 
     std::string mockTcpContent = 
         "  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode\n"
@@ -75,7 +131,7 @@ TEST_F(GetNetworkConnectionsTest, NoSocketFilesForProcess) {
 }
 
 TEST_F(GetNetworkConnectionsTest, ParseIPv6) {
-    mockProc->createProcFdLink(testPid, 10, "socket:[12346]");
+    mockProc->createProcFdLink(testPid, netConnSocketFd10, "socket:[12346]");
     
     // The kernel formats IPv6 addresses in /proc/net/{tcp6,udp6} as four 32-bit
     // hexadecimal numbers. Each number is in host-byte order (little-endian on x86).
@@ -99,15 +155,10 @@ TEST_F(GetNetworkConnectionsTest, ParseIPv6) {
 }
 
 TEST_F(GetNetworkConnectionsTest, ParseDifferentIPv6Address) {
-    mockProc->createProcFdLink(testPid, 11, "socket:[12347]");
+    mockProc->createProcFdLink(testPid, netConnSocketFd11, "socket:[12347]");
 
-    // Test with a different IPv6 address: 2001:db8::8a2e:370:7334
+    // Test with a different IPv6 address: ::ffff:127.0.0.1
     // Which is represented in procfs format.
-    // 2001:0db8:0000:0000:8a2e:0370:7334
-    // Chunks: 0db82001 00000000 03708a2e 73340000 -> Incorrect representation.
-    // Let's manually get the correct BE hex string:
-    // 20010db80000000000008a2e03707334 -> this is wrong.
-    // Let's use `::ffff:127.0.0.1` -> 0000000000000000FFFF00000100007F (LE format in file)
     std::string mockTcp6Content =
         "  sl  local_address                         remote_address                        st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode\n"
         "   0: 0000000000000000FFFF00000100007F:C3B4 00000000000000000000000000000000:0000 0A 00000000:00000000 00:00000000 00000000  1000        0 12347 1 c4f48000 300 0 0 2 -1\n";
@@ -126,10 +177,9 @@ TEST_F(GetNetworkConnectionsTest, ParseDifferentIPv6Address) {
 
 
 TEST_F(GetNetworkConnectionsTest, ParseStatesAndRemoteAddress) {
-    mockProc->createProcFdLink(testPid, 20, "socket:[1001]"); // ESTABLISHED
-    mockProc->createProcFdLink(testPid, 21, "socket:[1002]"); // TIME_WAIT
+    mockProc->createProcFdLink(testPid, netConnSocketFd20, "socket:[1001]"); // ESTABLISHED
+    mockProc->createProcFdLink(testPid, netConnSocketFd21, "socket:[1002]"); // TIME_WAIT
     
-    // 01 (ESTABLISHED), 06 (TIME_WAIT)
     // Local: 127.0.0.1:80 (0100007F:0050) Remote: 127.0.0.1:12345 (0100007F:3039)
     // Local: 127.0.0.1:81 (0100007F:0051) Remote: 0.0.0.0:0 (*)
     std::string mockTcpContent = 
@@ -161,7 +211,7 @@ TEST_F(GetNetworkConnectionsTest, ParseStatesAndRemoteAddress) {
 }
 
 TEST_F(GetNetworkConnectionsTest, MalformedNetFileLines) {
-    mockProc->createProcFdLink(testPid, 30, "socket:[3001]");
+    mockProc->createProcFdLink(testPid, netConnSocketFd30, "socket:[3001]");
     
     // Line 1: Good, Line 2: Missing inode, Line 3: Garbage
     std::string mockTcpContent = 
@@ -180,7 +230,7 @@ TEST_F(GetNetworkConnectionsTest, MalformedNetFileLines) {
 }
 
 TEST_F(GetNetworkConnectionsTest, ParseUdpConnection) {
-    mockProc->createProcFdLink(testPid, 40, "socket:[4001]");
+    mockProc->createProcFdLink(testPid, netConnSocketFd40, "socket:[4001]");
 
     std::string mockUdpContent =
         "  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode\n"
@@ -201,7 +251,7 @@ TEST_F(GetNetworkConnectionsTest, ParseUdpConnection) {
 }
 
 TEST_F(GetNetworkConnectionsTest, ParseUdp6Connection) {
-    mockProc->createProcFdLink(testPid, 50, "socket:[5001]");
+    mockProc->createProcFdLink(testPid, netConnSocketFd50, "socket:[5001]");
 
     std::string mockUdp6Content =
         "  sl  local_address                         remote_address                        st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode\n"
@@ -225,7 +275,7 @@ TEST_P(TcpStateTest, ParseAllTcpStates) {
     const auto& [stateHex, expectedState] = GetParam();
     const int inode = 6001;
     
-    mockProc->createProcFdLink(testPid, 1, "socket:[" + std::to_string(inode) + "]");
+    mockProc->createProcFdLink(testPid, netConnSocketFd1, "socket:[" + std::to_string(inode) + "]");
 
     std::string mockTcpContent =
         "  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode\n"
@@ -260,7 +310,7 @@ INSTANTIATE_TEST_SUITE_P(
 ));
 
 TEST_F(GetNetworkConnectionsTest, HandlesUnreadableNetFile) {
-    mockProc->createProcFdLink(testPid, 1, "socket:[7001]");
+    mockProc->createProcFdLink(testPid, netConnSocketFd1, "socket:[7001]");
     
     auto tcpPath = std::filesystem::path(mockProc->getPath()) / "net" / "tcp";
     mockProc->createFile("net/tcp", "unimportant content");
@@ -279,7 +329,7 @@ TEST_F(GetNetworkConnectionsTest, HandlesUnreadableNetFile) {
 }
 
 TEST_F(GetNetworkConnectionsTest, NonExistentPid) {
-    auto result = analyzer.getNetworkConnections(99999); // A PID that doesn't exist in mock /proc
+    auto result = analyzer.getNetworkConnections(netConnNonExistentPid); // A PID that doesn't exist in mock /proc
     ASSERT_FALSE(result.has_value());
     // This error comes from getProcessOpenFileDetails
     EXPECT_EQ(result.error().message(), "Analyzer: Process not found");
@@ -287,7 +337,7 @@ TEST_F(GetNetworkConnectionsTest, NonExistentPid) {
 
 TEST_F(GetNetworkConnectionsTest, LargeInodeNumber) {
     const uint64_t largeInode = 9223372036854775807ULL; // 2^63 - 1
-    mockProc->createProcFdLink(testPid, 80, "socket:[" + std::to_string(largeInode) + "]");
+    mockProc->createProcFdLink(testPid, netConnSocketFd80, "socket:[" + std::to_string(largeInode) + "]");
 
     std::string mockTcpContent =
         "  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode\n"
@@ -304,9 +354,9 @@ TEST_F(GetNetworkConnectionsTest, LargeInodeNumber) {
 }
 
 TEST_F(GetNetworkConnectionsTest, MultipleConnectionTypes) {
-    mockProc->createProcFdLink(testPid, 1, "socket:[101]"); // TCP
-    mockProc->createProcFdLink(testPid, 2, "socket:[102]"); // TCP6
-    mockProc->createProcFdLink(testPid, 3, "socket:[103]"); // UDP
+    mockProc->createProcFdLink(testPid, netConnSocketFd101, "socket:[101]"); // TCP
+    mockProc->createProcFdLink(testPid, netConnSocketFd102, "socket:[102]"); // TCP6
+    mockProc->createProcFdLink(testPid, netConnSocketFd103, "socket:[103]"); // UDP
 
     std::string mockTcp = "  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode\n"
                           "   0: 0100007F:0050 00000000:0000 0A 00000000:0000 00:00000000 00000000  1000        0 101 1 c4f48000 300 0 0 2 -1\n";
@@ -338,7 +388,7 @@ TEST_F(GetNetworkConnectionsTest, MultipleConnectionTypes) {
 }
 
 TEST_F(GetNetworkConnectionsTest, SocketInodeNotFoundInNetFiles) {
-    mockProc->createProcFdLink(testPid, 1, "socket:[999]"); // This inode does not exist in the files below
+    mockProc->createProcFdLink(testPid, netConnSocketFd1, "socket:[999]"); // This inode does not exist in the files below
 
     std::string mockTcp = "sl local remote st ... inode\n0: 0100007F:0050 ... 101\n";
     mockProc->createFile("net/tcp", mockTcp);
