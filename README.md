@@ -125,10 +125,11 @@ The C++ API allows you to integrate process and system monitoring directly into 
 
 int main() {
     try {
-        // Stream all running processes and print their PID and command
-        for (const auto& process : analyzer::processes()) {
-            std::cout << "PID: " << process.pid()
-                      << ", Command: " << process.comm() << std::endl;
+        ProcessAnalyzer analyzer;
+        // Stream all running processes and print their PID and name
+        for (const auto& process : analyzer.streamProcesses()) {
+            std::cout << "PID: " << process.pid
+                      << ", Name: " << process.name << std::endl;
         }
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;
@@ -145,10 +146,11 @@ project(MyMonitor)
 
 set(CMAKE_CXX_STANDARD 23)
 
-find_package(processAnalyzer REQUIRED)
+# Add processAnalyzer as a subdirectory
+add_subdirectory(path/to/processAnalyzer)
 
 add_executable(MyMonitor main.cpp)
-target_link_libraries(MyMonitor PRIVATE processAnalyzer::analyzer)
+target_link_libraries(MyMonitor PRIVATE processAnalyzerLib)
 ```
 
 For more examples, see the [Code Examples](docs/code-examples.md) and the complete [API Reference](docs/api-reference.md).

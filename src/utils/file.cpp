@@ -41,8 +41,8 @@ static ::std::string generateRandomString(size_t length) {
   static constexpr ::std::string_view charset = "0123456789"
                                                 "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
                                                 "abcdefghijklmnopqrstuvwxyz";
-  static ::std::mt19937 rg{::std::random_device{}()};
-  static ::std::uniform_int_distribution<::std::string::size_type> pick(
+  thread_local ::std::mt19937 rg{::std::random_device{}()};
+  thread_local ::std::uniform_int_distribution<::std::string::size_type> pick(
       0, charset.size() - 1);
 
   ::std::string s;

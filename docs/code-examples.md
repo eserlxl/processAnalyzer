@@ -1,76 +1,108 @@
 # Code Examples
 
-This document provides a set of code examples demonstrating how to use the `processAnalyzer` C++ library to monitor and analyze system processes.
+This document provides examples of how to integrate `processAnalyzer` into your C++ applications.
 
-## Basic Usage: Stream and Print All Processes
+## Streaming, Filtering, and Sorting Processes
 
-This example shows how to iterate through all running processes and print their PID and command. This is the simplest way to get started with the library.
+The library uses C++23 features like `std::generator` to efficiently stream process data. The following example demonstrates how to:
+1.  Define a filter (e.g., find processes with "bash" in their name).
+2.  Lazily stream all processes that match the filter.
+3.  Sort the results by resident memory usage.
+4.  Iterate through the stream and print details.
 
 ```cpp
-#include <iostream>
 #include "analyzer/core.h"
+#include <iostream>
+#include <ranges>
 
 int main() {
-    try {
-        // Stream all running processes and print their PID and command
-        for (const auto& process : analyzer::processes()) {
-            std::cout << "PID: " << process.pid()
-                      << ", Command: " << process.comm() << std::endl;
-        }
-    } catch (const std::exception& e) {
-        std::cerr << "Error: " << e.what() << std::endl;
-        return 1;
+    ProcessAnalyzer analyzer;
+
+    // 1. Define a filter to find processes with "bash" in their name
+    ProcessFilter filter;
+    filter.nameContains = "bash";
+
+    // 2. Lazily stream, filter, and sort processes by memory usage
+    // Note: The actual streaming happens when you iterate over processStream
+    auto processStream = analyzer.streamQueryProcesses(
+        filter,
+        ProcessSortField::rss, // Sort by Resident Set Size (RSS)
+        SortOrder::desc        // Sort in descending order
+    );
+
+    // 3. Iterate through the stream and print details
+    std::cout << "--- Finding 'bash' processes, sorted by memory usage ---\\n";
+    for (const auto& proc : processStream) {
+        std::cout << "PID: " << proc.pid
+                  << ", Name: " << proc.name
+                  << ", Memory: " << proc.residentMemory << " KB\\n";
     }
+
     return 0;
 }
 ```
 
-## Find a Process by Name
+## Creating a System Snapshot
 
-This example demonstrates how to find a specific process by its name.
+If you prefer a static snapshot of the system state rather than a stream, you can use the `snapshot()` method.
 
 ```cpp
-#include <iostream>
 #include "analyzer/core.h"
+#include <iostream>
 
 int main() {
-    try {
-        const std::string processName = "systemd";
-        auto process = analyzer::process::find_by_name(processName);
-
-        if (process) {
-            std::cout << "Found process '" << processName << "' with PID: " << process->pid() << std::endl;
-            std::cout << "  - CPU Usage: " << process->cpu_usage_short() << "%" << std::endl;
-            std::cout << "  - Memory Usage: " << process->resident_set_size() / 1024 << " MB" << std::endl;
-        } else {
-            std::cout << "Process '" << processName << "' not found." << std::endl;
+    ProcessAnalyzer analyzer; 
+    
+    // Get a complete snapshot of all running processes
+    auto result = analyzer.snapshot();
+    
+    if (result) {
+        const auto& processes = *result;
+        std::cout << "Total processes: " << processes.size() << "\\n";
+        
+        for (const auto& proc : processes) {
+            std::cout << "PID: " << proc.pid << ", Name: " << proc.name << std::endl;
         }
-    } catch (const std::exception& e) {
-        std::cerr << "Error: " << e.what() << std::endl;
-        return 1;
+    } else {
+        std::cerr << "Error getting processes: " << result.error().message() << std::endl;
     }
+    
     return 0;
 }
 ```
 
 ## Get System-Wide Statistics
 
-This example shows how to retrieve and display system-wide metrics like CPU usage, memory, and uptime.
+This example shows how to retrieve and display system-wide metrics like memory usage and load average.
 
 ```cpp
 #include <iostream>
 #include <iomanip>
-#include "analyzer/system.h"
+#include "analyzer/core.h"
 
 int main() {
     try {
-        auto system_stats = analyzer::system::get_system_stats();
+        ProcessAnalyzer analyzer;
+        
+        // System Memory Info
+        auto memInfoResult = analyzer.getSystemMemoryInfo();
+        if (memInfoResult) {
+            const auto& mem = *memInfoResult;
+            std::cout << "System Memory:" << std::endl;
+            std::cout << "  - Total: " << mem.memTotal / 1024 << " MB" << std::endl;
+            std::cout << "  - Free:  " << mem.memFree / 1024 << " MB" << std::endl;
+            std::cout << "  - Available: " << mem.memAvailable / 1024 << " MB" << std::endl;
+        }
 
-        std::cout << "System-Wide Statistics:" << std::endl;
-        std::cout << "  - Uptime: " << std::fixed << std::setprecision(2) << system_stats.uptime / 3600.0 << " hours" << std::endl;
-        std::cout << "  - Total Memory: " << system_stats.mem_total / (1024 * 1024) << " GB" << std::endl;
-        std::cout << "  - Free Memory: " << system_stats.mem_free / (1024 * 1024) << " GB" << std::endl;
-        std::cout << "  - CPU Usage: " << std::fixed << std::setprecision(2) << system_stats.total_cpu_usage << "%" << std::endl;
+        // System Load Average
+        auto loadResult = analyzer.getSystemLoadAverage();
+        if (loadResult) {
+            const auto& load = *loadResult;
+            std::cout << "Load Average: " 
+                      << load.oneMin << " (1m), " 
+                      << load.fiveMin << " (5m), " 
+                      << load.fifteenMin << " (15m)" << std::endl;
+        }
 
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl;
@@ -80,4 +112,5 @@ int main() {
 }
 ```
 
-For more advanced examples and a complete API reference, please see the [API Reference](api-reference.md).
+For more details on the API, refer to the [API Reference](api-reference.md).
+
