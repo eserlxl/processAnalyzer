@@ -108,11 +108,9 @@ These functions provide a comprehensive interface for interacting with the file 
 - `Result<bool> exists(const std::filesystem::path& path)`: Checks if a file or directory exists. Returns an error if status cannot be determined.
 - `Result<bool> isFile(const std::filesystem::path& path)`: Checks if a path points to a regular file. Returns `false` if the path does not exist, or an error for other failures.
 - `Result<bool> isDirectory(const std::filesystem::path& path)`: Checks if a path points to a directory. Returns `false` if the path does not exist, or an error for other failures.
-- `bool isReadable(const std::filesystem::path& path)`: Checks if a file or directory is readable based on its permissions. Returns `false` on error.
-- `bool isWritable(const std::filesystem::path& path)`: Checks if a file or directory is writable based on its permissions. Returns `false` on error.
-- `bool isExecutable(const std::filesystem::path& path)`: Checks if a file is executable based on its permissions. Returns `false` on error.
-
-> **Note**: The `isReadable`, `isWritable`, and `isExecutable` functions are simple wrappers that return `false` if an underlying error occurs (e.g., file not found). For robust error handling, use `getPermissions` and check the result explicitly.
+- `Result<bool> isReadable(const std::filesystem::path& path)`: Checks if a file or directory is readable by the current user. Returns `Result<true>` if readable, `Result<false>` if not, or an `std::error_code` on failure (e.g., file not found, permission issues during status check).
+- `Result<bool> isWritable(const std::filesystem::path& path)`: Checks if a file or directory is writable by the current user. Returns `Result<true>` if writable, `Result<false>` if not, or an `std::error_code` on failure.
+- `Result<bool> isExecutable(const std::filesystem::path& path)`: Checks if a file is executable by the current user. Returns `Result<true>` if executable, `Result<false>` if not, or an `std::error_code` on failure.
 
 ### Permissions
 
@@ -120,7 +118,9 @@ These functions provide a comprehensive interface for interacting with the file 
 - `Result<void> setPermissions(const std::filesystem::path& path, std::filesystem::perms prms)`: Sets the permissions of a file or directory.
 - `Result<void> addPermissions(const std::filesystem::path& path, std::filesystem::perms prms)`: Adds specified permissions to a file or directory.
 - `Result<void> removePermissions(const std::filesystem::path& path, std::filesystem::perms prms)`: Removes specified permissions from a file or directory.
-- `Result<void> chown(const std::filesystem::path& path, const std::string& owner, const std::string& group)`: **Unsupported.** This function is a placeholder and will always return an `unsupportedOperation` error.
+- `Result<void> chown(const std::filesystem::path& path, const std::string& owner, const std::string& group)`: Changes the owner and group of a file or directory.
+  - **Linux**: This function is fully supported. It resolves `owner` and `group` names to UIDs/GIDs and applies the change. Returns `UtilsError::invalidArgument` if an owner or group name is not found, or an `std::error_code` if the underlying `chown` system call fails (e.g., due to insufficient permissions).
+  - **Other Platforms**: On non-Linux systems, this function is **unsupported** and will return `UtilsError::unsupportedOperation`.
 
 ### Directory Traversal
 

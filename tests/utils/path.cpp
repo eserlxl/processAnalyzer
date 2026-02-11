@@ -229,12 +229,12 @@ TEST_F(PathCoreTest, JoinPaths) {
     fs::path expected1 = fs::path("a") / "b" / "c";
     EXPECT_EQ(utils::joinPaths({"a", "b", "c"}), expected1);
 
-    fs::path p_abs = fs::absolute(testDir);
-    fs::path expected2 = p_abs / "bin";
-    EXPECT_EQ(utils::joinPaths({"a", "b", p_abs, "bin"}), expected2);
+    fs::path pAbs = fs::absolute(testDir);
+    fs::path expected2 = pAbs / "bin";
+    EXPECT_EQ(utils::joinPaths({"a", "b", pAbs, "bin"}), expected2);
 
-    fs::path expected3 = p_abs / "share" / "doc";
-    EXPECT_EQ(utils::joinPaths({p_abs, "share", "doc"}), expected3);
+    fs::path expected3 = pAbs / "share" / "doc";
+    EXPECT_EQ(utils::joinPaths({pAbs, "share", "doc"}), expected3);
 
     fs::path expected4 = fs::path("a") / "c";
     EXPECT_EQ(utils::joinPaths({"a", "", "c"}), expected4);
@@ -491,8 +491,8 @@ TEST_F(UtilsPermissionsTest, AddAndRemovePermissions) {
 }
 
 TEST_F(UtilsPermissionsTest, ReadWriteExecutableChecks) {
-    EXPECT_TRUE(utils::isReadable(testFile));
-    EXPECT_TRUE(utils::isWritable(testFile));
+    EXPECT_TRUE(utils::isReadable(testFile).value());
+    EXPECT_TRUE(utils::isWritable(testFile).value());
     
     {
         std::ofstream os(testFile, std::ios::app);
@@ -500,12 +500,12 @@ TEST_F(UtilsPermissionsTest, ReadWriteExecutableChecks) {
     }
 
     #ifndef _WIN32
-    EXPECT_FALSE(utils::isExecutable(testFile));
+    EXPECT_FALSE(utils::isExecutable(testFile).value());
     #endif
 
     ASSERT_TRUE(utils::setPermissions(testFile, fs::perms::owner_read).has_value());
-    EXPECT_TRUE(utils::isReadable(testFile));
-    EXPECT_FALSE(utils::isWritable(testFile));
+    EXPECT_TRUE(utils::isReadable(testFile).value());
+    EXPECT_FALSE(utils::isWritable(testFile).value());
     
     {
         std::ofstream os(testFile, std::ios::app);
@@ -513,19 +513,21 @@ TEST_F(UtilsPermissionsTest, ReadWriteExecutableChecks) {
     }
 
     #ifndef _WIN32
-    EXPECT_FALSE(utils::isExecutable(testFile));
+    EXPECT_FALSE(utils::isExecutable(testFile).value());
     #endif
     
     #ifndef _WIN32
     ASSERT_TRUE(utils::addPermissions(testFile, fs::perms::owner_exec).has_value());
-    EXPECT_TRUE(utils::isExecutable(testFile));
+    EXPECT_TRUE(utils::isExecutable(testFile).value());
     #endif
 }
 
 TEST_F(UtilsPermissionsTest, Chown) {
-    auto chownResult = utils::chown(testFile, "user", "group");
+    // Attempt to chown to a non-existent user/group to test error handling
+    // The implementation returns invalidArgument for non-existent owner/group
+    auto chownResult = utils::chown(testFile, "nonexistentuser_12345", "nonexistentgroup_12345");
     ASSERT_FALSE(chownResult.has_value());
-    EXPECT_EQ(chownResult.error(), utils::make_error_code(utils::UtilsError::unsupportedOperation));
+    EXPECT_EQ(chownResult.error(), utils::make_error_code(utils::UtilsError::invalidArgument));
 }
 
 TEST_F(PathFsTest, TraverseDirectory) {

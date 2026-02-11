@@ -64,7 +64,7 @@ public:
 
     //- System-wide Information & Statistics
     [[nodiscard]] utils::Result<SystemInfo> getSystemInfo() const;
-    [[nodiscard]] utils::Result<long long> getSystemBootTimeUnix() const;
+    static utils::Result<long long> getSystemBootTimeUnix();
     static utils::Result<long> getSystemClockTicksPerSecond();
     [[nodiscard]] utils::Result<SystemMemoryInfo> getSystemMemoryInfo() const;
     [[nodiscard]] utils::Result<SystemLoadAverage> getSystemLoadAverage() const;
@@ -74,7 +74,7 @@ public:
     [[nodiscard]] utils::Result<SystemActivityStats> getSystemActivityStats() const;
 
     //- System Performance Metrics (Self-Contained)
-    [[nodiscard]] utils::Result<SystemCpuStats> getSystemCpuStats() const;
+    static utils::Result<SystemCpuStats> getSystemCpuStats();
     [[nodiscard]] utils::Result<SystemCpuUsage> getSystemCpuUsage(std::chrono::milliseconds durationMs) const;
     [[nodiscard]] utils::Result<PerCpuUsage> getPerCpuUsage(std::chrono::milliseconds durationMs) const;
 

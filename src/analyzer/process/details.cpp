@@ -24,9 +24,14 @@
 
 namespace {
 
+constexpr int symlinkBufferSize = 256;
+constexpr int kilobyteSize = 1024;
+constexpr int parseIntegerBase = 10;
+constexpr int threadStatSkipFields = 14;
+
 // Helper to read symlink target
 utils::Result<std::string> readSymlink(const std::filesystem::path& linkPath) {
-    std::array<char, 256> buffer; // Increased buffer size
+    std::array<char, symlinkBufferSize> buffer; // Increased buffer size
     ssize_t len = ::readlink(linkPath.c_str(), buffer.data(), buffer.size() - 1);
     if (len == -1) {
         return std::unexpected(std::error_code(errno, std::system_category()));
@@ -34,6 +39,8 @@ utils::Result<std::string> readSymlink(const std::filesystem::path& linkPath) {
     buffer[len] = '\0';
     return std::string(buffer.data());
 }
+
+
 
 // Helper to get username from UID
 std::string getUserName(uid_t uid) {
@@ -50,7 +57,6 @@ utils::Result<ProcessInfo> parseStatFile(pid_t pid, const std::string& statConte
     info.pid = pid;
 
     std::istringstream iss(statContent);
-    std::string token;
     
     // Read pid
     iss >> info.pid;
@@ -59,47 +65,57 @@ utils::Result<ProcessInfo> parseStatFile(pid_t pid, const std::string& statConte
     }
 
     // Read comm (process name), which can contain spaces and is enclosed in parentheses
-    size_t start_paren = statContent.find('(');
-    size_t end_paren = statContent.rfind(')');
-    if (start_paren == std::string::npos || end_paren == std::string::npos || end_paren < start_paren) {
+    size_t startParen = statContent.find('(');
+    size_t endParen = statContent.rfind(')');
+    if (startParen == std::string::npos || endParen == std::string::npos || endParen < startParen) {
         return std::unexpected(utils::make_error_code(utils::UtilsError::analyzerParsingError));
     }
-    info.name = statContent.substr(start_paren + 1, end_paren - start_paren - 1);
+    info.name = statContent.substr(startParen + 1, endParen - startParen - 1);
 
     // Skip to after the closing parenthesis
-    iss.seekg(end_paren + 1);
+    iss.seekg(static_cast<std::streamoff>(endParen + 1));
 
     // Read remaining fields
     char stateChar;
-    long ppid_l, pgrp_l, session_l, tty_nr_l, tpgid_l;
-    unsigned long flags_ul;
-    unsigned long minflt_ul, cminflt_ul, majflt_ul, cmajflt_ul;
-    unsigned long utime_ul, stime_ul, cutime_ul, cstime_ul;
-    long priority_l, nice_l;
-    long num_threads_l;
-    long itrealvalue_l;
-    unsigned long long starttime_ull; // in clock ticks
-    unsigned long vsize_ul;
-    long rss_l; // in pages
+    long ppidL;
+    long pgrpL;
+    long sessionL;
+    long ttyNrL;
+    long tpgidL;
+    unsigned long flagsUl;
+    unsigned long minfltUl;
+    unsigned long cminfltUl;
+    unsigned long majfltUl;
+    unsigned long cmajfltUl;
+    unsigned long utimeUl;
+    unsigned long stimeUl;
+    unsigned long cutimeUl;
+    unsigned long cstimeUl;
+    long priorityL;
+    long niceL;
+    long numThreadsL;
+    long itrealvalueL;
+    unsigned long long starttimeUll; // in clock ticks
+    unsigned long vsizeUl;
+    long rssL; // in pages
 
-    if (!(iss >> stateChar >> ppid_l >> pgrp_l >> session_l >> tty_nr_l >> tpgid_l
-              >> flags_ul >> minflt_ul >> cminflt_ul >> majflt_ul >> cmajflt_ul
-              >> utime_ul >> stime_ul >> cutime_ul >> cstime_ul
-              >> priority_l >> nice_l >> num_threads_l >> itrealvalue_l
-              >> starttime_ull >> vsize_ul >> rss_l)) {
+    if (!(iss >> stateChar >> ppidL >> pgrpL >> sessionL >> ttyNrL >> tpgidL
+              >> flagsUl >> minfltUl >> cminfltUl >> majfltUl >> cmajfltUl
+              >> utimeUl >> stimeUl >> cutimeUl >> cstimeUl
+              >> priorityL >> niceL >> numThreadsL >> itrealvalueL
+              >> starttimeUll >> vsizeUl >> rssL)) {
         return std::unexpected(utils::make_error_code(utils::UtilsError::analyzerParsingError));
     }
 
     info.state = std::string(1, stateChar);
-    info.ppid = static_cast<pid_t>(ppid_l);
-    info.cpuUserTimeTicks = utime_ul;
-    info.cpuKernelTimeTicks = stime_ul;
-    info.priority = priority_l; // Not always the same as nice, but usually derived from it.
-    // nice_l is the actual nice value. Let's use priority_l for ProcessInfo for now.
-    info.threadCount = num_threads_l;
-    info.startTimeTicks = starttime_ull;
-    info.virtualMemory = vsize_ul / 1024; // Convert bytes to KB
-    info.residentMemory = rss_l * (sysconf(_SC_PAGESIZE) / 1024); // Convert pages to KB
+    info.ppid = static_cast<pid_t>(ppidL);
+    info.cpuUserTimeTicks = static_cast<long long>(utimeUl);
+    info.cpuKernelTimeTicks = static_cast<long long>(stimeUl);
+    info.priority = static_cast<int>(priorityL);
+    info.threadCount = static_cast<int>(numThreadsL);
+    info.startTimeTicks = static_cast<long long>(starttimeUll);
+    info.virtualMemory = static_cast<long long>(vsizeUl) / kilobyteSize; // Convert bytes to KB
+    info.residentMemory = rssL * (sysconf(_SC_PAGESIZE) / kilobyteSize); // Convert pages to KB
 
     // startTimeUnix and elapsedTime will be calculated later in getProcessDetails,
     // as they need system boot time.
@@ -114,32 +130,37 @@ utils::Result<ProcessInfo> parseStatusFile(ProcessInfo& info, const std::string&
     std::istringstream iss(statusContent);
     std::string line;
     while (std::getline(iss, line)) {
-        if (line.rfind("Uid:", 0) == 0) {
+        if (line.starts_with("Uid:")) {
             std::istringstream lineStream(line);
             std::string label;
-            uid_t ruid, euid, suid, fsuid;
+            uid_t ruid;
+            uid_t euid;
+            uid_t suid;
+            uid_t fsuid;
             lineStream >> label >> ruid >> euid >> suid >> fsuid;
             if (!lineStream.fail()) {
                 info.uid = ruid;
                 info.username = getUserName(ruid);
             }
-        } else if (line.rfind("VmSize:", 0) == 0) {
+        } else if (line.starts_with("VmSize:")) {
             std::istringstream lineStream(line);
-            std::string label, unit;
+            std::string label;
+            std::string unit;
             long long value;
             lineStream >> label >> value >> unit;
             if (!lineStream.fail() && unit == "kB") {
                 info.virtualMemory = value;
             }
-        } else if (line.rfind("VmRSS:", 0) == 0) {
+        } else if (line.starts_with("VmRSS:")) {
             std::istringstream lineStream(line);
-            std::string label, unit;
+            std::string label;
+            std::string unit;
             long long value;
             lineStream >> label >> value >> unit;
             if (!lineStream.fail() && unit == "kB") {
                 info.residentMemory = value;
             }
-        } else if (line.rfind("Threads:", 0) == 0) {
+        } else if (line.starts_with("Threads:")) {
             std::istringstream lineStream(line);
             std::string label;
             long value;
@@ -154,18 +175,19 @@ utils::Result<ProcessInfo> parseStatusFile(ProcessInfo& info, const std::string&
 }
 
 
+
 // Helper to parse /proc/[pid]/io
 utils::Result<void> parseIoFile(ProcessInfo& info, const std::string& ioContent) {
     std::istringstream iss(ioContent);
     std::string line;
     while (std::getline(iss, line)) {
-        if (line.rfind("read_bytes:", 0) == 0) {
+        if (line.starts_with("read_bytes:")) {
             std::istringstream lineStream(line);
             std::string label;
             long long value;
             lineStream >> label >> value;
             if (!lineStream.fail()) info.ioReadBytes = value;
-        } else if (line.rfind("write_bytes:", 0) == 0) {
+        } else if (line.starts_with("write_bytes:")) {
             std::istringstream lineStream(line);
             std::string label;
             long long value;
@@ -180,7 +202,7 @@ utils::Result<void> parseIoFile(ProcessInfo& info, const std::string& ioContent)
 utils::Result<std::string> parseCmdlineFile(const std::string& cmdlineContent) {
     // cmdline content is null-separated arguments
     std::string cmdline = cmdlineContent;
-    std::replace(cmdline.begin(), cmdline.end(), '\0', ' ');
+    std::ranges::replace(cmdline, '\0', ' ');
     if (!cmdline.empty() && cmdline.back() == ' ') {
         cmdline.pop_back(); // Remove trailing space
     }
@@ -296,7 +318,7 @@ utils::Result<std::vector<ThreadInfo>> ProcessAnalyzer::getProcessThreads(int pi
     for (const auto& entry : std::filesystem::directory_iterator(taskPath)) {
         if (entry.is_directory()) {
             std::string tidStr = entry.path().filename().string();
-            auto tidOpt = utils::parseIntegerNoThrow<pid_t>(tidStr, 10);
+            auto tidOpt = utils::parseIntegerNoThrow<pid_t>(tidStr, parseIntegerBase);
             if (!tidOpt) continue; // Not a valid TID directory
 
             pid_t tid = *tidOpt;
@@ -313,27 +335,28 @@ utils::Result<std::vector<ThreadInfo>> ProcessAnalyzer::getProcessThreads(int pi
                 iss >> token;
                 
                 // Read comm (thread name)
-                size_t start_paren = statContent->find('(');
-                size_t end_paren = statContent->rfind(')');
-                if (start_paren != std::string::npos && end_paren != std::string::npos && end_paren > start_paren) {
-                    threadInfo.name = statContent->substr(start_paren + 1, end_paren - start_paren - 1);
+                size_t startParen = statContent->find('(');
+                size_t endParen = statContent->rfind(')');
+                if (startParen != std::string::npos && endParen != std::string::npos && endParen > startParen) {
+                    threadInfo.name = statContent->substr(startParen + 1, endParen - startParen - 1);
                 } else {
                     threadInfo.name = "Unknown";
                 }
 
-                iss.seekg(end_paren + 1);
+                iss.seekg(static_cast<std::streamoff>(endParen + 1));
 
                 char stateChar;
-                unsigned long utime_ul, stime_ul;
+                unsigned long utimeUl;
+                unsigned long stimeUl;
                 if (iss >> stateChar) {
                     threadInfo.state = std::string(1, stateChar);
                 }
                 // Skip many fields to get utime and stime
                 // (p_pid to policy - 14 fields)
-                for (int i = 0; i < 14; ++i) iss >> token;
-                if (iss >> utime_ul >> stime_ul) {
-                    threadInfo.cpuUserTimeTicks = utime_ul;
-                    threadInfo.cpuKernelTimeTicks = stime_ul;
+                for (int i = 0; i < threadStatSkipFields; ++i) iss >> token;
+                if (iss >> utimeUl >> stimeUl) {
+                    threadInfo.cpuUserTimeTicks = static_cast<long long>(utimeUl);
+                    threadInfo.cpuKernelTimeTicks = static_cast<long long>(stimeUl);
                 }
             }
             threads.push_back(threadInfo);
@@ -359,7 +382,7 @@ utils::Result<std::vector<OpenFileDescriptorInfo>> ProcessAnalyzer::getProcessOp
     for (const auto& entry : std::filesystem::directory_iterator(fdPath)) {
         if (entry.is_symlink()) {
             std::string fdStr = entry.path().filename().string();
-            auto fdOpt = utils::parseIntegerNoThrow<int>(fdStr, 10);
+            auto fdOpt = utils::parseIntegerNoThrow<int>(fdStr, parseIntegerBase);
             if (!fdOpt) continue; // Not a valid file descriptor
 
             OpenFileDescriptorInfo fdInfo;
@@ -370,13 +393,13 @@ utils::Result<std::vector<OpenFileDescriptorInfo>> ProcessAnalyzer::getProcessOp
                 fdInfo.path = linkTargetResult.value();
 
                 // Determine file type (basic classification)
-                if (fdInfo.path.rfind("socket:[", 0) == 0) {
+                if (fdInfo.path.starts_with("socket:[")) {
                     fdInfo.type = OpenFileType::Socket;
-                } else if (fdInfo.path.rfind("pipe:[", 0) == 0) {
+                } else if (fdInfo.path.starts_with("pipe:[")) {
                     fdInfo.type = OpenFileType::Pipe;
-                } else if (fdInfo.path.rfind("anon_inode:[", 0) == 0) {
+                } else if (fdInfo.path.starts_with("anon_inode:[")) {
                     fdInfo.type = OpenFileType::AnonInode;
-                } else if (fdInfo.path.rfind("/", 0) == 0) {
+                } else if (fdInfo.path.starts_with('/')) {
                     // Try to differentiate between regular files and device files
                     try {
                         std::error_code ec;

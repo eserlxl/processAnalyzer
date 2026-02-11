@@ -8,8 +8,8 @@
 
 namespace Internal {
 
-utils::Result<long long> getTotalSystemCpuTimeTicks(const std::filesystem::path& procPath) {
-    auto stats = ProcessAnalyzer(procPath).getSystemCpuStats();
+utils::Result<long long> getTotalSystemCpuTimeTicks(const std::filesystem::path& /*procPath*/) {
+    auto stats = ProcessAnalyzer::getSystemCpuStats();
     if (stats) {
         unsigned long long totalTicks = stats->user + stats->nice + stats->system + stats->idle +
                                         stats->iowait + stats->irq + stats->softirq + stats->steal;

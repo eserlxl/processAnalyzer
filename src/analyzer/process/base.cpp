@@ -122,7 +122,7 @@ utils::Result<std::vector<ProcessInfo>> ProcessAnalyzer::getAllDescendantProcess
         pidsToExplore.pop_back();
 
         // Avoid infinite loops with circular parent-child relationships (though rare in /proc)
-        if (std::find(visitedPids.begin(), visitedPids.end(), currentParentPid) != visitedPids.end()) {
+        if (std::ranges::find(visitedPids, currentParentPid) != visitedPids.end()) {
             continue;
         }
         visitedPids.push_back(currentParentPid);

@@ -47,10 +47,12 @@ utils::Result<std::vector<ProcessInfo>> ProcessAnalyzer::queryProcesses(
 ) const {
     auto pidsResult = getPids();
     if (!pidsResult) {
-        return utils::Result<std::vector<ProcessInfo>>(std::unexpected(pidsResult.error()));
+        return {std::unexpected(pidsResult.error())};
     }
 
     std::vector<ProcessInfo> filteredProcesses;
+    filteredProcesses.reserve(pidsResult.value().size()); // Reserve space for efficiency
+
     for (int pid : pidsResult.value()) {
         auto detailsResult = getProcessDetails(pid);
         if (!detailsResult) {
@@ -58,7 +60,7 @@ utils::Result<std::vector<ProcessInfo>> ProcessAnalyzer::queryProcesses(
             // For now, let's just skip processes we can't get details for.
             continue;
         }
-        ProcessInfo pInfo = detailsResult.value();
+        const ProcessInfo& pInfo = detailsResult.value(); // Use const reference
 
         // Apply filters
         if (!applyStringFilter(filter.nameContains, filter.nameRegex, pInfo.name)) continue;
@@ -115,7 +117,7 @@ utils::Result<std::vector<ProcessInfo>> ProcessAnalyzer::queryProcesses(
     }
 
     // Sort processes
-    std::sort(filteredProcesses.begin(), filteredProcesses.end(),
+    std::ranges::sort(filteredProcesses,
         [&](const ProcessInfo& a, const ProcessInfo& b) {
             bool less = false;
             switch (sortBy) {

@@ -111,11 +111,11 @@ The C++ API allows you to integrate process and system monitoring directly into 
 **Example `main.cpp`:**
 ```cpp
 #include <iostream>
-#include "analyzer/process_analyzer.h"
+#include "analyzer/analyzer.h"
 
 int main() {
     try {
-        ProcessAnalyzer analyzer;
+        processAnalyzer analyzer;
         // Stream all running processes and print their PID and name
         for (const auto& process : analyzer.streamProcesses()) {
             std.cout << "PID: " << process.pid
