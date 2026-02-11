@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "analyzer/process_analyzer.h"
+#include "analyzer/analyzer.h"
 #include <string>
 #include <vector>
 #include <filesystem>

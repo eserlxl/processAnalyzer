@@ -2,10 +2,11 @@
 // Copyright (c) 2026 Eser KUBALI
 
 #include "gtest/gtest.h"
+#include "analyzer/analyzer.h"
 #include "analyzer/core.h"
 #include "analyzer/network_model.h"
 #include "analyzer/system_model.h" // For NetworkInterfaceStats
-#include "utils/test.h" // For MockProc
+#include "utils/testing_framework.h" // For MockProc
 
 #include <vector>
 #include <string>

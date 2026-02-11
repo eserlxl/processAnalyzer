@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright (c) 2026 Eser KUBALI
 
-#ifndef UTILS_TEST_H
-#define UTILS_TEST_H
+#ifndef TESTING_FRAMEWORK_H
+#define TESTING_FRAMEWORK_H
 
 #include <string>
 #include <filesystem>
@@ -223,4 +223,4 @@ private:
     MockProc::AddProcessOptions options_;
 };
 
-#endif // TEST_UTILS_H
+#endif // TESTING_FRAMEWORK_H

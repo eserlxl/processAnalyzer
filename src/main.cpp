@@ -8,7 +8,7 @@
 #include <iomanip>
 #include <filesystem> // Added for std::filesystem::path
 
-#include "analyzer/core.h"
+#include "analyzer/analyzer.h"
 #include "cli/args.h"
 #include "cli/output.h"
 

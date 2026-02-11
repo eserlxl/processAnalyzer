@@ -7,13 +7,6 @@
 #include <vector>
 #include <string>
 
-enum class ProcessSortField {
-    pid,
-    ppid,
-    owner,
-    cpu,
-    memory,
-    name
-};
+
 
 #endif // ANALYZER_CORE_H

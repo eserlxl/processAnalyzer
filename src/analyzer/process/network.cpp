@@ -3,6 +3,8 @@
 
 #include "analyzer/core.h"
 #include "utils/core.h"
+#include "analyzer/analyzer.h"
+#include "analyzer/network_model.h"
 
 #include <filesystem>
 #include <sstream>

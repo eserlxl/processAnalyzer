@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright (c) 2026 Eser KUBALI
 
-#include "analyzer/process_analyzer.h"
+#include "analyzer/analyzer.h"
 #include "utils/core.h"
 #include <filesystem>
 

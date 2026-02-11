@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright (c) 2026 Eser KUBALI
 
-#include "analyzer_internal_helpers.h"
-#include "analyzer/process_analyzer.h" // For ProcessInfo, ProcessFilter, etc.
+#include "internal_helpers.h"
+#include "analyzer/analyzer.h" // For ProcessInfo, ProcessFilter, etc.
 #include "utils/core.h"
 #include <regex>
 
@@ -29,10 +29,19 @@ bool matchesFilter(const ProcessInfo& process, const ProcessFilter& filter) {
 
 int compareProcesses(const ProcessInfo& a, const ProcessInfo& b, ProcessSortField sortBy) {
     switch (sortBy) {
-        case ProcessSortField::pid: return a.pid < b.pid ? -1 : (a.pid > b.pid ? 1 : 0);
-        case ProcessSortField::ppid: return a.ppid < b.ppid ? -1 : (a.ppid > b.ppid ? 1 : 0);
+        case ProcessSortField::pid:
+            if (a.pid < b.pid) return -1;
+            if (a.pid > b.pid) return 1;
+            return 0;
+        case ProcessSortField::ppid:
+            if (a.ppid < b.ppid) return -1;
+            if (a.ppid > b.ppid) return 1;
+            return 0;
         // ... all other sort fields ...
-        default: return a.pid < b.pid ? -1 : (a.pid > b.pid ? 1 : 0);
+        default:
+            if (a.pid < b.pid) return -1;
+            if (a.pid > b.pid) return 1;
+            return 0;
     }
     return 0;
 }
@@ -62,7 +71,7 @@ utils::Result<std::vector<std::string>> readProcessEnvironmentVars(const std::fi
     std::string_view content = *environContentOpt;
     size_t start = 0;
     while(start < content.size()) {
-        size_t end = content.find(0, start);
+        size_t end = content.find('\0', start);
         if (end == std::string_view::npos) break;
         env.emplace_back(content.substr(start, end - start));
         start = end + 1;
