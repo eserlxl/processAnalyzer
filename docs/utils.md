@@ -100,7 +100,7 @@ These functions provide a comprehensive interface for interacting with the file 
 - `Result<std::filesystem::path> createTemporaryDirectory(std::string_view prefix = "")`: Creates a unique temporary directory.
 - `Result<std::vector<std::filesystem::path>> listDirectory(const std::filesystem::path& path)`: Lists all entries (files and directories) within a directory.
 - `Result<void> copyFile(const std::filesystem::path& source, const std::filesystem::path& destination)`: Copies a file from `source` to `destination`.
-- `Result<void> moveFile(const std::filesystem::path& source, const std::filesystem::path& destination)`: Moves/renames a file from `source` to `destination`.
+- `Result<void> moveFile(const std::filesystem::path& source, const std::filesystem::path& destination)`: Moves/renames a file from `source` to `destination`. It will create any necessary parent directories for the destination path.
 - `Result<uintmax_t> getFileSize(const std::filesystem::path& filePath)`: Gets the size of a file in bytes.
 
 ### Path Information and Status
@@ -238,4 +238,4 @@ int main() {
 
 ## Unit Tests
 
-The utility functions are tested in `tests/utils/`, with specific tests such as `Core.cpp`, `FileSystemTest.cpp`, and `TypesTest.cpp`. These tests cover various scenarios, including edge cases and error conditions.
+The utility functions are tested in `tests/utils/`, with specific tests such as `core.cpp`, `FileSystemTest.cpp`, and `TypesTest.cpp`. These tests cover various scenarios, including edge cases and error conditions.

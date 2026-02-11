@@ -7,17 +7,17 @@ This document provides detailed instructions on how to build `processAnalyzer` f
 To build and run `processAnalyzer`, ensure your system meets the following requirements:
 
 *   **Operating System**: Linux (relies on `/proc` filesystem).
-*   **Compiler**: A C++ compiler supporting C++23 (e.g., GCC 12+, Clang 16+).
+*   **Compiler**: A C++ compiler supporting C++23 with `std::generator` support (e.g., GCC 14+, Clang 17+ with libc++).
 *   **Build System**: CMake (version 3.17 or higher) and Make (or Ninja).
 *   **VCS**: `git` for cloning the repository.
 *   **Testing**: `gtest` and `gmock` are required for building and running the test suite. They are automatically fetched by CMake if not found.
 
 ### Dependency Installation (Debian-based Systems)
 
-You can install the necessary tools on Debian-based systems (like Ubuntu) with the following command:
+You can install the necessary tools on Debian-based systems (like Ubuntu 24.04+) with the following command:
 
 ```bash
-sudo apt-get update && sudo apt-get install -y build-essential g++-12 cmake git
+sudo apt-get update && sudo apt-get install -y build-essential g++-14 cmake git
 ```
 
 ## Building from Source

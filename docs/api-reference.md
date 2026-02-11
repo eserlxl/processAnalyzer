@@ -11,7 +11,7 @@ While formal Doxygen-generated documentation is not currently provided, you can 
 
 ### `ProcessAnalyzer` Class
 
-The `ProcessAnalyzer` class (defined in `include/analyzer/Core.h`) is the primary interface for interacting with system processes. It provides methods for:
+The `ProcessAnalyzer` class (defined in `include/analyzer/core.h`) is the primary interface for interacting with system processes. It provides methods for:
 
 *   **Process Enumeration**: `getPids()`, `streamPids()`, `streamProcesses()`, `queryProcesses()`.
 *   **Process Inspection**: `getProcessDetails()`, `getChildProcesses()`, `getParentProcess()`, `getAllDescendantProcesses()`.
@@ -44,21 +44,23 @@ For a comprehensive overview and usage examples of the utility library, please r
 
 ## Usage Example
 
-`processAnalyzer` can be used as a header-only or compiled library in your C++ projects. The following example demonstrates how to get a "snapshot" of all running processes.
+The following example demonstrates how to stream all running processes using a C++23 `std::generator`.
 
 ```cpp
-#include "analyzer/core.hh"
+#include "analyzer/core.h"
 #include <iostream>
 
 int main() {
-    ProcessAnalyzer analyzer; // Manages access to /proc
-    auto result = analyzer.snapshot();
-    if (result.has_value()) {
-        for (const auto& proc : result.value()) {
-            std::cout << "PID: " << proc.pid << ", Name: " << proc.name << std::endl;
+    try {
+        ProcessAnalyzer analyzer;
+        // Stream all running processes and print their PID and name
+        for (const auto& process : analyzer.streamProcesses()) {
+            std::cout << "PID: " << process.pid
+                      << ", Name: " << process.name << std::endl;
         }
-    } else {
-        std::cerr << "Error getting processes: " << result.error().message << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "Error: " << e.what() << std::endl;
+        return 1;
     }
     return 0;
 }

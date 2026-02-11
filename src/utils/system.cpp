@@ -57,6 +57,9 @@ Result<CommandOutput> executeCommand(::std::string_view command) {
 
     // Construct the command to redirect stderr. We use grouping to ensure
     // that stderr from the entire command is captured, even with pipes.
+    // SECURITY WARNING: This function executes the command string using popen (shell).
+    // It is vulnerable to command injection if the input is not sanitized.
+    // Callers MUST ensure that the 'command' argument is safe or properly escaped.
     ::std::string fullCommand = "{ " + std::string(command) + "; } 2> " + stderrPathStr;
 
     FILE* pipe = popen(fullCommand.c_str(), "r");

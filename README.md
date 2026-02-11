@@ -51,9 +51,9 @@ The project follows a standard CMake structure. For a detailed breakdown of the 
 ## 💻 System Requirements
 
 - **Operating System**: Linux (Kernel version 5.x or newer recommended)
-- **Compiler**: A C++23 compatible compiler:
-  - GCC 12 or newer
-  - Clang 16 or newer
+- **Compiler**: A C++23 compatible compiler. This project uses `std::generator`, which requires:
+  - GCC 14 or newer
+  - Clang 17 or newer (with `libc++`)
 - **Build Tools**:
   - CMake 3.17 or newer
   - Make or Ninja
@@ -80,13 +80,6 @@ Ensure the [system requirements](#-system-requirements) are met. All major depen
     cmake --build --preset release
     ```
     The executable will be located at `build/bin/processAnalyzer`.
-
-3.  **Install (Optional)**
-    ```bash
-    # Install the executable and library (requires sudo)
-    sudo cmake --install build
-    ```
-    This will install `processAnalyzer` to your system (e.g., in `/usr/local`).
 
 For advanced build options, see the [Build Guide](docs/build.md).
 
@@ -116,7 +109,7 @@ For a full command reference, see the [Usage Guide](docs/usage.md).
 
 ### C++ Library Usage
 
-The C++ API allows you to integrate process and system monitoring directly into your applications. After [installing](#-build-and-installation) the library, you can link against it using CMake.
+The C++ API allows you to integrate process and system monitoring directly into your applications. You can link against the library by adding the project as a subdirectory in your CMake configuration.
 
 **Example `main.cpp`:**
 ```cpp
