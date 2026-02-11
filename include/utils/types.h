@@ -7,6 +7,9 @@
 #include <system_error>
 #include <expected>
 #include <string>
+#include <string_view> // Required for std::string_view
+#include <optional>    // Required for std::optional
+#include <charconv>    // Required for std::from_chars
 
 namespace utils {
 
@@ -99,7 +102,6 @@ public:
             case static_cast<int>(UtilsError::tempDirectoryError): return "Temporary directory error";
             case static_cast<int>(UtilsError::outOfRange): return "Value out of range";
             case static_cast<int>(UtilsError::unknownError): return "Unknown error";
-
             // Analyzer specific errors
             case static_cast<int>(UtilsError::analyzerProcessNotFound): return "Analyzer: Process not found";
             case static_cast<int>(UtilsError::analyzerParsingError): return "Analyzer: Parsing error";
@@ -122,7 +124,7 @@ public:
             case UtilsError::ioError:
                 return condition == ::std::errc::io_error;
             case UtilsError::invalidArgument:
-            case UtilsError::pathError:
+            case UtilsError::pathError: // pathError grouped with invalid_argument
             case UtilsError::invalidPathFormat:
             case UtilsError::invalidBase64Input:
             case UtilsError::invalidUrlEncoding:
@@ -176,6 +178,10 @@ inline const UtilsErrorCategory& utilsErrorCategory() {
 inline ::std::error_code make_error_code(UtilsError e) {
     return {static_cast<int>(e), utilsErrorCategory()};
 }
+
+// Declaration for parseIntegerNoThrow
+template <typename TInt>
+std::optional<TInt> parseIntegerNoThrow(std::string_view text, int base = 10);
 
 } // namespace utils
 

@@ -29,6 +29,15 @@
 class ProcessAnalyzer {
 public:
     explicit ProcessAnalyzer(std::filesystem::path procPath = "/proc");
+
+    // For testing purposes
+    void setProcPath(const std::filesystem::path& newPath) {
+        procPath = newPath;
+    }
+
+    const std::filesystem::path& getProcPath() const {
+        return procPath;
+    }
     
     // Core API
     utils::Result<std::vector<int>> getPids() const;

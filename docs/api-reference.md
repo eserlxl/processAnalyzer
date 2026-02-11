@@ -2,8 +2,8 @@
 
 The `processAnalyzer` project exposes a C++ API primarily through the headers in the `include/` directory:
 
-*   [`include/analyzer/Core.h`](../include/analyzer/Core.h): Defines the core `ProcessAnalyzer` class and related structures for process inspection and analysis.
-*   [`include/utils.h`](../include/utils.h): Provides a collection of general-purpose utility functions used throughout the project, often within the `Utils` namespace.
+*   [`include/analyzer/core.h`](../include/analyzer/core.h): Defines the core `ProcessAnalyzer` class and related structures for process inspection and analysis.
+*   [`include/utils/`](../include/utils/): This directory contains a collection of general-purpose utility headers for tasks like string manipulation, file handling, and system interactions. Each header is self-contained and must be included individually.
 
 While formal Doxygen-generated documentation is not currently provided, you can examine these header files directly for detailed information on available classes, methods, and functions.
 
@@ -33,37 +33,33 @@ The `ProcessAnalyzer` class (defined in `include/analyzer/Core.h`) is the primar
 
 ### `utils` Namespace
 
-The `utils` namespace offers a robust set of helper functions. The main header is `include/utils.h`, which includes the modular components from the `include/utils/` directory. The implementations are located in the `src/utils/` directory. The library includes:
+The `utils` namespace offers a robust set of helper functions, with headers located in the `include/utils/` directory. These must be included directly (e.g., `#include "utils/string.h"`). Implementations are located in `src/utils/`. The library includes utilities for:
 
-*   File system operations.
-*   String manipulation.
-*   System interactions.
-*   Time and Type utilities.
+*   File system operations (`file.h`, `path.h`)
+*   String manipulation (`string.h`)
+*   System interactions (`system.h`)
+*   Time and Type utilities (`time.h`, `types.h`)
 
 For a comprehensive overview and usage examples of the utility library, please refer to **[docs/utils.md](utils.md)**.
 
 ## Usage Example
 
-`processAnalyzer` can be used as a header-only or compiled library in your C++ projects.
+`processAnalyzer` can be used as a header-only or compiled library in your C++ projects. The following example demonstrates how to get a "snapshot" of all running processes.
 
 ```cpp
-#include <analyzer/core.h>
+#include "analyzer/core.hh"
 #include <iostream>
 
 int main() {
-    ProcessAnalyzer analyzer("/proc");
-
-    // Use C++23 generators for efficient streaming
-    for (const auto& proc : analyzer.streamProcesses()) {
-        std::cout << "PID: " << proc.pid << " Name: " << proc.name << "\n";
+    ProcessAnalyzer analyzer; // Manages access to /proc
+    auto result = analyzer.snapshot();
+    if (result.has_value()) {
+        for (const auto& proc : result.value()) {
+            std::cout << "PID: " << proc.pid << ", Name: " << proc.name << std::endl;
+        }
+    } else {
+        std::cerr << "Error getting processes: " << result.error().message << std::endl;
     }
-
-    // Query specific process details
-    auto result = analyzer.getProcessDetails(1);
-    if (result) {
-        std::cout << "Init Memory: " << result->rss << " KB\n";
-    }
-
     return 0;
 }
 ```

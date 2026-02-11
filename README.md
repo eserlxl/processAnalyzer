@@ -98,17 +98,18 @@ For a full command reference, see [docs/usage.md](docs/usage.md).
 Integrate `processAnalyzer` into your C++ applications as a library to programmatically access system and process data.
 
 ```cpp
-#include <analyzer/core.h>
+#include "analyzer/core.h"
 #include <iostream>
 
 int main() {
-    auto processes = analyzer::getAllProcesses();
-    if (processes.has_value()) {
-        for (const auto& proc : processes.value()) {
+    ProcessAnalyzer analyzer; // Manages access to /proc
+    auto result = analyzer.snapshot();
+    if (result.has_value()) {
+        for (const auto& proc : result.value()) {
             std::cout << "PID: " << proc.pid << ", Name: " << proc.name << std::endl;
         }
     } else {
-        std::cerr << "Error getting processes: " << processes.error().message << std::endl;
+        std::cerr << "Error getting processes: " << result.error().message << std::endl;
     }
     return 0;
 }
