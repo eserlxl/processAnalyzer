@@ -5,6 +5,7 @@
 #include "utils/file.h"
 #include <filesystem>
 #include <fstream>
+#include <ranges> // Required for std::ranges::find
 
 namespace fs = std::filesystem;
 
@@ -27,7 +28,10 @@ protected:
 TEST_F(FilesystemTest, CreateDirectories) {
     fs::path newDir = testDir / "a" / "b" / "c";
     auto result = utils::createDirectories(newDir);
-    ASSERT_TRUE(result.has_value());
+    // Explicitly check for error if result doesn't have a value, to satisfy the warning.
+    if (!result.has_value()) {
+        FAIL() << "Failed to create directories: " << result.error();
+    }
     EXPECT_TRUE(fs::is_directory(newDir));
 }
 
@@ -35,7 +39,10 @@ TEST_F(FilesystemTest, CreateDirectoriesExisting) {
     fs::path newDir = testDir / "a" / "b" / "c";
     utils::createDirectories(newDir);
     auto result = utils::createDirectories(newDir); // Try to create it again
-    ASSERT_TRUE(result.has_value());
+    // Explicitly check for error if result doesn't have a value.
+    if (!result.has_value()) {
+        FAIL() << "Failed to create directories: " << result.error();
+    }
     EXPECT_TRUE(fs::is_directory(newDir));
 }
 
@@ -63,7 +70,9 @@ TEST_F(FilesystemTest, MoveFile) {
     }
 
     auto result = utils::moveFile(source, dest);
-    ASSERT_TRUE(result.has_value());
+    if (!result.has_value()) {
+        FAIL() << "Failed to move file: " << result.error();
+    }
     EXPECT_FALSE(fs::exists(source));
     EXPECT_TRUE(fs::exists(dest));
 }
@@ -84,7 +93,9 @@ TEST_F(FilesystemTest, MoveFileCrossFilesystemFallback) {
     // However, the logic for copy-then-delete is now in place if rename fails with that error.
     // We can at least test the behavior of moving to a new directory.
     auto result = utils::moveFile(source, dest);
-    ASSERT_TRUE(result.has_value());
+    if (!result.has_value()) {
+        FAIL() << "Failed to move file: " << result.error();
+    }
     EXPECT_FALSE(fs::exists(source));
     EXPECT_TRUE(fs::exists(dest));
 }
@@ -116,14 +127,16 @@ TEST_F(FilesystemTest, TraverseDirectory) {
 
     auto result = utils::traverseDirectory(testDir, callback, options);
 
-    ASSERT_TRUE(result.has_value());
+    if (!result.has_value()) {
+        FAIL() << "Failed to traverse directory: " << result.error();
+    }
 
     // The order of traversal is not guaranteed, so we check for presence.
     ASSERT_EQ(foundPaths.size(), 4);
-    EXPECT_NE(std::find(foundPaths.begin(), foundPaths.end(), dirA), foundPaths.end());
-    EXPECT_NE(std::find(foundPaths.begin(), foundPaths.end(), dirB), foundPaths.end());
-    EXPECT_NE(std::find(foundPaths.begin(), foundPaths.end(), file1), foundPaths.end());
-    EXPECT_NE(std::find(foundPaths.begin(), foundPaths.end(), file2), foundPaths.end());
+    EXPECT_NE(std::ranges::find(foundPaths, dirA), foundPaths.end());
+    EXPECT_NE(std::ranges::find(foundPaths, dirB), foundPaths.end());
+    EXPECT_NE(std::ranges::find(foundPaths, file1), foundPaths.end());
+    EXPECT_NE(std::ranges::find(foundPaths, file2), foundPaths.end());
 }
 
 TEST_F(FilesystemTest, TraverseDirectoryStop) {
@@ -158,7 +171,9 @@ TEST_F(FilesystemTest, RemoveFile) {
     }
     ASSERT_TRUE(fs::exists(file));
     auto result = utils::remove(file);
-    ASSERT_TRUE(result.has_value());
+    if (!result.has_value()) {
+        FAIL() << "Failed to remove file: " << result.error();
+    }
     EXPECT_FALSE(fs::exists(file));
 }
 
@@ -172,7 +187,9 @@ TEST_F(FilesystemTest, RemoveDirectoryRecursively) {
     }
     ASSERT_TRUE(fs::exists(testDir / "a"));
     auto result = utils::remove(testDir / "a", true);
-    ASSERT_TRUE(result.has_value());
+    if (!result.has_value()) {
+        FAIL() << "Failed to remove directory: " << result.error();
+    }
     EXPECT_FALSE(fs::exists(testDir / "a"));
 }
 
@@ -191,11 +208,13 @@ TEST_F(FilesystemTest, ListDirectory) {
     }
 
     auto result = utils::listDirectory(testDir);
-    ASSERT_TRUE(result.has_value());
+    if (!result.has_value()) {
+        FAIL() << "Failed to list directory: " << result.error();
+    }
     auto entries = result.value();
     ASSERT_EQ(entries.size(), 3);
     // Order is not guaranteed, so check for presence
-    EXPECT_NE(std::find(entries.begin(), entries.end(), file1), entries.end());
-    EXPECT_NE(std::find(entries.begin(), entries.end(), file2), entries.end());
-    EXPECT_NE(std::find(entries.begin(), entries.end(), dir), entries.end());
+    EXPECT_NE(std::ranges::find(entries, file1), entries.end());
+    EXPECT_NE(std::ranges::find(entries, file2), entries.end());
+    EXPECT_NE(std::ranges::find(entries, dir), entries.end());
 }

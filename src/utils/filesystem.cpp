@@ -22,7 +22,7 @@ Result<void> traverseDirectory(const ::std::filesystem::path& dirPath, Traversal
         }
 
                 ::std::error_code iterEc; // Error code for directory_iterator operations
-                ::std::filesystem::directory_iterator dir_iterator(currentDir, iterEc);
+                ::std::filesystem::directory_iterator dirIterator(currentDir, iterEc);
         
                 if (iterEc) {
                     // Error during directory_iterator construction (e.g., directory not accessible)
@@ -30,36 +30,36 @@ Result<void> traverseDirectory(const ::std::filesystem::path& dirPath, Traversal
                 }
         
                 // The default-constructed directory_iterator is the end iterator
-                auto end_iterator = ::std::filesystem::directory_iterator();
+                auto endIterator = ::std::filesystem::directory_iterator();
         
-                while (dir_iterator != end_iterator) {
+                while (dirIterator != endIterator) {
                     // Check for errors from the *previous* increment operation or constructor
                     if (iterEc) {
                         return ::std::unexpected(iterEc);
                     }
         
-                    const auto& entry = *dir_iterator; // Get the current directory entry
+                    const auto& entry = *dirIterator; // Get the current directory entry
         
                     // Check for errors when stat-ing the entry (e.g., permissions, broken symlink)
-                    ::std::error_code entry_status_ec;
+                    ::std::error_code entryStatusEc;
                     bool isDir = false;
                     bool isSymlink = false;
         
                     // Determine if it's a directory. Only needed if includeDirectories or recursive is true.
                     if (options.includeDirectories || options.recursive) {
-                        isDir = entry.is_directory(entry_status_ec);
-                        if (entry_status_ec) {
+                        isDir = entry.is_directory(entryStatusEc);
+                        if (entryStatusEc) {
                             // Error getting directory status. Propagate this error.
-                            return ::std::unexpected(entry_status_ec);
+                            return ::std::unexpected(entryStatusEc);
                         }
                     }
         
                     // Determine if it's a symlink. Only needed if !options.followSymlinks.
                     if (!options.followSymlinks) {
-                        isSymlink = entry.is_symlink(entry_status_ec);
-                        if (entry_status_ec) {
+                        isSymlink = entry.is_symlink(entryStatusEc);
+                        if (entryStatusEc) {
                             // Error getting symlink status. Propagate this error.
-                            return ::std::unexpected(entry_status_ec);
+                            return ::std::unexpected(entryStatusEc);
                         }
                     }
         
@@ -84,7 +84,7 @@ Result<void> traverseDirectory(const ::std::filesystem::path& dirPath, Traversal
                         // Skip following symlinks if the option is disabled
                         if (isSymlink && !options.followSymlinks) {
                             // Increment iterator and continue to next entry
-                            ++dir_iterator;
+                            ++dirIterator;
                             continue;
                         }
                         
@@ -97,7 +97,7 @@ Result<void> traverseDirectory(const ::std::filesystem::path& dirPath, Traversal
                     }
                     
                     // Move to the next directory entry
-                    ++dir_iterator;
+                    ++dirIterator;
                 }
                 
                 // Check for any errors that occurred during the last increment or after the loop finished

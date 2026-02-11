@@ -73,7 +73,7 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
                         return std::nullopt;
                     }
                     if (auto pid = parseIntWithinRange(cliArgs.front())) {
-                        args.pid = *pid;
+                        args.pid = pid;
                         cliArgs.erase(cliArgs.begin());
                     } else {
                         std::cerr << "Error: Invalid PID '" << cliArgs.front() << "'.\n";
@@ -126,7 +126,7 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
                 return std::nullopt;
             }
             if (auto pid = parseIntWithinRange(cliArgs[++i])) {
-                args.pid = *pid;
+                args.pid = pid;
             } else {
                 std::cerr << "Error: Invalid PID '" << cliArgs[i] << "'.\n";
                 return std::nullopt;
@@ -220,7 +220,7 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
                 return std::nullopt;
             }
             if (auto ppid = parseIntWithinRange(cliArgs[++i])) {
-                args.ppidFilter = ppid.value();
+                args.ppidFilter = ppid;
             } else {
                 std::cerr << "Error: Invalid PPID '" << cliArgs[i] << "'.\n";
                 return std::nullopt;

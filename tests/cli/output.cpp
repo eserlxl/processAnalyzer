@@ -10,6 +10,34 @@
 #include <iostream>
 #include <chrono>
 
+// Constants for dummy data generation
+constexpr long long kResidentMemoryBase = 10240; // 10 MB
+constexpr long long kResidentMemoryMultiplier = 512;
+constexpr int kResidentMemoryMod = 20480;
+constexpr long long kVirtualMemoryBase = 20480; // 20 MB
+constexpr long long kVirtualMemoryMultiplier = 1024;
+constexpr int kVirtualMemoryMod = 40960;
+constexpr int kThreadCountBase = 1;
+constexpr int kThreadCountMod = 10;
+constexpr long long kIoReadBytesBase = 100000;
+constexpr int kIoReadBytesMod = 50000;
+constexpr long long kIoWriteBytesBase = 50000;
+constexpr int kIoWriteBytesMod = 25000;
+constexpr long long kCpuUserTimeBase = 100;
+constexpr int kCpuUserTimeMod = 1000;
+constexpr long long kCpuKernelTimeBase = 50;
+constexpr int kCpuKernelTimeMod = 500;
+constexpr float kCpuUsageBase = 0.0f;
+constexpr int kCpuUsageMod = 99;
+constexpr float kMemoryPercBase = 0.1f;
+constexpr int kMemoryPercMod = 20;
+constexpr float kMemoryPercDivisor = 10.0f;
+
+constexpr long long kUptimeLong = 3600000; // 1 hour
+constexpr long long kUptimeMedium = 600000; // 10 minutes
+constexpr pid_t kDummyPid = 1234;
+constexpr long long kDummyUptimeMs = 1234567;
+
 // Helper to redirect stdout
 class StdOutRedirect {
 public:
@@ -39,18 +67,18 @@ ProcessInfo createDummyProcess(pid_t pid, const std::string& name, const std::st
     p.cmdline = cmdline;
     p.username = username;
     p.state = state;
-    p.residentMemory = 1000 + (pid * 100 % 5000); // in KB
-    p.virtualMemory = 10000 + (pid * 100 % 10000); // in KB
-    p.threadCount = 1 + (pid % 5);
+    p.residentMemory = kResidentMemoryBase + (pid * kResidentMemoryMultiplier % kResidentMemoryMod); // in KB
+    p.virtualMemory = kVirtualMemoryBase + (pid * kVirtualMemoryMultiplier % kVirtualMemoryMod); // in KB
+    p.threadCount = kThreadCountBase + (pid % kThreadCountMod);
     p.startTimeUnix = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now() - std::chrono::milliseconds(uptimeMs));
     p.ppid = (pid > 1) ? pid -1 : 0;
-    p.ioReadBytes = 500 + (pid % 100);
-    p.ioWriteBytes = 200 + (pid % 50);
-    p.cpuUserTimeTicks = 1000 + (pid % 100);
-    p.cpuKernelTimeTicks = 500 + (pid % 50);
+    p.ioReadBytes = kIoReadBytesBase + (pid % kIoReadBytesMod);
+    p.ioWriteBytes = kIoWriteBytesBase + (pid % kIoWriteBytesMod);
+    p.cpuUserTimeTicks = kCpuUserTimeBase + (pid % kCpuUserTimeMod);
+    p.cpuKernelTimeTicks = kCpuKernelTimeBase + (pid % kCpuKernelTimeMod);
     p.priority = 0;
-    p.cpuUsage = 1.0F + (pid % 10);
-    p.memoryPercentage = 0.5F + ((pid % 20) / 100.0F);
+    p.cpuUsage = kCpuUsageBase + static_cast<float>(pid % kCpuUsageMod);
+    p.memoryPercentage = kMemoryPercBase + (static_cast<float>(pid % kMemoryPercMod) / kMemoryPercDivisor);
     p.environmentVariables = {"PATH=/usr/bin", "LANG=en_US.UTF-8"};
     // ProcessInfo does not directly contain openFiles or networkConnections as vectors of strings/pairs.
     // They are handled by separate structs (OpenFileDescriptorInfo, NetworkConnection) and returned by specific functions.
@@ -77,8 +105,8 @@ TEST(OutputTests, GetDefaultColumnsForTable) {
 
 TEST(OutputTests, PrintProcessTableBasic) {
     std::vector<ProcessInfo> processes;
-    processes.push_back(createDummyProcess(1, "systemd", "/sbin/init", "root", 'S', 10000000));
-    processes.push_back(createDummyProcess(100, "bash", "/bin/bash", "user", 'R', 100000));
+    processes.push_back(createDummyProcess(1, "systemd", "/sbin/init", "root", 'S', kUptimeLong));
+    processes.push_back(createDummyProcess(100, "bash", "/bin/bash", "user", 'R', kUptimeMedium));
 
     std::vector<std::string> columns = {"pid", "name", "user"};
 
@@ -103,7 +131,7 @@ TEST(OutputTests, PrintProcessTableBasic) {
 
 TEST(OutputTests, PrintProcessTableNoTruncate) {
     std::vector<ProcessInfo> processes;
-    processes.push_back(createDummyProcess(1, "long-name-process", "/usr/bin/long/path/to/process --arg1 --arg2-with-long-value", "user1", 'R', 100000));
+    processes.push_back(createDummyProcess(1, "long-name-process", "/usr/bin/long/path/to/process --arg1 --arg2-with-long-value", "user1", 'R', kUptimeMedium));
     std::vector<std::string> columns = {"pid", "cmdline"};
 
     StdOutRedirect redirect;
@@ -115,8 +143,8 @@ TEST(OutputTests, PrintProcessTableNoTruncate) {
 
 TEST(OutputTests, PrintProcessCsv) {
     std::vector<ProcessInfo> processes;
-    processes.push_back(createDummyProcess(1, "systemd", "/sbin/init", "root", 'S', 10000000));
-    processes.push_back(createDummyProcess(100, "bash", "/bin/bash", "user", 'R', 100000));
+    processes.push_back(createDummyProcess(1, "systemd", "/sbin/init", "root", 'S', kUptimeLong));
+    processes.push_back(createDummyProcess(100, "bash", "/bin/bash", "user", 'R', kUptimeMedium));
 
     std::vector<std::string> columns = {"pid", "name", "user"};
 
@@ -131,8 +159,8 @@ TEST(OutputTests, PrintProcessCsv) {
 
 TEST(OutputTests, PrintProcessJson) {
     std::vector<ProcessInfo> processes;
-    processes.push_back(createDummyProcess(1, "systemd", "/sbin/init", "root", 'S', 10000000));
-    processes.push_back(createDummyProcess(100, "bash", "/bin/bash", "user", 'R', 100000));
+    processes.push_back(createDummyProcess(1, "systemd", "/sbin/init", "root", 'S', kUptimeLong));
+    processes.push_back(createDummyProcess(100, "bash", "/bin/bash", "user", 'R', kUptimeMedium));
 
     std::vector<std::string> columns = {"pid", "name", "user"};
 
@@ -163,7 +191,7 @@ TEST(OutputTests, PrintProcessJson) {
 }
 
 TEST(OutputTests, PrintVerticalProcessDetails) {
-    ProcessInfo p = createDummyProcess(1234, "test_process", "/usr/bin/test_process --config /etc/test.conf", "testuser", 'S', 500000);
+    ProcessInfo p = createDummyProcess(kDummyPid, "test_process", "/usr/bin/test_process --config /etc/test.conf", "testuser", 'S', kDummyUptimeMs);
 
     StdOutRedirect redirect;
     printVerticalProcessDetails(p);
@@ -176,7 +204,7 @@ TEST(OutputTests, PrintVerticalProcessDetails) {
     EXPECT_NE(output.find("State:"), std::string::npos); // Adjusted case
     // EXPECT_NE(output.find("Environment:"), std::string::npos); // Not printed in vertical details in current impl? Let's check impl.
 
-    EXPECT_NE(output.find("1234"), std::string::npos);
+    EXPECT_NE(output.find("kDummyPid"), std::string::npos);
     EXPECT_NE(output.find("test_process"), std::string::npos);
     EXPECT_NE(output.find("/usr/bin/test_process --config /etc/test.conf"), std::string::npos);
     EXPECT_NE(output.find("testuser"), std::string::npos);
@@ -201,7 +229,7 @@ TEST(OutputTests, PrintUsage) {
 TEST(OutputTests, PrintProcessTableTruncation) {
     std::vector<ProcessInfo> processes;
     std::string longCmd = "this-is-a-very-long-command-line-that-will-surely-exceed-the-default-width-of-forty-characters";
-    processes.push_back(createDummyProcess(1, "long-cmd", longCmd, "user1", 'R', 100000));
+    processes.push_back(createDummyProcess(1, "long-cmd", longCmd, "user1", 'R', kUptimeMedium));
     std::vector<std::string> columns = {"cmdline"};
 
     StdOutRedirect redirect;
@@ -216,8 +244,8 @@ TEST(OutputTests, PrintProcessTableTruncation) {
 
 TEST(OutputTests, PrintProcessCsvQuoting) {
     std::vector<ProcessInfo> processes;
-    processes.push_back(createDummyProcess(1, "comma,name", "cmd, with, comma", "user", 'S', 10000000));
-    processes.push_back(createDummyProcess(2, "quote\"name", "cmd with \"quote\"", "user", 'R', 100000));
+    processes.push_back(createDummyProcess(1, "comma,name", "cmd, with, comma", "user", 'S', kUptimeLong));
+    processes.push_back(createDummyProcess(2, "quote\"name", "cmd with \"quote\"", "user", 'R', kUptimeMedium));
 
     std::vector<std::string> columns = {"pid", "name", "cmdline"};
 

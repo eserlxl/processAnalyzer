@@ -82,7 +82,8 @@ TEST(SystemExecuteCommandTest, commandNotFound) {
 
 TEST(SystemExecuteCommandTest, longOutput) {
     // Creates a 10000 character string
-    std::string longStr(10000, 'a');
+    const size_t kLongStringLength = 10000;
+    std::string longStr(kLongStringLength, 'a');
     auto result = utils::executeCommand("echo '" + longStr + "'");
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result->stdoutStr, longStr + "\n");
