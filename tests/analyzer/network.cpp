@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Eser KUBALI
 
 #include "gtest/gtest.h"
-#include "analyzer/analyzer.h"
+#include "analyzer/analyzer_core.h"
 #include "analyzer/core.h"
 #include "analyzer/network_model.h"
 #include "analyzer/system_model.h" // For NetworkInterfaceStats

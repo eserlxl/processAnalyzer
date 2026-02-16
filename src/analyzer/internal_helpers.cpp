@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Eser KUBALI
 
 #include "internal_helpers.h"
-#include "analyzer/analyzer.h" // For ProcessInfo, ProcessFilter, etc.
+#include "analyzer/analyzer_core.h" // For ProcessInfo, ProcessFilter, etc.
 #include "utils/core.h"
 #include <regex>
 

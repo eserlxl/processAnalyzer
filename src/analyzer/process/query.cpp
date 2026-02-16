@@ -7,7 +7,7 @@
 #include <regex>
 #include <functional>
 
-#include "analyzer/analyzer.h"
+#include "analyzer/analyzer_core.h"
 #include "analyzer/process_model.h"
 #include "utils/types.h"
 

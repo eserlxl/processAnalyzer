@@ -3,7 +3,7 @@
 
 #include "gtest/gtest.h"
 #include "analyzer/internal_helpers.h"
-#include "analyzer/analyzer.h" // For ProcessInfo, ProcessFilter, ProcessSortField, ProcessAnalyzer::CpuStats
+#include "analyzer/analyzer_core.h" // For ProcessInfo, ProcessFilter, ProcessSortField, ProcessAnalyzer::CpuStats
 #include "utils/types.h"        // For utils::Result, utils::UtilsError
 
 #include <vector>

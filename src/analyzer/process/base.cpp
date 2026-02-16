@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright (c) 2026 Eser KUBALI
 
-#include "analyzer/analyzer.h"
+#include "analyzer/analyzer_core.h"
 #include "utils/core.h"
 #include "internal_helpers.h" // For checkPidPathExistsAndPermissions
 #include <filesystem>
