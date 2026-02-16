@@ -68,7 +68,7 @@ protected:
 
     // Magic numbers for ReadProcessEnvironmentVars
     constexpr static pid_t TEST_PID_ENV_VARS = 777;
-    constexpr static char ENV_VAR_CONTENT[] = "VAR1=value1\\0VAR2=value2\\0";
+    // Removed ENV_VAR_CONTENT, defined locally in test
 
 
     void SetUp() override {
@@ -159,6 +159,7 @@ TEST_F(InternalHelpersTest, MatchesFilter) {
 
     // uidFilter
     {
+        ProcessFilter filter{};
         filter.uidFilter = TEST_FILTER_UID_VALID;
         EXPECT_TRUE(Internal::matchesFilter(process, filter));
         filter.uidFilter = TEST_FILTER_UID_INVALID;
@@ -277,8 +278,10 @@ TEST_F(InternalHelpersTest, ReadProcessEnvironmentVars) {
     // Standard environ file
     {
         std::ofstream ofs(environPath, std::ios::binary);
-        const char* content = ENV_VAR_CONTENT;
-        ofs.write(content, sizeof(ENV_VAR_CONTENT) - 1);
+        // Construct string with embedded nulls: "VAR1=value1\0VAR2=value2\0"
+        // VAR1=value1 is 11 chars. \0 is 1. VAR2=value2 is 11 chars. \0 is 1. Total 24.
+        const std::string content("VAR1=value1\0VAR2=value2\0", 24);
+        ofs.write(content.c_str(), content.size());
         ofs.close();
 
         auto result = Internal::readProcessEnvironmentVars(tempProcRoot, testPid);
