@@ -12,6 +12,7 @@
 #include <map>
 #include <ranges>
 #include <filesystem>
+#include <fstream>
 
 namespace fs = std::filesystem;
 
