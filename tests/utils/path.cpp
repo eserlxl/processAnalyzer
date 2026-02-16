@@ -318,7 +318,7 @@ TEST_F(PathFsTest, CreateDirectoriesErrorHandling) {
     auto pathToCreate = fileAsIntermediateDir / "sub_dir" / "another_sub";
     result = utils::createDirectories(pathToCreate);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), std::errc::invalid_argument); 
+    EXPECT_EQ(result.error(), std::errc::not_a_directory); 
 
     fs::remove(fileAsIntermediateDir);
 }

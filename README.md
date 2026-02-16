@@ -111,7 +111,7 @@ The C++ API allows you to integrate process and system monitoring directly into 
 **Example `main.cpp`:**
 ```cpp
 #include <iostream>
-#include "analyzer/analyzer_core.h"
+#include "analyzer/core.h"
 
 int main() {
     try {

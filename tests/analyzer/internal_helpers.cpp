@@ -3,7 +3,7 @@
 
 #include "gtest/gtest.h"
 #include "analyzer/internal_helpers.h"
-#include "analyzer/analyzer_core.h" // For ProcessInfo, ProcessFilter, ProcessSortField, ProcessAnalyzer::CpuStats
+#include "analyzer/core.h" // For ProcessInfo, ProcessFilter, ProcessSortField, ProcessAnalyzer::CpuStats
 #include "utils/types.h"        // For utils::Result, utils::UtilsError
 
 #include <vector>
@@ -25,49 +25,49 @@ bool fuzzyCompare(float a, float b) {
 class InternalHelpersTest : public ::testing::Test {
 protected:
     // Magic numbers for ProcessInfo
-    constexpr static pid_t TEST_PID = 100;
-    constexpr static pid_t TEST_PPID = 1;
-    constexpr static uid_t TEST_UID = 1000;
-    constexpr static unsigned long TEST_RESIDENT_MEMORY = 50000; // KB
-    constexpr static unsigned long TEST_VIRTUAL_MEMORY = 100000; // KB
-    constexpr static int TEST_THREAD_COUNT = 5;
-    constexpr static float TEST_CPU_USAGE = 15.5F;
-    constexpr static float TEST_MEMORY_PERCENTAGE = 2.5F;
+    constexpr static pid_t testPid = 100;
+    constexpr static pid_t testPpid = 1;
+    constexpr static uid_t testUid = 1000;
+    constexpr static unsigned long testResidentMemory = 50000; // KB
+    constexpr static unsigned long testVirtualMemory = 100000; // KB
+    constexpr static int testThreadCount = 5;
+    constexpr static float testCpuUsage = 15.5F;
+    constexpr static float testMemoryPercentage = 2.5F;
 
     // Magic numbers for filter
-    constexpr static int TEST_MIN_THREADS_VALID = 3;
-    constexpr static int TEST_MIN_THREADS_INVALID = 6;
-    constexpr static int TEST_MAX_THREADS_VALID = 7;
-    constexpr static int TEST_MAX_THREADS_INVALID = 4;
-    constexpr static uid_t TEST_FILTER_UID_VALID = 1000;
-    constexpr static uid_t TEST_FILTER_UID_INVALID = 0;
+    constexpr static int testMinThreadsValid = 3;
+    constexpr static int testMinThreadsInvalid = 6;
+    constexpr static int testMaxThreadsValid = 7;
+    constexpr static int testMaxThreadsInvalid = 4;
+    constexpr static uid_t testFilterUidValid = 1000;
+    constexpr static uid_t testFilterUidInvalid = 0;
 
     // Magic numbers for compareProcesses
-    constexpr static pid_t PID_1_COMPARE = 100;
-    constexpr static pid_t PID_2_COMPARE = 200;
-    constexpr static pid_t PPID_1_COMPARE = 10;
-    constexpr static pid_t PPID_2_COMPARE = 20;
-    constexpr static float CPU_USAGE_1_COMPARE = 1.0F;
-    constexpr static float CPU_USAGE_2_COMPARE = 2.0F;
+    constexpr static pid_t pid1Compare = 100;
+    constexpr static pid_t pid2Compare = 200;
+    constexpr static pid_t ppid1Compare = 10;
+    constexpr static pid_t ppid2Compare = 20;
+    constexpr static float cpuUsage1Compare = 1.0F;
+    constexpr static float cpuUsage2Compare = 2.0F;
 
     // Magic numbers for GetTotalSystemCpuTimeTicks
-    constexpr static unsigned long long CPU_USER = 100;
-    constexpr static unsigned long long CPU_NICE = 10;
-    constexpr static unsigned long long CPU_SYSTEM = 200;
-    constexpr static unsigned long long CPU_IDLE = 500;
-    constexpr static unsigned long long CPU_IOWAIT = 50;
-    constexpr static unsigned long long CPU_IRQ = 20;
-    constexpr static unsigned long long CPU_SOFTIRQ = 30;
-    constexpr static unsigned long long CPU_STEAL = 40;
-    constexpr static unsigned long long CPU_GUEST = 0;
-    constexpr static unsigned long long CPU_GUEST_NICE = 0;
+    constexpr static unsigned long long cpuUser = 100;
+    constexpr static unsigned long long cpuNice = 10;
+    constexpr static unsigned long long cpuSystem = 200;
+    constexpr static unsigned long long cpuIdle = 500;
+    constexpr static unsigned long long cpuIowait = 50;
+    constexpr static unsigned long long cpuIrq = 20;
+    constexpr static unsigned long long cpuSoftirq = 30;
+    constexpr static unsigned long long cpuSteal = 40;
+    constexpr static unsigned long long cpuGuest = 0;
+    constexpr static unsigned long long cpuGuestNice = 0;
 
     // Magic numbers for CheckPidPathExistsAndPermissions
-    constexpr static pid_t TEST_PID_EXISTS = 12345;
-    constexpr static pid_t TEST_PID_NON_EXISTENT = 54321;
+    constexpr static pid_t testPidExists = 12345;
+    constexpr static pid_t testPidNonExistent = 54321;
 
     // Magic numbers for ReadProcessEnvironmentVars
-    constexpr static pid_t TEST_PID_ENV_VARS = 777;
+    constexpr static pid_t testPidEnvVars = 777;
     // Removed ENV_VAR_CONTENT, defined locally in test
 
 
@@ -82,20 +82,20 @@ protected:
 
 TEST_F(InternalHelpersTest, MatchesFilter) {
     ProcessInfo process{};
-    process.pid = TEST_PID;
-    process.ppid = TEST_PPID;
-    process.uid = TEST_UID;
+    process.pid = testPid;
+    process.ppid = testPpid;
+    process.uid = testUid;
     process.username = "testuser";
     process.name = "test_process";
     process.state = "R";
-    process.residentMemory = TEST_RESIDENT_MEMORY; // KB
-    process.virtualMemory = TEST_VIRTUAL_MEMORY; // KB
-    process.threadCount = TEST_THREAD_COUNT;
+    process.residentMemory = testResidentMemory; // KB
+    process.virtualMemory = testVirtualMemory; // KB
+    process.threadCount = testThreadCount;
     process.cmdline = "/usr/bin/test_process --arg1 --arg2";
     process.executablePath = "/usr/bin/test_process";
     process.priority = 0;
-    process.cpuUsage = TEST_CPU_USAGE;
-    process.memoryPercentage = TEST_MEMORY_PERCENTAGE;
+    process.cpuUsage = testCpuUsage;
+    process.memoryPercentage = testMemoryPercentage;
 
     // No filter set
     {
@@ -147,11 +147,11 @@ TEST_F(InternalHelpersTest, MatchesFilter) {
     {
         ProcessFilter filter{};
         filter.minThreads = 3;
-        filter.minThreads = TEST_MIN_THREADS_INVALID;
+        filter.minThreads = testMinThreadsInvalid;
         EXPECT_FALSE(Internal::matchesFilter(process, filter));
 
         filter = {};
-        filter.maxThreads = TEST_MAX_THREADS_VALID;
+        filter.maxThreads = testMaxThreadsValid;
         EXPECT_TRUE(Internal::matchesFilter(process, filter));
         filter.maxThreads = 4;
         EXPECT_FALSE(Internal::matchesFilter(process, filter));
@@ -160,9 +160,9 @@ TEST_F(InternalHelpersTest, MatchesFilter) {
     // uidFilter
     {
         ProcessFilter filter{};
-        filter.uidFilter = TEST_FILTER_UID_VALID;
+        filter.uidFilter = testFilterUidValid;
         EXPECT_TRUE(Internal::matchesFilter(process, filter));
-        filter.uidFilter = TEST_FILTER_UID_INVALID;
+        filter.uidFilter = testFilterUidInvalid;
         EXPECT_FALSE(Internal::matchesFilter(process, filter));
     }
 
@@ -170,11 +170,11 @@ TEST_F(InternalHelpersTest, MatchesFilter) {
     {
         ProcessFilter filter{};
         filter.nameContains = "test";
-        filter.minThreads = TEST_MIN_THREADS_VALID;
-        filter.uidFilter = TEST_FILTER_UID_VALID;
+        filter.minThreads = testMinThreadsValid;
+        filter.uidFilter = testFilterUidValid;
         EXPECT_TRUE(Internal::matchesFilter(process, filter));
 
-        filter.minThreads = TEST_MIN_THREADS_INVALID;
+        filter.minThreads = testMinThreadsInvalid;
         EXPECT_FALSE(Internal::matchesFilter(process, filter));
     }
 }
@@ -185,19 +185,19 @@ TEST_F(InternalHelpersTest, CompareProcesses) {
 
     // Compare by PID
     {
-        p1.pid = PID_1_COMPARE; p2.pid = PID_2_COMPARE;
+        p1.pid = pid1Compare; p2.pid = pid2Compare;
         EXPECT_LT(Internal::compareProcesses(p1, p2, ProcessSortField::pid), 0);
         EXPECT_GT(Internal::compareProcesses(p2, p1, ProcessSortField::pid), 0);
-        p2.pid = PID_1_COMPARE;
+        p2.pid = pid1Compare;
         EXPECT_EQ(Internal::compareProcesses(p1, p2, ProcessSortField::pid), 0);
     }
 
     // Compare by PPID
     {
-        p1.ppid = PPID_1_COMPARE; p2.ppid = PPID_2_COMPARE;
+        p1.ppid = ppid1Compare; p2.ppid = ppid2Compare;
         EXPECT_LT(Internal::compareProcesses(p1, p2, ProcessSortField::ppid), 0);
         EXPECT_GT(Internal::compareProcesses(p2, p1, ProcessSortField::ppid), 0);
-        p2.ppid = PPID_1_COMPARE;
+        p2.ppid = ppid1Compare;
         EXPECT_EQ(Internal::compareProcesses(p1, p2, ProcessSortField::ppid), 0);
     }
 
@@ -212,10 +212,10 @@ TEST_F(InternalHelpersTest, CompareProcesses) {
 
     // Compare by CPU Usage
     {
-        p1.cpuUsage = CPU_USAGE_1_COMPARE; p2.cpuUsage = CPU_USAGE_2_COMPARE;
+        p1.cpuUsage = cpuUsage1Compare; p2.cpuUsage = cpuUsage2Compare;
         EXPECT_LT(Internal::compareProcesses(p1, p2, ProcessSortField::cpuUsage), 0);
         EXPECT_GT(Internal::compareProcesses(p2, p1, ProcessSortField::cpuUsage), 0);
-        p2.cpuUsage = CPU_USAGE_1_COMPARE;
+        p2.cpuUsage = cpuUsage1Compare;
         EXPECT_EQ(Internal::compareProcesses(p1, p2, ProcessSortField::cpuUsage), 0);
     }
 }
@@ -224,7 +224,7 @@ TEST_F(InternalHelpersTest, GetTotalSystemCpuTimeTicks) {
     // Successful CPU stats retrieval
     {
         ProcessAnalyzer::s_testMockGetSystemCpuStats = []() {
-            return SystemCpuStats{.user=CPU_USER, .nice=CPU_NICE, .system=CPU_SYSTEM, .idle=CPU_IDLE, .iowait=CPU_IOWAIT, .irq=CPU_IRQ, .softirq=CPU_SOFTIRQ, .steal=CPU_STEAL, .guest=CPU_GUEST, .guest_nice=CPU_GUEST_NICE};
+            return SystemCpuStats{.user=cpuUser, .nice=cpuNice, .system=cpuSystem, .idle=cpuIdle, .iowait=cpuIowait, .irq=cpuIrq, .softirq=cpuSoftirq, .steal=cpuSteal, .guest=cpuGuest, .guest_nice=cpuGuestNice};
         };
         auto result = Internal::getTotalSystemCpuTimeTicks();
         ASSERT_TRUE(result.has_value());
@@ -248,18 +248,18 @@ TEST_F(InternalHelpersTest, CheckPidPathExistsAndPermissions) {
 
     // Path exists and is accessible
     {
-        pid_t testPid = TEST_PID_EXISTS;
-        fs::path pidPath = tempProcRoot / std::to_string(testPid);
+        pid_t testPidLocal = testPidExists;
+        fs::path pidPath = tempProcRoot / std::to_string(testPidLocal);
         fs::create_directory(pidPath);
-        auto result = Internal::checkPidPathExistsAndPermissions(tempProcRoot, testPid);
+        auto result = Internal::checkPidPathExistsAndPermissions(tempProcRoot, testPidLocal);
         EXPECT_TRUE(result.has_value());
         fs::remove(pidPath);
     }
 
     // Path does not exist
     {
-        pid_t testPid = TEST_PID_NON_EXISTENT;
-        auto result = Internal::checkPidPathExistsAndPermissions(tempProcRoot, testPid);
+        pid_t testPidLocal = testPidNonExistent;
+        auto result = Internal::checkPidPathExistsAndPermissions(tempProcRoot, testPidLocal);
         ASSERT_FALSE(result.has_value());
         EXPECT_EQ(result.error(), utils::make_error_code(utils::UtilsError::analyzerProcessNotFound));
     }
@@ -270,8 +270,8 @@ TEST_F(InternalHelpersTest, CheckPidPathExistsAndPermissions) {
 TEST_F(InternalHelpersTest, ReadProcessEnvironmentVars) {
     fs::path tempProcRoot = fs::temp_directory_path() / "test_proc_env";
     fs::create_directory(tempProcRoot);
-    pid_t testPid = TEST_PID_ENV_VARS;
-    fs::path pidPath = tempProcRoot / std::to_string(testPid);
+    pid_t testPidLocal = testPidEnvVars;
+    fs::path pidPath = tempProcRoot / std::to_string(testPidLocal);
     fs::path environPath = pidPath / "environ";
     fs::create_directory(pidPath);
 
@@ -281,10 +281,10 @@ TEST_F(InternalHelpersTest, ReadProcessEnvironmentVars) {
         // Construct string with embedded nulls: "VAR1=value1\0VAR2=value2\0"
         // VAR1=value1 is 11 chars. \0 is 1. VAR2=value2 is 11 chars. \0 is 1. Total 24.
         const std::string content("VAR1=value1\0VAR2=value2\0", 24);
-        ofs.write(content.c_str(), content.size());
+        ofs.write(content.c_str(), static_cast<std::streamsize>(content.size()));
         ofs.close();
 
-        auto result = Internal::readProcessEnvironmentVars(tempProcRoot, testPid);
+        auto result = Internal::readProcessEnvironmentVars(tempProcRoot, testPidLocal);
         ASSERT_TRUE(result.has_value());
         std::vector<std::string> expected = {"VAR1=value1", "VAR2=value2"};
         EXPECT_EQ(*result, expected);
@@ -295,7 +295,7 @@ TEST_F(InternalHelpersTest, ReadProcessEnvironmentVars) {
         std::ofstream ofs(environPath);
         ofs.close();
 
-        auto result = Internal::readProcessEnvironmentVars(tempProcRoot, testPid);
+        auto result = Internal::readProcessEnvironmentVars(tempProcRoot, testPidLocal);
         ASSERT_TRUE(result.has_value());
         EXPECT_TRUE(result->empty());
     }

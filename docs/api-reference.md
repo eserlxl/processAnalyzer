@@ -17,7 +17,6 @@ For the most detailed and up-to-date information, please consult the header file
 The `ProcessAnalyzer` class (from `analyzer/core.h`) is the central entry point for all analysis and monitoring tasks. It provides a unified interface to the underlying `/proc` filesystem data.
 
 ```cpp
-#include "analyzer/core.h"
 
 ProcessAnalyzer analyzer; // Create an instance
 ```

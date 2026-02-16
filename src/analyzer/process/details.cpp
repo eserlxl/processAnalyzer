@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright (c) 2026 Eser KUBALI
 
-#include "analyzer/analyzer_core.h"
+#include "analyzer/core.h"
 #include "analyzer/process_model.h"
 #include "utils/types.h"
 #include "utils/file.h"
@@ -374,56 +374,52 @@ utils::Result<std::vector<OpenFileDescriptorInfo>> ProcessAnalyzer::getProcessOp
     std::vector<OpenFileDescriptorInfo> openFiles;
     std::filesystem::path fdPath = procPath / std::to_string(pid) / "fd";
 
-    if (!std::filesystem::exists(fdPath) || !std::filesystem::is_directory(fdPath)) {
-        // If fd directory doesn't exist or not accessible, return empty list or permission denied
+    std::error_code ec;
+    if (!std::filesystem::exists(fdPath, ec) || !std::filesystem::is_directory(fdPath, ec)) {
         return std::unexpected(utils::make_error_code(utils::UtilsError::analyzerPermissionDenied));
     }
 
-    for (const auto& entry : std::filesystem::directory_iterator(fdPath)) {
-        if (entry.is_symlink()) {
-            std::string fdStr = entry.path().filename().string();
-            auto fdOpt = utils::parseIntegerNoThrow<int>(fdStr, parseIntegerBase);
-            if (!fdOpt) continue; // Not a valid file descriptor
+    for (const auto& entry : std::filesystem::directory_iterator(fdPath, ec)) {
+        std::string fdStr = entry.path().filename().string();
+        auto fdOpt = utils::parseIntegerNoThrow<int>(fdStr, parseIntegerBase);
+        if (!fdOpt) continue;
 
-            OpenFileDescriptorInfo fdInfo;
-            fdInfo.fd = *fdOpt;
+        OpenFileDescriptorInfo fdInfo;
+        fdInfo.fd = *fdOpt;
 
-            auto linkTargetResult = readSymlink(entry.path());
-            if (linkTargetResult) {
-                fdInfo.path = linkTargetResult.value();
+        std::error_code readEc;
+        auto linkTarget = std::filesystem::read_symlink(entry.path(), readEc);
+        if (!readEc) {
+            fdInfo.path = linkTarget.string();
 
-                // Determine file type (basic classification)
-                if (fdInfo.path.starts_with("socket:[")) {
-                    fdInfo.type = OpenFileType::Socket;
-                } else if (fdInfo.path.starts_with("pipe:[")) {
-                    fdInfo.type = OpenFileType::Pipe;
-                } else if (fdInfo.path.starts_with("anon_inode:[")) {
-                    fdInfo.type = OpenFileType::AnonInode;
-                } else if (fdInfo.path.starts_with('/')) {
-                    // Try to differentiate between regular files and device files
-                    try {
-                        std::error_code ec;
-                        auto status = std::filesystem::status(fdInfo.path, ec);
-                        if ((!ec && std::filesystem::is_block_file(status)) || std::filesystem::is_character_file(status)) {
-                            fdInfo.type = OpenFileType::Device;
-                        } else if (!ec && std::filesystem::is_regular_file(status)) {
-                            fdInfo.type = OpenFileType::File;
-                        } else {
-                            fdInfo.type = OpenFileType::Other; // Catch-all for unknown path types
-                        }
-                    } catch (...) {
-                         fdInfo.type = OpenFileType::Other; // Fallback
+            if (fdInfo.path.starts_with("socket:[")) {
+                fdInfo.type = OpenFileType::Socket;
+            } else if (fdInfo.path.starts_with("pipe:[")) {
+                fdInfo.type = OpenFileType::Pipe;
+            } else if (fdInfo.path.starts_with("anon_inode:[")) {
+                fdInfo.type = OpenFileType::AnonInode;
+            } else if (fdInfo.path.starts_with('/')) {
+                std::error_code statusEc;
+                auto status = std::filesystem::status(fdInfo.path, statusEc);
+                if (!statusEc) {
+                    if (std::filesystem::is_block_file(status) || std::filesystem::is_character_file(status)) {
+                        fdInfo.type = OpenFileType::Device;
+                    } else if (std::filesystem::is_regular_file(status)) {
+                        fdInfo.type = OpenFileType::File;
+                    } else {
+                        fdInfo.type = OpenFileType::Other;
                     }
                 } else {
                     fdInfo.type = OpenFileType::Other;
                 }
             } else {
-                // If symlink target cannot be read, path is unknown.
-                fdInfo.path = "[unknown]";
-                fdInfo.type = OpenFileType::Unknown;
+                fdInfo.type = OpenFileType::Other;
             }
-            openFiles.push_back(fdInfo);
+        } else {
+            fdInfo.path = "[unknown]";
+            fdInfo.type = OpenFileType::Unknown;
         }
+        openFiles.push_back(fdInfo);
     }
     return openFiles;
 }

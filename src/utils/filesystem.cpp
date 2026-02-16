@@ -149,7 +149,7 @@ Result<void> createDirectories(const std::filesystem::path& path) {
     
     if (ec == std::make_error_code(std::errc::not_a_directory)) {
         // This error usually means an intermediate component is a file.
-        return std::unexpected(make_error_code(UtilsError::fileAlreadyExists));
+        return std::unexpected(make_error_code(UtilsError::notADirectory));
     }
     
     // For any other filesystem error during directory creation.

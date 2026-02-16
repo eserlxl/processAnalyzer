@@ -37,7 +37,8 @@ TEST_F(FilesystemTest, CreateDirectories) {
 
 TEST_F(FilesystemTest, CreateDirectoriesExisting) {
     fs::path newDir = testDir / "a" / "b" / "c";
-    utils::createDirectories(newDir);
+    auto firstResult = utils::createDirectories(newDir);
+    ASSERT_TRUE(firstResult.has_value());
     auto result = utils::createDirectories(newDir); // Try to create it again
     // Explicitly check for error if result doesn't have a value.
     if (!result.has_value()) {
@@ -58,7 +59,7 @@ TEST_F(FilesystemTest, CreateDirectoriesFileInPath) {
     fs::path newDir = filePath / "c";
     auto result = utils::createDirectories(newDir);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), utils::make_error_code(utils::UtilsError::fileAlreadyExists));
+    EXPECT_EQ(result.error(), utils::make_error_code(utils::UtilsError::notADirectory));
 }
 
 TEST_F(FilesystemTest, MoveFile) {

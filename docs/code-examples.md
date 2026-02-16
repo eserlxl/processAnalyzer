@@ -11,7 +11,6 @@ The library uses C++23 features like `std::generator` to efficiently stream proc
 4.  Iterate through the stream and print details.
 
 ```cpp
-#include "analyzer/core.h"
 #include <iostream>
 #include <ranges>
 
@@ -47,7 +46,6 @@ int main() {
 If you prefer a static snapshot of the system state rather than a stream, you can use the `snapshot()` method.
 
 ```cpp
-#include "analyzer/core.h"
 #include <iostream>
 
 int main() {
@@ -78,7 +76,6 @@ This example shows how to retrieve and display system-wide metrics like memory u
 ```cpp
 #include <iostream>
 #include <iomanip>
-#include "analyzer/core.h"
 
 int main() {
     try {

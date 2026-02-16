@@ -204,7 +204,7 @@ TEST(OutputTests, PrintVerticalProcessDetails) {
     EXPECT_NE(output.find("State:"), std::string::npos); // Adjusted case
     // EXPECT_NE(output.find("Environment:"), std::string::npos); // Not printed in vertical details in current impl? Let's check impl.
 
-    EXPECT_NE(output.find("kDummyPid"), std::string::npos);
+    EXPECT_NE(output.find(std::to_string(kDummyPid)), std::string::npos);
     EXPECT_NE(output.find("test_process"), std::string::npos);
     EXPECT_NE(output.find("/usr/bin/test_process --config /etc/test.conf"), std::string::npos);
     EXPECT_NE(output.find("testuser"), std::string::npos);

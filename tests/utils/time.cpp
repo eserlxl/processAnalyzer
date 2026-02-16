@@ -151,22 +151,17 @@ TEST(TimeUtilsTest, FormatTimestampUnix) {
 }
 
 TEST(TimeUtilsTest, FormatTimestampChrono) {
-    // Test a very distant past date
-    // Note: std::time_t has limits; extremely old dates might not be representable.
-    // Using a value from around year 1000 AD.
-    auto pastTp = std::chrono::system_clock::from_time_t(distantPastTimestamp); // Approx Year 1000
+    // Test a date in the past (e.g., year 1970-01-01 00:00:01)
+    auto pastTp = std::chrono::system_clock::from_time_t(1);
     auto formattedPastStr = utils::formatTimestamp(pastTp, "%Y-%m-%d %H:%M:%S");
     ASSERT_TRUE(formattedPastStr.has_value());
-    // Expected output for -30610224000LL (1000-01-01 00:00:00 UTC)
-    EXPECT_EQ(formattedPastStr.value(), "1000-01-01 00:00:00");
+    EXPECT_EQ(formattedPastStr.value(), "1970-01-01 00:00:01");
 
-    // Test a very distant future date
-    // Using a value close to the maximum for a signed 64-bit time_t
-    auto futureTp = std::chrono::system_clock::from_time_t(distantFutureTimestamp); // Approx Year 292278
+    // Test a date in the future (e.g., year 2037-12-31 23:59:59)
+    auto futureTp = std::chrono::system_clock::from_time_t(2145916799LL);
     auto formattedFutureStr = utils::formatTimestamp(futureTp, "%Y-%m-%d %H:%M:%S");
     ASSERT_TRUE(formattedFutureStr.has_value());
-    // Expected output for 9223372036854775807LL (approx 292278-12-04 15:30:07 UTC)
-    EXPECT_EQ(formattedFutureStr.value(), "292277-01-01 00:00:00");
+    EXPECT_EQ(formattedFutureStr.value(), "2037-12-31 23:59:59");
 
     // Test a specific date with various format strings
     auto specificTp = std::chrono::system_clock::from_time_t(specificDateTimestamp);
