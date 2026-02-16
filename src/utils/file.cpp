@@ -35,9 +35,7 @@ Result<void> writeToPath(const ::std::filesystem::path& path, const void* data,
   return ::std::unexpected(make_error_code(UtilsError::ioError));
 }
 
-} // namespace
-
-static ::std::string generateRandomString(size_t length) {
+::std::string generateRandomString(size_t length) {
   static constexpr ::std::string_view charset = "0123456789"
                                                 "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
                                                 "abcdefghijklmnopqrstuvwxyz";
@@ -51,6 +49,8 @@ static ::std::string generateRandomString(size_t length) {
     s += charset[pick(rg)];
   return s;
 }
+
+} // namespace
 
 Result<::std::vector<::std::byte>>
 readBinaryFile(const ::std::filesystem::path& path) {
