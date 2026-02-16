@@ -35,7 +35,7 @@ endif()
 
 # Create a library for the core logic to be shared with tests
 add_library(processAnalyzerLib STATIC
-    src/analyzer/internal_helpers.cpp
+    src/analyzer/internal/internal_helpers.cpp
     src/analyzer/process/base.cpp
     src/analyzer/process/control.cpp
     src/analyzer/process/details.cpp
@@ -52,7 +52,7 @@ add_library(processAnalyzerLib STATIC
     src/utils/types.cpp
 )
 # Add include directory correctly to the library target
-target_include_directories(processAnalyzerLib PUBLIC ${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src/analyzer)
+target_include_directories(processAnalyzerLib PUBLIC ${CMAKE_SOURCE_DIR}/include)
 
 # Apply coverage options to the library
 if(ENABLE_COVERAGE AND (CMAKE_COMPILER_ID MATCHES "GNU|Clang"))
@@ -70,7 +70,7 @@ target_link_libraries(processAnalyzerCliLib PRIVATE processAnalyzerLib)
 
 
 # Main executable
-add_executable(processAnalyzer src/main.cpp)
+add_executable(processAnalyzer lxl/examples/main.cpp)
 target_link_libraries(processAnalyzer PRIVATE processAnalyzerLib processAnalyzerCliLib)
 
 # Enable testing

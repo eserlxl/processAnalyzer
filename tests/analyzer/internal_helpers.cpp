@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Eser KUBALI
 
 #include "gtest/gtest.h"
-#include "analyzer/internal_helpers.h"
+#include "analyzer/internal/internal_helpers.h"
 #include "analyzer/core.h" // For ProcessInfo, ProcessFilter, ProcessSortField, ProcessAnalyzer::CpuStats
 #include "utils/types.h"        // For utils::Result, utils::UtilsError
 

@@ -12,7 +12,6 @@ add_executable(ProcessAnalyzerTests ${TEST_SOURCES})
 # Link the single test executable
 target_include_directories(ProcessAnalyzerTests PRIVATE
     ${CMAKE_SOURCE_DIR}/include
-    ${CMAKE_SOURCE_DIR}/src
     ${CMAKE_SOURCE_DIR}/tests
 )
 target_link_libraries(ProcessAnalyzerTests PRIVATE processAnalyzerLib processAnalyzerCliLib GTest::gtest_main)
