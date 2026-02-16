@@ -6,7 +6,6 @@
 
 #include <string>
 #include <filesystem>
-#include <fstream>
 #include <vector>
 #include <map>
 #include <utility> // For std::pair
@@ -29,8 +28,8 @@ public:
     void createSymlink(int pid, const std::string& linkname, const std::string& target);
     void createPidDir(int pid);
     void createFile(const std::string& filename, const std::string& content);
-    void removeFile(const std::string& filename); // Added
-    void removeDirectoryAt(const std::filesystem::path& relativePath); // Added
+
+
     
     // Iteration 6
     void createFileAt(const std::filesystem::path& relativePath, const std::string& content);
@@ -41,9 +40,6 @@ public:
     void createEnviron(int pid, const std::map<std::string, std::string>& envVars);
     void createFdDir(int pid, const std::vector<std::pair<int, std::string>>& fds);
     void createProcFdLink(int pid, int fd, const std::string& target);
-
-    // Permissions
-    void setPermissions(const fs::path& relativePath, fs::perms prms, fs::perm_options opts = fs::perm_options::replace);
 
     // Iteration 8
     void createExeSymlink(int pid, const fs::path& targetPath);

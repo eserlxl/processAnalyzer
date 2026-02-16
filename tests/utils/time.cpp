@@ -30,6 +30,7 @@ constexpr long long specificDateTimestamp = 1698391800LL; // October 27, 2023 07
 constexpr long long distantPastTimestamp = -30610224000LL; // 1000-01-01 00:00:00 UTC
 // A very distant future date, close to the max for signed 64-bit time_t
 constexpr long long distantFutureTimestamp = 9223372036854775807LL; // max signed 64-bit int
+constexpr long long timestamp2037End = 2145916799LL; // 2037-12-31 23:59:59 UTC
 
 
 // Define constants for magic numbers used in tests
@@ -158,7 +159,7 @@ TEST(TimeUtilsTest, FormatTimestampChrono) {
     EXPECT_EQ(formattedPastStr.value(), "1970-01-01 00:00:01");
 
     // Test a date in the future (e.g., year 2037-12-31 23:59:59)
-    auto futureTp = std::chrono::system_clock::from_time_t(2145916799LL);
+    auto futureTp = std::chrono::system_clock::from_time_t(timestamp2037End);
     auto formattedFutureStr = utils::formatTimestamp(futureTp, "%Y-%m-%d %H:%M:%S");
     ASSERT_TRUE(formattedFutureStr.has_value());
     EXPECT_EQ(formattedFutureStr.value(), "2037-12-31 23:59:59");

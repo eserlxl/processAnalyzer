@@ -13,7 +13,6 @@
 
 namespace fs = std::filesystem;
 
-constexpr int addressWidth = 16;
 constexpr int flagsWidth = 16;
 constexpr int addressPartWidth = 16;
 constexpr int procStatPrecision = 6;
@@ -62,46 +61,11 @@ std::string MockProc::getPath() const {
 }
 
 void MockProc::createProcFile(int pid, const std::string& filename, const std::string& content) {
-    fs::path pidPath = root / std::to_string(pid);
-    fs::create_directory(pidPath);
-    std::ofstream(pidPath / filename) << content;
+    createFileAt(fs::path(std::to_string(pid)) / filename, content);
 }
 
 void MockProc::createSymlink(int pid, const std::string& linkname, const std::string& target) {
-    fs::path pidPath = root / std::to_string(pid);
-    std::error_code ec;
-
-    // Create parent directory if it doesn't exist, handling errors
-    fs::create_directory(pidPath, ec);
-    if (ec) {
-        std::cerr << "MockProc: Failed to create directory '" << pidPath.string() << "'. Error: " << ec.message() << std::endl;
-        return;
-    }
-
-    fs::path linkPath = pidPath / linkname;
-    
-    // Remove existing symlink if it exists
-    if (fs::exists(linkPath, ec)) {
-        if (ec) {
-            std::cerr << "MockProc: Error checking existence of " << linkPath.string() << ": " << ec.message() << std::endl;
-            ec.clear(); // Clear error to allow subsequent operations
-        } else {
-            fs::remove(linkPath, ec); // Remove with error code
-            if (ec) {
-                std::cerr << "MockProc: Error removing existing symlink " << linkPath.string() << ": " << ec.message() << std::endl;
-                return; // Exit if cannot remove existing
-            }
-        }
-    } else if (ec) { // If error occurred during fs::exists
-         std::cerr << "MockProc: Error checking existence of " << linkPath.string() << ": " << ec.message() << std::endl;
-         return; // Exit if cannot check existence
-    }
-
-    // Create the new symlink
-    fs::create_symlink(target, linkPath, ec);
-    if (ec) {
-        std::cerr << "MockProc: Failed to create symlink '" << linkPath.string() << "' to '" << target << "'. Error: " << ec.message() << std::endl;
-    }
+    createSymlinkAt(fs::path(std::to_string(pid)) / linkname, target);
 }
 
 void MockProc::createPidDir(int pid) {
@@ -109,7 +73,7 @@ void MockProc::createPidDir(int pid) {
 }
 
 void MockProc::createFile(const std::string& filename, const std::string& content) {
-    std::ofstream(root / filename) << content;
+    createFileAt(filename, content);
 }
 
 void MockProc::createFileAt(const std::filesystem::path& relativePath, const std::string& content) {

@@ -206,8 +206,6 @@ TEST_F(UtilsNewApiTest, ReadWriteTextFileErrorHandling) {
 
 // Correctness test for doAtomicWrite ensuring original is untouched on failure
 TEST_F(UtilsNewApiTest, DoAtomicWriteFailureEnsuresOriginalUntouched) {
-    fs::path originalFile = testDir / "original.txt";
-    std::string originalContent = "This is the original content.";
     std::string newContent = "This is the new content.";
 
     // Case 1: Original file does not exist, write fails (e.g., permissions on parent)
@@ -238,7 +236,7 @@ TEST_F(UtilsNewApiTest, DoAtomicWriteFailureEnsuresOriginalUntouched) {
     // (which is not allowed), which will cause rename to fail and trigger cleanup.
     fs::path testTarget = testDir / "rename_fail_test.txt";
     fs::remove(testTarget); // Remove initial file FIRST
-    fs::path blockingDir = testTarget; // Target is now a directory
+    const fs::path& blockingDir = testTarget; // Target is now a directory
     fs::create_directory(blockingDir); // Create a directory at target name
         
     auto result = utils::writeTextFileAtomic(testTarget, newContent);

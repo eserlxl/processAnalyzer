@@ -74,8 +74,14 @@ Result<CommandOutput> executeCommand(::std::string_view command) {
 
     ::std::string stdoutStr;
     std::array<char, bufferSize> buffer;
-    while (size_t bytesRead = fread(buffer.data(), 1, buffer.size(), pipe)) {
-        stdoutStr.append(buffer.data(), bytesRead);
+    while (!feof(pipe) && !ferror(pipe)) {
+        size_t bytesRead = fread(buffer.data(), 1, buffer.size(), pipe);
+        if (bytesRead > 0) {
+            stdoutStr.append(buffer.data(), bytesRead);
+        }
+        if (bytesRead < buffer.size()) {
+            break;
+        }
     }
 
     int pcloseResult = pclose(pipe);
@@ -99,8 +105,14 @@ Result<CommandOutput> executeCommand(::std::string_view command) {
     ::std::string stderrStr;
     FILE* stderrFile = fopen(stderrPathStr.c_str(), "r");
     if (stderrFile) {
-        while (size_t bytesRead = fread(buffer.data(), 1, buffer.size(), stderrFile)) {
-            stderrStr.append(buffer.data(), bytesRead);
+        while (!feof(stderrFile) && !ferror(stderrFile)) {
+            size_t bytesRead = fread(buffer.data(), 1, buffer.size(), stderrFile);
+            if (bytesRead > 0) {
+                stderrStr.append(buffer.data(), bytesRead);
+            }
+            if (bytesRead < buffer.size()) {
+                break;
+            }
         }
         fclose(stderrFile);
     }
