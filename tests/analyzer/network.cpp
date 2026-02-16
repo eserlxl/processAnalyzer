@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Eser KUBALI
 
 #include "gtest/gtest.h"
+#include "analyzer/core.h"
 #include "analyzer/network_model.h"
 #include "analyzer/system_model.h" // For NetworkInterfaceStats
 #include "utils/testing_framework.h" // For MockProc
@@ -17,14 +18,17 @@
 // These are mock inode values for specific network states for testing purposes.
 constexpr uint64_t establishedInode = 1001ULL;
 constexpr uint64_t timeWaitInode = 1002ULL;
+constexpr int kTestPid = 12345;
 
 // Test suite for ProcessAnalyzer::getNetworkConnections
 class GetNetworkConnectionsTest : public ::testing::Test {
 protected:
     ProcessAnalyzer analyzer;
-    int testPid = 12345;
+    int testPid = kTestPid;
     std::filesystem::path originalProcPath;
     std::unique_ptr<MockProc> mockProc;
+
+    GetNetworkConnectionsTest() : analyzer("/proc") {}
 
     void SetUp() override {
         mockProc = std::make_unique<MockProc>("mock_proc_network_test");
@@ -455,6 +459,8 @@ protected:
     ProcessAnalyzer analyzer;
     std::filesystem::path originalProcPath;
     std::unique_ptr<MockProc> mockProc;
+
+    GetNetworkInterfaceStatsTest() : analyzer("/proc") {}
 
     void SetUp() override {
         mockProc = std::make_unique<MockProc>("mock_proc_net_stats_test");

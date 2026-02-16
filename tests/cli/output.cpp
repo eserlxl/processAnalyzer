@@ -29,13 +29,14 @@ constexpr long long kCpuKernelTimeBase = 50;
 constexpr int kCpuKernelTimeMod = 500;
 constexpr float kCpuUsageBase = 0.0F;
 constexpr int kCpuUsageMod = 99;
-constexpr float kMemoryPercBase = 0.1f;
+constexpr float kMemoryPercBase = 0.1F;
 constexpr int kMemoryPercMod = 20;
-constexpr float kMemoryPercDivisor = 10.0f;
+constexpr float kMemoryPercDivisor = 10.0F;
 
 constexpr long long kUptimeLong = 3600000; // 1 hour
 constexpr long long kUptimeMedium = 600000; // 10 minutes
 constexpr pid_t kDummyPid = 1234;
+constexpr pid_t kDummyPid2 = 100;
 constexpr long long kDummyUptimeMs = 1234567;
 
 // Helper to redirect stdout
@@ -106,7 +107,7 @@ TEST(OutputTests, GetDefaultColumnsForTable) {
 TEST(OutputTests, PrintProcessTableBasic) {
     std::vector<ProcessInfo> processes;
     processes.push_back(createDummyProcess(1, "systemd", "/sbin/init", "root", 'S', kUptimeLong));
-    processes.push_back(createDummyProcess(100, "bash", "/bin/bash", "user", 'R', kUptimeMedium));
+    processes.push_back(createDummyProcess(kDummyPid2, "bash", "/bin/bash", "user", 'R', kUptimeMedium));
 
     std::vector<std::string> columns = {"pid", "name", "user"};
 
@@ -144,7 +145,7 @@ TEST(OutputTests, PrintProcessTableNoTruncate) {
 TEST(OutputTests, PrintProcessCsv) {
     std::vector<ProcessInfo> processes;
     processes.push_back(createDummyProcess(1, "systemd", "/sbin/init", "root", 'S', kUptimeLong));
-    processes.push_back(createDummyProcess(100, "bash", "/bin/bash", "user", 'R', kUptimeMedium));
+    processes.push_back(createDummyProcess(kDummyPid2, "bash", "/bin/bash", "user", 'R', kUptimeMedium));
 
     std::vector<std::string> columns = {"pid", "name", "user"};
 
@@ -160,7 +161,7 @@ TEST(OutputTests, PrintProcessCsv) {
 TEST(OutputTests, PrintProcessJson) {
     std::vector<ProcessInfo> processes;
     processes.push_back(createDummyProcess(1, "systemd", "/sbin/init", "root", 'S', kUptimeLong));
-    processes.push_back(createDummyProcess(100, "bash", "/bin/bash", "user", 'R', kUptimeMedium));
+    processes.push_back(createDummyProcess(kDummyPid2, "bash", "/bin/bash", "user", 'R', kUptimeMedium));
 
     std::vector<std::string> columns = {"pid", "name", "user"};
 
