@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Eser KUBALI
 
 #include "utils/file.h"
+#include "utils/filesystem.h"
 #include <cerrno>
 #include <fcntl.h>
 #include <fstream>
@@ -15,7 +16,7 @@ namespace utils {
 // Helper to generate random string for temp files
 namespace {
 constexpr size_t tempFileSuffixLen = 6;
-constexpr size_t tempCreationRetries = 10;
+// constexpr size_t tempCreationRetries = 10;
 constexpr size_t randomNameLen = 16;
 
 Result<void> writeToPath(const ::std::filesystem::path& path, const void* data,
@@ -146,85 +147,6 @@ appendToBinaryFile(const ::std::filesystem::path& path,
                    ::std::span<const ::std::byte> content) {
   return writeToPath(path, content.data(), content.size(),
                      ::std::ios::out | ::std::ios::app | ::std::ios::binary);
-}
-
-Result<::std::filesystem::path>
-createTemporaryFile(::std::string_view prefix, ::std::string_view suffix) {
-  ::std::error_code ec;
-  auto tempDir = ::std::filesystem::temp_directory_path(ec);
-  if (ec) {
-    return ::std::unexpected(ec); // Error getting temp path itself
-  }
-  if (!::std::filesystem::exists(tempDir, ec) ||
-      !::std::filesystem::is_directory(tempDir, ec)) {
-    if (ec)
-      return ::std::unexpected(ec); // Error checking existence or type
-    return ::std::unexpected(make_error_code(UtilsError::tempDirectoryError));
-  }
-  ::std::filesystem::path tempPath;
-
-  // Try a few times to generate a unique name and create atomically.
-  for (size_t i = 0; i < tempCreationRetries; ++i) {
-    ::std::string name;
-    name.reserve(prefix.size() + randomNameLen + suffix.size());
-    name.append(prefix);
-    name.append(generateRandomString(randomNameLen));
-    name.append(suffix);
-    tempPath = tempDir / name;
-
-    const int fd = ::open(tempPath.c_str(), O_CREAT | O_EXCL | O_WRONLY, 0600);
-    if (fd >= 0) {
-      ::close(fd);
-      return tempPath;
-    }
-
-    if (errno == EEXIST) {
-      continue;
-    }
-
-    return ::std::unexpected(::std::error_code(errno, ::std::generic_category()));
-  }
-  return ::std::unexpected(make_error_code(UtilsError::ioError));
-}
-
-Result<::std::filesystem::path>
-createTemporaryDirectory(::std::string_view prefix) {
-  ::std::error_code ec;
-  auto tempDir = ::std::filesystem::temp_directory_path(ec);
-  if (ec) {
-    return ::std::unexpected(ec); // Error getting temp path itself
-  }
-  if (!::std::filesystem::exists(tempDir, ec) ||
-      !::std::filesystem::is_directory(tempDir, ec)) {
-    if (ec)
-      return ::std::unexpected(ec); // Error checking existence or type
-    return ::std::unexpected(make_error_code(UtilsError::tempDirectoryError));
-  }
-  ::std::filesystem::path path;
-
-  for (size_t i = 0; i < tempCreationRetries; ++i) {
-    ::std::string name;
-    name.reserve(prefix.size() + randomNameLen);
-    name.append(prefix);
-    name.append(generateRandomString(randomNameLen));
-    path = tempDir / name;
-    if (::std::filesystem::create_directory(path, ec)) {
-      return path;
-    }
-    // If creation failed and it's not due to file_exists (which implies a
-    // race on name) then it's a persistent error, so return it immediately.
-    if (ec && ec != ::std::make_error_code(::std::errc::file_exists)) {
-      return ::std::unexpected(ec);
-    }
-    // If ec is set to file_exists, we continue the loop to try another name.
-    // If ec is not set, it means create_directory returned false for some
-    // other reason but didn't set a specific error (unlikely for
-    // create_directory but possible for generic errors or custom filesystem
-    // implementations), in which case we continue trying.
-  }
-  return ::std::unexpected(
-      make_error_code(UtilsError::ioError)); // All retries failed or
-                                             // unspecified error
 }
 
 Result<::std::string> readTextFile(const ::std::filesystem::path& path) {

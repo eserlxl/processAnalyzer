@@ -80,62 +80,23 @@ These methods provide an efficient, lazy-loaded way to iterate over processes wi
 -   `streamProcesses()`: Streams `ProcessInfo` structs for all running processes.
 -   `streamQueryProcesses(filter, sortBy, sortOrder)`: Lazily streams processes that match the given filter and sort criteria.
 
----
 
-## Event-Driven Monitoring
-
-The library supports event-driven notifications for process lifecycle events (creation and termination) via the Netlink connector.
-
--   `monitorProcessEvents(callback)`: Starts a monitoring loop that listens for process fork and exit events. It invokes the provided callback function for each event. This is a blocking call that runs in the current thread.
-
-**Example:**
-```cpp
-analyzer.monitorProcessEvents([](const ProcessEvent& event) {
-    if (event.type == ProcessEvent::Type::FORK) {
-        std::cout << "Process created: " << event.pid << std::endl;
-    } else if (event.type == ProcessEvent::Type::EXIT) {
-        std::cout << "Process exited: " << event.pid << std::endl;
-    }
-});
-```
-
----
-
-## JSON Serialization
-
-Most data models in the library (e.g., `ProcessInfo`, `SystemMemoryInfo`) can be easily serialized to and from JSON using the integrated `nlohmann/json` library.
-
--   `ProcessInfo::toJson()`: Returns a `nlohmann::json` object representing the process.
--   `ProcessInfo::fromJson(json)`: A static method to create a `ProcessInfo` object from a JSON object.
-
-**Example:**
-```cpp
-#include "nlohmann/json.hpp"
-
-// Get process details
-ProcessInfo p = analyzer.getProcessDetails(1234);
-
-// Convert to JSON
-nlohmann::json j = p.toJson();
-std::cout << j.dump(4) << std::endl;
-
-// Convert back to struct
-ProcessInfo p2 = ProcessInfo::fromJson(j);
-```
 
 ---
 
 ## Error Handling
 
-The library uses exceptions to report errors. Most functions may throw a `std::runtime_error` or a derived exception class if an underlying system call fails or if a resource (like a process) does not exist.
+The library uses `utils::Result<T>` (an alias for `std::expected`) to report errors. Most functions return a `utils::Result` which contains either the requested value or a `std::error_code`.
 
-It is recommended to wrap API calls in `try...catch` blocks to handle potential errors gracefully.
+You should check the result before accessing the value.
 
 ```cpp
-try {
-    ProcessInfo p = analyzer.getProcessDetails(99999); // A PID that likely doesn't exist
-} catch (const std::runtime_error& e) {
-    std::cerr << "Error fetching process details: " << e.what() << std::endl;
+auto result = analyzer.getProcessDetails(99999); // A PID that likely doesn't exist
+if (result) {
+    ProcessInfo p = *result;
+    // ...
+} else {
+    std::cerr << "Error fetching process details: " << result.error().message() << std::endl;
 }
 ```
 

@@ -13,6 +13,7 @@ The library uses C++23 features like `std::generator` to efficiently stream proc
 ```cpp
 #include <iostream>
 #include <ranges>
+#include "analyzer/core.h"
 
 int main() {
     ProcessAnalyzer analyzer;
@@ -118,7 +119,7 @@ The C++ API allows you to integrate process and system monitoring directly into 
 **Example `main.cpp`:**
 ```cpp
 #include <iostream>
-#include "analyzer/process_analyzer.h"
+#include "analyzer/core.h"
 
 int main() {
     try {

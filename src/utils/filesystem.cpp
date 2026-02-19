@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright (c) 2024 Eser KUBALI
 
-#include "utils/file.h"
+#include "utils/filesystem.h"
 
 #include <vector>
+#include <random>
+#include <fcntl.h> // For open, O_CREAT etc.
+#include <system_error>
+
 #ifdef __linux__
 #include <unistd.h>
 #include <sys/types.h>
@@ -11,8 +15,38 @@
 #include <grp.h>
 #endif
 
+// Fallback for non-linux
+#ifndef __linux__
+#include <io.h>
+#define open _open
+#define close _close
+#define O_CREAT _O_CREAT
+#define O_EXCL _O_EXCL
+#define O_WRONLY _O_WRONLY
+#endif
 
 namespace utils {
+
+namespace {
+constexpr size_t tempFileSuffixLen = 6;
+constexpr size_t tempCreationRetries = 10;
+constexpr size_t randomNameLen = 16;
+
+std::string generateRandomString(size_t length) {
+  static constexpr std::string_view charset = "0123456789"
+                                                "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                                                "abcdefghijklmnopqrstuvwxyz";
+  thread_local std::mt19937 rg{std::random_device{}()};
+  thread_local std::uniform_int_distribution<std::string::size_type> pick(
+      0, charset.size() - 1);
+
+  std::string s;
+  s.reserve(length);
+  for (size_t i = 0; i < length; ++i)
+    s += charset[pick(rg)];
+  return s;
+}
+}
 
 Result<void> traverseDirectory(const std::filesystem::path& dirPath, TraversalCallback callback, const TraversalOptions& options) {
     std::error_code ec;
@@ -416,6 +450,85 @@ Result<bool> isExecutable(const std::filesystem::path& path) {
     }
     auto p = permsResult.value();
     return (p & (std::filesystem::perms::owner_exec | std::filesystem::perms::group_exec | std::filesystem::perms::others_exec)) != std::filesystem::perms::none;
+}
+
+Result<std::filesystem::path>
+createTemporaryFile(std::string_view prefix, std::string_view suffix) {
+  std::error_code ec;
+  auto tempDir = std::filesystem::temp_directory_path(ec);
+  if (ec) {
+    return std::unexpected(ec); // Error getting temp path itself
+  }
+  if (!std::filesystem::exists(tempDir, ec) ||
+      !std::filesystem::is_directory(tempDir, ec)) {
+    if (ec)
+      return std::unexpected(ec); // Error checking existence or type
+    return std::unexpected(make_error_code(UtilsError::tempDirectoryError));
+  }
+  std::filesystem::path tempPath;
+
+  // Try a few times to generate a unique name and create atomically.
+  for (size_t i = 0; i < tempCreationRetries; ++i) {
+    std::string name;
+    name.reserve(prefix.size() + randomNameLen + suffix.size());
+    name.append(prefix);
+    name.append(generateRandomString(randomNameLen));
+    name.append(suffix);
+    tempPath = tempDir / name;
+
+    const int fd = ::open(tempPath.c_str(), O_CREAT | O_EXCL | O_WRONLY, 0600);
+    if (fd >= 0) {
+      ::close(fd);
+      return tempPath;
+    }
+
+    if (errno == EEXIST) {
+      continue;
+    }
+
+    return std::unexpected(std::error_code(errno, std::generic_category()));
+  }
+  return std::unexpected(make_error_code(UtilsError::ioError));
+}
+
+Result<std::filesystem::path>
+createTemporaryDirectory(std::string_view prefix) {
+  std::error_code ec;
+  auto tempDir = std::filesystem::temp_directory_path(ec);
+  if (ec) {
+    return std::unexpected(ec); // Error getting temp path itself
+  }
+  if (!std::filesystem::exists(tempDir, ec) ||
+      !std::filesystem::is_directory(tempDir, ec)) {
+    if (ec)
+      return std::unexpected(ec); // Error checking existence or type
+    return std::unexpected(make_error_code(UtilsError::tempDirectoryError));
+  }
+  std::filesystem::path path;
+
+  for (size_t i = 0; i < tempCreationRetries; ++i) {
+    std::string name;
+    name.reserve(prefix.size() + randomNameLen);
+    name.append(prefix);
+    name.append(generateRandomString(randomNameLen));
+    path = tempDir / name;
+    if (std::filesystem::create_directory(path, ec)) {
+      return path;
+    }
+    // If creation failed and it's not due to file_exists (which implies a
+    // race on name) then it's a persistent error, so return it immediately.
+    if (ec && ec != std::make_error_code(std::errc::file_exists)) {
+      return std::unexpected(ec);
+    }
+    // If ec is set to file_exists, we continue the loop to try another name.
+    // If ec is not set, it means create_directory returned false for some
+    // other reason but didn't set a specific error (unlikely for
+    // create_directory but possible for generic errors or custom filesystem
+    // implementations), in which case we continue trying.
+  }
+  return std::unexpected(
+      make_error_code(UtilsError::ioError)); // All retries failed or
+                                             // unspecified error
 }
 
 } // namespace utils
