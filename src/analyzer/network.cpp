@@ -3,6 +3,7 @@
 
 #include "analyzer/core.h"
 #include "utils/core.h"
+#include "utils/string.h"
 #include "analyzer/network_model.h"
 
 #include <filesystem>
@@ -47,14 +48,14 @@ namespace {
         std::string ipHex = addrStr.substr(0, colonPos);
         std::string portHex = addrStr.substr(colonPos + 1);
 
-        if (auto parsedPort = utils::parseIntegerNoThrow<long>(portHex, hexBase)) {
+        if (auto parsedPort = utils::parseInteger<long>(portHex, hexBase)) {
             result.port = static_cast<uint16_t>(*parsedPort);
         } else {
             return result; // Invalid port
         }
 
         if (ipHex.length() == ipv4HexLen) { // IPv4
-            auto ipValue = utils::parseIntegerNoThrow<uint32_t>(ipHex, hexBase);
+            auto ipValue = utils::parseInteger<uint32_t>(ipHex, hexBase);
             if (!ipValue) return result;
 
             const unsigned octet1 = *ipValue & 0xFFU;
@@ -66,7 +67,7 @@ namespace {
             result.success = true;
         } else if (ipHex.length() == ipv6HexLen) { // IPv6
             if (ipHex.starts_with(ipv4MappedPrefix)) {
-                auto ipValue = utils::parseIntegerNoThrow<uint32_t>(ipHex.substr(ipv4MappedPrefix.length(), ipv4HexLenInIpv6), hexBase);
+                auto ipValue = utils::parseInteger<uint32_t>(ipHex.substr(ipv4MappedPrefix.length(), ipv4HexLenInIpv6), hexBase);
                 if (!ipValue) return result;
 
                 const unsigned octet1 = *ipValue & 0xFFU;
@@ -83,7 +84,7 @@ namespace {
             for(size_t i = 0; i < ipv6ChunkCount; ++i) {
                 std::string chunkHex = ipHex.substr(i * ipv6ChunkLen, ipv6ChunkLen);
                 for(size_t j = 0; j < 4; ++j) {
-                    auto byteVal = utils::parseIntegerNoThrow<unsigned int>(chunkHex.substr((3 - j) * 2, 2), hexBase);
+                    auto byteVal = utils::parseInteger<unsigned int>(chunkHex.substr((3 - j) * 2, 2), hexBase);
                     if (!byteVal) return result;
                     in6.s6_addr[(i * 4) + j] = static_cast<uint8_t>(*byteVal);
                 }
@@ -100,7 +101,7 @@ namespace {
     }
 
     std::string getTcpState(const std::string& stateHex) {
-        if (auto stateInt = utils::parseIntegerNoThrow<int>(stateHex, hexBase)) {
+        if (auto stateInt = utils::parseInteger<int>(stateHex, hexBase)) {
             switch (*stateInt) {
                 case TCP_ESTABLISHED: return "ESTABLISHED";
                 case TCP_SYN_SENT: return "SYN_SENT";
@@ -141,7 +142,7 @@ namespace {
             // Search for an inode from the set of interesting inodes among all tokens after index 3.
             uint64_t foundInode = 0;
             for (size_t i = 4; i < tokens.size(); ++i) {
-                if (auto val = utils::parseIntegerNoThrow<uint64_t>(tokens[i], decimalBase)) {
+                if (auto val = utils::parseInteger<uint64_t>(tokens[i], decimalBase)) {
                     if (interestingInodes.contains(*val)) {
                         foundInode = *val;
                         break;
@@ -198,7 +199,7 @@ utils::Result<std::vector<NetworkConnection>> ProcessAnalyzer::getNetworkConnect
                 fdInfo.path.length() > (socketInodePrefixLen + socketInodeSuffixLen))
             {
                 std::string_view inodeView(fdInfo.path.data() + socketInodePrefixLen, fdInfo.path.length() - socketInodePrefixLen - socketInodeSuffixLen);
-                if (auto parsedInode = utils::parseIntegerNoThrow<uint64_t>(inodeView, decimalBase)) {
+                if (auto parsedInode = utils::parseInteger<uint64_t>(inodeView, decimalBase)) {
                     socketInodes.insert(*parsedInode);
                 }
             }
