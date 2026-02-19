@@ -8,7 +8,7 @@
 #include "utils/string.h"
 #include "utils/system.h"
 #include "utils/time.h"
-#include "analyzer/internal/internal_helpers.h"
+#include "analyzer/internal/helpers.h"
 
 #include <fstream>
 #include <sstream>

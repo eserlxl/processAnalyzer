@@ -35,14 +35,14 @@ endif()
 
 # Create a library for the core logic to be shared with tests
 add_library(processAnalyzerLib STATIC
-    src/analyzer/internal/internal_helpers.cpp
-    src/analyzer/process/base.cpp
-    src/analyzer/process/control.cpp
-    src/analyzer/process/details.cpp
-    src/analyzer/process/network.cpp
-    src/analyzer/process/performance.cpp
-    src/analyzer/process/query.cpp
-    src/analyzer/process/system.cpp
+    src/analyzer/internal/helpers.cpp
+    src/analyzer/base.cpp
+    src/analyzer/control.cpp
+    src/analyzer/details.cpp
+    src/analyzer/network.cpp
+    src/analyzer/performance.cpp
+    src/analyzer/query.cpp
+    src/analyzer/system.cpp
     src/utils/file.cpp
     src/utils/filesystem.cpp
     src/utils/path.cpp

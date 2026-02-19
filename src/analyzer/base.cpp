@@ -3,7 +3,7 @@
 
 #include "analyzer/core.h"
 #include "utils/core.h"
-#include "analyzer/internal/internal_helpers.h" // For checkPidPathExistsAndPermissions
+#include "analyzer/internal/helpers.h" // For checkPidPathExistsAndPermissions
 #include <filesystem>
 #include <utility> // For std::move
 

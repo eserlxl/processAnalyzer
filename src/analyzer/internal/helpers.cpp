@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright (c) 2026 Eser KUBALI
 
-#include "analyzer/internal/internal_helpers.h"
+#include "analyzer/internal/helpers.h"
 #include "analyzer/core.h" // For ProcessInfo, ProcessFilter, etc.
 #include "utils/core.h"
 #include <regex>
