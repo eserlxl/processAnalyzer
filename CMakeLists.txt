@@ -88,10 +88,21 @@ endif()
 FetchContent_Declare(
   googletest
   GIT_REPOSITORY https://github.com/google/googletest.git
-  GIT_TAG        release-1.12.1 # Using a specific release tag for reproducibility
+  GIT_TAG        v1.14.0 # Updated to v1.14.0
 )
+
+# Temporarily disable clang-tidy and CMake deprecation warnings for third-party deps
+set(CMAKE_CXX_CLANG_TIDY_BACKUP ${CMAKE_CXX_CLANG_TIDY})
+set(CMAKE_CXX_CLANG_TIDY "")
+set(CMAKE_WARN_DEPRECATED_BACKUP ${CMAKE_WARN_DEPRECATED})
+set(CMAKE_WARN_DEPRECATED OFF)
+
 # The following will download and add googletest to the project
 FetchContent_MakeAvailable(googletest)
+
+# Restore configuration
+set(CMAKE_CXX_CLANG_TIDY ${CMAKE_CXX_CLANG_TIDY_BACKUP})
+set(CMAKE_WARN_DEPRECATED ${CMAKE_WARN_DEPRECATED_BACKUP})
 
 enable_testing()
 
