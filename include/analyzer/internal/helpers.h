@@ -3,19 +3,13 @@
 
 #pragma once
 
-#include "analyzer/core.h"
-#include <string>
-#include <vector>
+#include "utils/types.h"
 #include <filesystem>
+#include <sys/types.h>
 
 namespace Internal {
 
 // Helper functions declarations
-utils::Result<unsigned long long> getTotalSystemCpuTimeTicks();
-bool matchesFilter(const ProcessInfo& process, const ProcessFilter& filter);
-int compareProcesses(const ProcessInfo& a, const ProcessInfo& b, ProcessSortField sortBy);
 utils::Result<void> checkPidPathExistsAndPermissions(const std::filesystem::path& procPath, pid_t pid);
-utils::Result<std::vector<std::string>> readProcessEnvironmentVars(const std::filesystem::path& procPath, pid_t pid);
 
 } // namespace Internal
-
