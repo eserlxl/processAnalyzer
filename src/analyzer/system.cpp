@@ -5,13 +5,11 @@
 #include "analyzer/system_model.h"
 #include "utils/types.h"
 #include "utils/file.h"
-#include "utils/string.h"
 
-#include <fstream>
 #include <string>
-#include <vector>
 #include <sstream>
 #include <unistd.h> // For sysconf
+#include <functional> // For std::function
 
 // Anonymous namespace for helper functions
 namespace {

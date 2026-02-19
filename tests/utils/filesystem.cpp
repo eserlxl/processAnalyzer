@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Eser KUBALI
 
 #include <gtest/gtest.h>
-#include "utils/file.h"
+#include "utils/core.h"
 #include <filesystem>
 #include <fstream>
 #include <ranges> // Required for std::ranges::find

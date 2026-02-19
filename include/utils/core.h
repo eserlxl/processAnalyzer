@@ -9,6 +9,7 @@
 
 #include "utils/types.h"
 #include "utils/file.h"
+#include "utils/filesystem.h"
 #include "utils/path.h"
 #include "utils/string.h"
 #include "utils/system.h"

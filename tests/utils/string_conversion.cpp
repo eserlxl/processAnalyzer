@@ -224,7 +224,7 @@ TEST(StringConversionTest, ToFloatInvalid) {
 }
 
 TEST(StringConversionTest, ToFloatOutOfRange) {
-    std.string overflowStr = "1e+100";
+    std::string overflowStr = "1e+100";
     EXPECT_TRUE(hasError(utils::toFloat(overflowStr), utils::UtilsError::outOfRange));
 
     std::string underflowStr = "-1e+100";
