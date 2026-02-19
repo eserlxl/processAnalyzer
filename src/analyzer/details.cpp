@@ -6,41 +6,23 @@
 #include "utils/types.h"
 #include "utils/file.h"
 #include "utils/string.h"
-#include "utils/system.h"
 #include "utils/time.h"
 #include "analyzer/internal/helpers.h"
 
-#include <fstream>
 #include <sstream>
 #include <string>
 #include <vector>
 #include <filesystem>
 #include <unistd.h>     // For readlink, getuid
-#include <sys/stat.h>   // For stat
 #include <pwd.h>        // For getpwuid
 #include <algorithm>    // For std::remove
 #include <chrono>       // For std::chrono
-#include <array>        // For std::array
 
 namespace {
 
-constexpr int symlinkBufferSize = 256;
 constexpr int kilobyteSize = 1024;
 constexpr int parseIntegerBase = 10;
 constexpr int threadStatSkipFields = 14;
-
-// Helper to read symlink target
-utils::Result<std::string> readSymlink(const std::filesystem::path& linkPath) {
-    std::array<char, symlinkBufferSize> buffer; // Increased buffer size
-    ssize_t len = ::readlink(linkPath.c_str(), buffer.data(), buffer.size() - 1);
-    if (len == -1) {
-        return std::unexpected(std::error_code(errno, std::system_category()));
-    }
-    buffer[len] = '\0';
-    return std::string(buffer.data());
-}
-
-
 
 // Helper to get username from UID
 std::string getUserName(uid_t uid) {
@@ -249,9 +231,10 @@ utils::Result<ProcessInfo> ProcessAnalyzer::getProcessDetails(int pid) const {
     }
 
     // Read /proc/[pid]/exe (symlink)
-    auto exePathResult = readSymlink(pidPath / "exe");
-    if (exePathResult) {
-        info.executablePath = exePathResult.value();
+    std::error_code ec;
+    auto exePath = std::filesystem::read_symlink(pidPath / "exe", ec);
+    if (!ec) {
+        info.executablePath = exePath.string();
     } else {
         // If executable path can't be read, it's not critical.
         // It's possible for some processes (e.g., kernel threads, or after execve)
@@ -259,9 +242,9 @@ utils::Result<ProcessInfo> ProcessAnalyzer::getProcessDetails(int pid) const {
     }
 
     // Read /proc/[pid]/cwd (symlink)
-    auto cwdPathResult = readSymlink(pidPath / "cwd");
-    if (cwdPathResult) {
-        info.currentWorkingDirectory = cwdPathResult.value();
+    auto cwdPath = std::filesystem::read_symlink(pidPath / "cwd", ec);
+    if (!ec) {
+        info.currentWorkingDirectory = cwdPath.string();
     } else {
         info.currentWorkingDirectory = "";
     }
