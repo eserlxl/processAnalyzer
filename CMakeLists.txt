@@ -69,9 +69,9 @@ target_include_directories(processAnalyzerCliLib PUBLIC ${CMAKE_SOURCE_DIR}/incl
 target_link_libraries(processAnalyzerCliLib PRIVATE processAnalyzerLib)
 
 
-# Main executable
-add_executable(processAnalyzer lxl/examples/main.cpp)
-target_link_libraries(processAnalyzer PRIVATE processAnalyzerLib processAnalyzerCliLib)
+add_executable(processAnalyzer src/main.cpp)
+target_include_directories(processAnalyzer PUBLIC ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(processAnalyzer PRIVATE processAnalyzerCliLib processAnalyzerLib)
 
 # Enable testing
 include(FetchContent)

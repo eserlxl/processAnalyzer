@@ -20,8 +20,11 @@ Result<void> removePermissions(const std::filesystem::path& path, std::filesyste
 Result<bool> exists(const std::filesystem::path& path);
 Result<bool> isFile(const std::filesystem::path& path);
 Result<bool> isDirectory(const std::filesystem::path& path);
+Result<bool> isSymlink(const std::filesystem::path& path);
 
 Result<void> createDirectories(const std::filesystem::path& path);
+Result<void> createSymlink(const std::filesystem::path& targetPath, const std::filesystem::path& linkPath);
+Result<std::filesystem::path> readSymlink(const std::filesystem::path& linkPath);
 Result<void> remove(const std::filesystem::path& path, bool recursive = false);
 Result<std::filesystem::path> createTemporaryFile(std::string_view prefix = "", std::string_view suffix = "");
 Result<std::filesystem::path> createTemporaryDirectory(std::string_view prefix = "");

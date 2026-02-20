@@ -8,7 +8,6 @@
 #include <string>
 #include "analyzer/process_model.h"
 
-void printUsage();
 std::vector<std::string> getDefaultColumnsForTable(bool fullDetails);
 void printProcessTable(const std::vector<ProcessInfo>& processes, const std::vector<std::string>& columns, bool noTruncateCmdline);
 void printProcessCsv(const std::vector<ProcessInfo>& processes, const std::vector<std::string>& columns);

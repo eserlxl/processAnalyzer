@@ -3,6 +3,7 @@
 
 #include "gtest/gtest.h"
 #include "cli/output.h"
+#include "cli/args.h"
 #include "analyzer/process_model.h"
 #include <vector>
 #include <string>

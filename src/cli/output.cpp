@@ -36,35 +36,6 @@ namespace {
     }
 }
 
-void printUsage() {
-    std::cout << "Usage: processAnalyzer [command] [options]\n\n"
-              << "A tool for inspecting system processes.\n\n"
-              << "Commands:\n"
-              << "  list                        List all processes. This is the default command.\n"
-              << "  show                        Show details for a specific process (requires --pid).\n"
-              << "  pid <pid>                   Show details for a specific process ID.\n"
-              << "  name <name>                 Filter processes by name.\n"
-              << "  user <user>                 Filter processes by username.\n"
-              << "  help                        Show this help message.\n\n"
-              << "Options:\n"
-              << "  -h, --help                  Show this help message.\n"
-              << "  -p, --pid <pid>             Target process ID.\n"
-              << "  --brief                     Show a condensed table view.\n"
-              << "  --columns <c1,c2,...>       Select columns. Available: pid, ppid, uid, user, name, state, rss, vm, threads, cmdline, start-time, elapsed-time, exec-path, nice.\n"
-              << "  --config-file <path>        Path to a configuration file.\n"
-              << "  --output <csv|json|table|vertical>  Set output format.\n"
-              << "  --no-truncate-cmdline       Do not truncate the command line in table view.\n"
-              << "  --sort-by <field>           Sort by field. Available: pid, ppid, name, user, rss, vm, threads, state, start-time.\n"
-              << "  --sort-order <asc|desc>     Sort in ascending or descending order.\n"
-              << "  --state <char>              Filter by process state (e.g., R, S, Z, T, D).\n"
-              << "  --ppid <ppid>               Filter by parent process ID.\n\n"
-              << "PID Specific Options:\n"
-              << "  --children                  Show child processes.\n"
-              << "  --open-files                Show open files.\n"
-              << "  --network                   Show network connections.\n"
-              << "  --threads                   Show thread information.\n";
-}
-
 
 std::vector<std::string> getDefaultColumnsForTable(bool fullDetails) {
     if (fullDetails) {

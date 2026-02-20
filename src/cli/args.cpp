@@ -49,6 +49,35 @@ namespace {
     }
 }
 
+void printUsage() {
+    std::cout << "Usage: processAnalyzer <command> [options]\n"
+              << "Commands:\n"
+              << "  list                     List all processes (default command)\n"
+              << "  show --pid <pid>         Show detailed information for a specific process\n"
+              << "  pid <pid>                Alias for 'show --pid <pid>'\n"
+              << "  name <process_name>      Search processes by name\n"
+              << "  user <username>          Search processes by user\n"
+              << "\nOptions:\n"
+              << "  -h, --help               Show this help message\n"
+              << "  -p, --pid <pid>          Filter or show details for a specific Process ID\n"
+              << "  --name <name>            Filter processes by name (contains)\n"
+              << "  -u, --user <username>    Filter processes by username\n"
+              << "  -s, --state <char>       Filter processes by state (e.g., 'R', 'S', 'Z')\n"
+              << "  --sort-by <field>        Sort processes by a specific field (pid, ppid, name, rss, vm, etc.)\n"
+              << "  --sort-order <asc|desc>  Sort order (ascending or descending, default: asc)\n"
+              << "  -b, --brief              Show brief process information (less columns)\n"
+              << "  --columns <col1,col2,...> Select specific columns to display\n"
+              << "  --no-truncate-cmdline    Do not truncate command line output\n"
+              << "  -o, --output <format>    Output format (table, vertical, csv, json, default: table)\n"
+              << "  --children               (With 'show' or 'pid') Show child processes\n"
+              << "  --open-files             (With 'show' or 'pid') Show open files for process\n"
+              << "  --threads                (With 'show' or 'pid') Show threads for process\n"
+              << "  --network                (With 'show' or 'pid') Show network connections for process\n"
+              << "  --ppid <ppid>            Filter processes by Parent Process ID\n"
+              << "  --config-file <path>     Specify a configuration file\n"
+              << std::endl;
+}
+
 std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const> argv) {
     ParsedArguments args;
     

@@ -15,7 +15,7 @@
 #include <filesystem>
 #include <unistd.h>     // For readlink, getuid
 #include <pwd.h>        // For getpwuid
-#include <algorithm>    // For std::remove
+#include <algorithm>
 #include <chrono>       // For std::chrono
 
 namespace {

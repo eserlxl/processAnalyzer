@@ -32,32 +32,7 @@ Result<bool> pathsEquivalent(const std::filesystem::path& p1, const std::filesys
     return equivalent;
 }
 
-Result<void> createSymlink(const std::filesystem::path& target, const std::filesystem::path& link) {
-    std::error_code ec;
-    std::filesystem::create_symlink(target, link, ec);
-    if (ec) {
-        return std::unexpected(ec);
-    }
-    return {};
-}
 
-Result<std::filesystem::path> readSymlink(const std::filesystem::path& link) {
-    std::error_code ec;
-    auto result = std::filesystem::read_symlink(link, ec);
-    if (ec) {
-        return std::unexpected(ec);
-    }
-    return result;
-}
-
-Result<bool> isSymlink(const std::filesystem::path& path) {
-    std::error_code ec;
-    bool isSym = std::filesystem::is_symlink(path, ec);
-    if (ec) {
-        return std::unexpected(ec);
-    }
-    return isSym;
-}
 
 // Simple utility wrappers for common path operations
 Result<std::filesystem::path> getAbsolutePath(const std::filesystem::path& path) {

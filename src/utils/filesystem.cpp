@@ -341,6 +341,49 @@ Result<bool> isDirectory(const std::filesystem::path& path) {
     return result;
 }
 
+Result<bool> isSymlink(const std::filesystem::path& path) {
+    std::error_code ec;
+    bool result = std::filesystem::is_symlink(path, ec);
+    if (ec) {
+        if (ec == std::errc::no_such_file_or_directory) {
+            return false;
+        }
+        return std::unexpected(ec);
+    }
+    return result;
+}
+
+Result<void> createSymlink(const std::filesystem::path& targetPath, const std::filesystem::path& linkPath) {
+    std::error_code ec;
+    // Create parent directories for the symlink if they don't exist
+    auto parentPath = linkPath.parent_path();
+    if (!parentPath.empty()) {
+        auto createDirResult = createDirectories(parentPath);
+        if (!createDirResult) {
+            return createDirResult; // Propagate error from createDirectories
+        }
+    }
+
+    std::filesystem::create_symlink(targetPath, linkPath, ec);
+    if (ec) {
+        return std::unexpected(ec);
+    }
+    return {};
+}
+
+Result<std::filesystem::path> readSymlink(const std::filesystem::path& linkPath) {
+    std::error_code ec;
+    if (!std::filesystem::is_symlink(linkPath, ec)) {
+        if (ec) return std::unexpected(ec);
+        return std::unexpected(make_error_code(UtilsError::invalidArgument)); // Not a symlink
+    }
+    std::filesystem::path target = std::filesystem::read_symlink(linkPath, ec);
+    if (ec) {
+        return std::unexpected(ec);
+    }
+    return target;
+}
+
 // Note: This function returns POSIX-style permissions. On non-POSIX systems like Windows,
 // this may not fully represent the file's permissions, as they use ACLs.
 Result<std::filesystem::perms> getPermissions(const std::filesystem::path& path) {

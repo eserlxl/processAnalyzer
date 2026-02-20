@@ -33,4 +33,6 @@ struct ParsedArguments {
 
 std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const> argv);
 
+void printUsage();
+
 #endif // CLI_ARGS_H
