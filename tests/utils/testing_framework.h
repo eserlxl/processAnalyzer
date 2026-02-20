@@ -25,6 +25,8 @@ public:
 
     // Basic file creation
     void createProcFile(int pid, const std::string& filename, const std::string& content);
+    void createFile(const std::string& relativePath, const std::string& content);
+    void createFileAt(const std::filesystem::path& relativePath, const std::string& content);
     void createSymlink(int pid, const std::string& linkname, const std::string& target);
     void createDirectoryAt(const std::filesystem::path& relativePath);
     void createSymlinkAt(const std::filesystem::path& relativeLinkPath, const std::filesystem::path& targetPath);

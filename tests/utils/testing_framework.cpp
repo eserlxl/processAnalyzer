@@ -65,6 +65,10 @@ void MockProc::createProcFile(int pid, const std::string& filename, const std::s
     createFileAt(fs::path(std::to_string(pid)) / filename, content);
 }
 
+void MockProc::createFile(const std::string& relativePath, const std::string& content) {
+    createFileAt(relativePath, content);
+}
+
 void MockProc::createSymlink(int pid, const std::string& linkname, const std::string& target) {
     createSymlinkAt(fs::path(std::to_string(pid)) / linkname, target);
 }
@@ -312,7 +316,7 @@ void MockProc::createMaps(int pid, const std::vector<ProcMapEntry>& entries) {
 }
 
 void MockProc::createMeminfo(const MeminfoData& data) {
-    createFile("meminfo", data.toString());
+    createFileAt("meminfo", data.toString());
 }
 
 void MockProc::createCpuinfo(const std::vector<CpuinfoData>& cores) {
@@ -327,7 +331,7 @@ void MockProc::createSystemStat(const SystemStatData& data) {
     ss << "cpu  " << data.toString() << "\n";
     ss << "processes " << data.processes << "\n";
     ss << "ctxt " << data.ctxt << "\n";
-    createFile("stat", ss.str());
+    createFileAt("stat", ss.str());
 }
 
 void MockProc::createSystemStat(const std::vector<SystemStatData>& perCpuData) {
@@ -347,18 +351,18 @@ void MockProc::createSystemStat(const std::vector<SystemStatData>& perCpuData) {
         ss << "processes " << defaultData.processes << "\n";
         ss << "ctxt " << defaultData.ctxt << "\n";
     }
-    createFile("stat", ss.str());
+    createFileAt("stat", ss.str());
 }
 
 void MockProc::createUptime(double uptimeSeconds, double idleSeconds) {
     std::stringstream ss;
     ss << std::fixed << std::setprecision(2) << uptimeSeconds << " "
        << std::fixed << std::setprecision(2) << idleSeconds << "\n";
-    createFile("uptime", ss.str());
+    createFileAt("uptime", ss.str());
 }
 
 void MockProc::createVersion(const std::string& versionString) {
-    createFile("version", versionString + "\n");
+    createFileAt("version", versionString + "\n");
 }
 
 void MockProc::createNetDev(const std::vector<NetDevStats>& devices) {
@@ -373,7 +377,7 @@ void MockProc::createNetDev(const std::vector<NetDevStats>& devices) {
     if (!fs::exists(netPath)) {
         fs::create_directory(netPath);
     }
-    createFile("net/dev", ss.str());
+    createFileAt("net/dev", ss.str());
 }
 
 void MockProc::addThread(int parentPid, int threadId, const AddThreadOptions& options) {
