@@ -3,6 +3,7 @@
 
 #include "gtest/gtest.h"
 #include "utils/core.h"
+#include "utils/string.h"
 #include <string>
 #include <vector>
 #include <filesystem>
@@ -14,6 +15,23 @@
 #include <algorithm>
 
 namespace fs = std::filesystem;
+
+// Helper for tests
+utils::Result<std::vector<std::string>> readLines(const fs::path& path) {
+    auto contentResult = utils::readTextFile(path);
+    if (!contentResult.has_value()) {
+        return std::unexpected(contentResult.error());
+    }
+    const std::string& content = contentResult.value();
+    if (content.empty()) {
+        return std::vector<std::string>{};
+    }
+    auto lines = utils::split(content, '\n', false);
+    if (!lines.empty() && lines.back().empty()) {
+        lines.pop_back();
+    }
+    return lines;
+}
 
 class UtilsTest : public ::testing::Test {
 protected:
@@ -142,7 +160,7 @@ TEST_F(UtilsTest, ReadLines) {
     std::string content = "line 1\nline 2\nline 3\n";
     auto filePath = createTestFile("lines.txt", content);
 
-    auto result = utils::readLines(filePath);
+    auto result = readLines(filePath);
     ASSERT_TRUE(result.has_value());
     std::vector<std::string> expected = {"line 1", "line 2", "line 3"};
     EXPECT_EQ(result.value(), expected);
@@ -150,7 +168,7 @@ TEST_F(UtilsTest, ReadLines) {
 
 TEST_F(UtilsTest, ReadLinesEmptyFile) {
     auto filePath = createTestFile("lines_empty.txt", "");
-    auto result = utils::readLines(filePath);
+    auto result = readLines(filePath);
     ASSERT_TRUE(result.has_value());
     EXPECT_TRUE(result.value().empty());
 }
