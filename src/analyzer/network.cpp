@@ -54,7 +54,7 @@ namespace {
             return result; // Invalid port
         }
 
-        auto format_ipv4 = [](uint32_t ipValue) {
+        auto formatIpv4 = [](uint32_t ipValue) {
             const unsigned octet1 = ipValue & 0xFFU;
             const unsigned octet2 = (ipValue >> 8U) & 0xFFU;
             const unsigned octet3 = (ipValue >> 16U) & 0xFFU;
@@ -66,7 +66,7 @@ namespace {
             auto ipValue = utils::parseInteger<uint32_t>(ipHex, hexBase);
             if (!ipValue) return result;
 
-            result.ip = format_ipv4(*ipValue);
+            result.ip = formatIpv4(*ipValue);
             result.family = AddressFamily::iPv4;
             result.success = true;
         } else if (ipHex.length() == ipv6HexLen) { // IPv6
@@ -74,7 +74,7 @@ namespace {
                 auto ipValue = utils::parseInteger<uint32_t>(ipHex.substr(ipv4MappedPrefix.length(), ipv4HexLenInIpv6), hexBase);
                 if (!ipValue) return result;
 
-                result.ip = std::format("::ffff:{}", format_ipv4(*ipValue));
+                result.ip = std::format("::ffff:{}", formatIpv4(*ipValue));
                 result.family = AddressFamily::iPv6;
                 result.success = true;
                 return result;
