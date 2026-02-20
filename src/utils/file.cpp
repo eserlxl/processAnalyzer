@@ -5,7 +5,6 @@
 #include <cerrno>
 #include <fstream>
 #include <iterator>
-#include <random>
 #include <vector>
 
 namespace utils {
@@ -63,12 +62,6 @@ readBinaryFile(const ::std::filesystem::path& path) {
   }
 
   return buffer;
-}
-
-Result<void> writeBinaryFile(const ::std::filesystem::path& path,
-                             ::std::span<const ::std::byte> content) {
-  return writeToPath(path, content.data(), content.size(),
-                     ::std::ios::out | ::std::ios::trunc | ::std::ios::binary);
 }
 
 Result<::std::string> readTextFile(const ::std::filesystem::path& path) {

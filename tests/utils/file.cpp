@@ -104,9 +104,9 @@ TEST_F(UtilsNewApiTest, WriteFunctionsFileTooLarge) {
     constexpr std::byte dummyByteValue{0xAA};
     std::vector<std::byte> dummyContent(dummyContentSize, dummyByteValue); // Small content
 
-    // --- Test `writeBinaryFile` ---
+    // --- Test `writeTextFile` ---
     // If std::streamsize is 64-bit, this won't trigger fileTooLarge, but we verify other errors.
-    auto resultWb = utils::writeBinaryFile(testFilePath, dummyContent);
+    auto resultWb = utils::writeTextFile(testFilePath, std::string_view(reinterpret_cast<const char*>(dummyContent.data()), dummyContent.size()));
     ASSERT_TRUE(resultWb.has_value()); // Should succeed with small content
 
     // Simulate permission denied for write operations
@@ -166,7 +166,7 @@ TEST_F(UtilsNewApiTest, ReadWriteBinaryFile) {
     std::vector<std::byte> data = testData;
 
     // Write
-    auto writeResult = utils::writeBinaryFile(binaryFile, data);
+    auto writeResult = utils::writeTextFile(binaryFile, std::string_view(reinterpret_cast<const char*>(data.data()), data.size()));
     ASSERT_TRUE(writeResult.has_value());
     ASSERT_TRUE(fs::exists(binaryFile));
     EXPECT_EQ(fs::file_size(binaryFile), 4);
