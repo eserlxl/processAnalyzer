@@ -26,13 +26,6 @@ public:
     // Basic file creation
     void createProcFile(int pid, const std::string& filename, const std::string& content);
     void createSymlink(int pid, const std::string& linkname, const std::string& target);
-    void createPidDir(int pid);
-    void createFile(const std::string& filename, const std::string& content);
-
-
-    
-    // Iteration 6
-    void createFileAt(const std::filesystem::path& relativePath, const std::string& content);
     void createDirectoryAt(const std::filesystem::path& relativePath);
     void createSymlinkAt(const std::filesystem::path& relativeLinkPath, const std::filesystem::path& targetPath);
     void createCmdline(int pid, const std::vector<std::string>& args);
@@ -197,7 +190,6 @@ public:
     ProcessBuilder(MockProc& mockProc, int pid);
 
     ProcessBuilder& withName(const std::string& name);
-    ProcessBuilder& withComm(const std::string& commName);
     ProcessBuilder& withCmdline(const std::vector<std::string>& args);
     ProcessBuilder& withParent(int ppid);
     ProcessBuilder& withExe(const fs::path& exePath);

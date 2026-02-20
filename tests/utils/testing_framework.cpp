@@ -73,10 +73,6 @@ void MockProc::createPidDir(int pid) {
     fs::create_directory(root / std::to_string(pid));
 }
 
-void MockProc::createFile(const std::string& filename, const std::string& content) {
-    createFileAt(filename, content);
-}
-
 void MockProc::createFileAt(const std::filesystem::path& relativePath, const std::string& content) {
     fs::path fullPath = root / relativePath;
     fs::create_directories(fullPath.parent_path());
@@ -494,10 +490,6 @@ ProcessBuilder::ProcessBuilder(MockProc& mockProc, int pid) : mockProc_(mockProc
 
 ProcessBuilder& ProcessBuilder::withName(const std::string& name) {
     options_.name = name;
-    return *this;
-}
-ProcessBuilder& ProcessBuilder::withComm(const std::string& commName) {
-    options_.name = commName; // Alias for withName, populates process name.
     return *this;
 }
 ProcessBuilder& ProcessBuilder::withCmdline(const std::vector<std::string>& args) {
