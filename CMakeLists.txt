@@ -44,7 +44,8 @@ add_library(processAnalyzerLib STATIC
     src/analyzer/query.cpp
     src/analyzer/system.cpp
     src/utils/file.cpp
-    src/utils/filesystem.cpp
+    src/utils/filesystem_attributes.cpp
+    src/utils/filesystem_operations.cpp
     src/utils/path.cpp
     src/utils/string.cpp
     src/utils/system.cpp

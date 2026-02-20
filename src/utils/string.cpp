@@ -248,16 +248,6 @@ std::vector<std::string> split(std::string_view s, std::string_view delimiter, b
 
 // Numeric Parsing/Validation
 
-
-
-bool isInteger(std::string_view s) {
-    return parseNumeric<long long>(s).has_value();
-}
-
-bool isFloatingPoint(std::string_view s) {
-    return parseNumeric<double>(s).has_value();
-}
-
 template <typename T>
 Result<T> parseNumeric(std::string_view s, int base) {
     constexpr std::string_view whitespace = " \t\n\r\f\v";
@@ -302,6 +292,14 @@ Result<T> parseNumeric(std::string_view s, int base) {
     }
     // std::errc::invalid_argument (no digits found, etc.)
     return std::unexpected(make_error_code(UtilsError::invalidArgument));
+}
+
+bool isInteger(std::string_view s) {
+    return parseNumeric<long long>(s, utils::defaultRadix).has_value();
+}
+
+bool isFloatingPoint(std::string_view s) {
+    return parseNumeric<double>(s, utils::defaultRadix).has_value();
 }
 
 

@@ -9,7 +9,8 @@
 
 #include "utils/types.h"
 #include "utils/file.h"
-#include "utils/filesystem.h"
+#include "utils/filesystem_attributes.h"
+#include "utils/filesystem_operations.h"
 #include "utils/path.h"
 #include "utils/string.h"
 #include "utils/system.h"
