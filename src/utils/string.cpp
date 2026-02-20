@@ -3,7 +3,7 @@
 
 #include "utils/string.h"
 #include <algorithm>
-#include <cctype> // For std::tolower, std::toupper (used carefully for ASCII only)
+
 #include <charconv> // For std::from_chars
 #include <limits>   // For std::numeric_limits
 #include <cmath>    // For std::isinf, std::isfinite
@@ -248,17 +248,14 @@ std::vector<std::string> split(std::string_view s, std::string_view delimiter, b
 
 // Numeric Parsing/Validation
 
-template <typename T>
-Result<T> parseNumeric(std::string_view s, int base = defaultRadix);
+
 
 bool isInteger(std::string_view s) {
-    long long val;
-    return tryParse(s, val);
+    return parseNumeric<long long>(s).has_value();
 }
 
 bool isFloatingPoint(std::string_view s) {
-    double val;
-    return tryParse(s, val);
+    return parseNumeric<double>(s).has_value();
 }
 
 template <typename T>

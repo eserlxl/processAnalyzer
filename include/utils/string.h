@@ -15,50 +15,7 @@
 
 namespace utils {
 
-/**
- * @brief Safely parses a string view and updates the output variable on success.
- *
- * This function attempts to parse the string view `s` into a value of type `T`.
- * If parsing is successful, the `out` variable is updated with the parsed value.
- * If parsing fails, `out` remains unchanged. This function is useful for parsing
- * multiple values from a string without complex error handling for each one.
- * It uses `std::from_chars` for locale-independent parsing.
- *
- * @tparam T The numeric type to parse into (e.g., int, long, double).
- * @param s The string view to parse.
- * @param out A reference to the variable that will receive the parsed value.
- */
-template<typename T>
-[[nodiscard]] inline bool tryParse(std::string_view s, T& out) {
-    constexpr std::string_view whitespace = " \t\n\r\f\v";
-    auto firstCharPos = s.find_first_not_of(whitespace);
-    if (firstCharPos == std::string_view::npos) {
-        return false;
-    }
-    auto lastCharPos = s.find_last_not_of(whitespace);
-    std::string_view trimmedSv = s.substr(firstCharPos, lastCharPos - firstCharPos + 1);
 
-    const char* begin = trimmedSv.data();
-    const char* end = begin + trimmedSv.size();
-
-    if (!trimmedSv.empty() && trimmedSv.front() == '+') {
-        begin++;
-    }
-
-    T tempVal{};
-    auto [ptr, ec] = std::from_chars(begin, end, tempVal);
-
-    if (ec == std::errc{} && ptr == end) {
-        if constexpr (std::is_floating_point_v<T>) {
-            if (!std::isfinite(tempVal)) {
-                return false;
-            }
-        }
-        out = tempVal;
-        return true;
-    }
-    return false;
-}
 
 /**
  * @brief Parses a string view into an integer type, returning an optional.
