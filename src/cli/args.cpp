@@ -10,10 +10,10 @@
 #include <limits>
 
 namespace {
-    constexpr std::array<std::string_view, 16> validColumns = {
+    constexpr std::array<std::string_view, 14> validColumns = {
         "pid", "ppid", "uid", "user", "name", "state", "rss", "vm",
-        "threads", "cmdline", "cpu", "start-time", "elapsed-time",
-        "mem-perc", "exec-path", "nice"
+        "threads", "cmdline", "start-time", "elapsed-time",
+        "exec-path", "nice"
     };
 
     bool isValidColumn(std::string_view column) {
@@ -32,9 +32,7 @@ namespace {
         if (lowerS == "rss") return ProcessSortField::rss;
         if (lowerS == "vm") return ProcessSortField::vmsize;
         if (lowerS == "threads") return ProcessSortField::threads;
-        if (lowerS == "cpu") return ProcessSortField::cpuUsage;
         if (lowerS == "start-time") return ProcessSortField::startTime;
-        if (lowerS == "mem-perc" || lowerS == "mem") return ProcessSortField::memoryPercentage;
         return std::nullopt;
     }
 

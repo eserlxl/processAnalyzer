@@ -9,31 +9,9 @@
 #include <string>
 #include <sstream>
 #include <unistd.h> // For sysconf
-#include <functional> // For std::function
 
 // Anonymous namespace for helper functions
 namespace {
-
-// Helper to parse /proc/stat for system-wide CPU stats
-utils::Result<SystemCpuStats> parseSystemCpuStats(const std::string& statContent) {
-    SystemCpuStats stats{}; // Initialize with zeros
-
-    std::istringstream iss(statContent);
-    std::string line;
-    while (std::getline(iss, line)) {
-        if (line.starts_with("cpu ")) {
-            std::istringstream lineStream(line);
-            std::string cpuLabel; // "cpu"
-            // The values are in USER_HZ (clock ticks)
-            if (!(lineStream >> cpuLabel >> stats.user >> stats.nice >> stats.system >> stats.idle >>
-                  stats.iowait >> stats.irq >> stats.softirq >> stats.steal >> stats.guest >> stats.guest_nice)) {
-                return std::unexpected(utils::make_error_code(utils::UtilsError::analyzerParsingError));
-            }
-            return stats;
-        }
-    }
-    return std::unexpected(utils::make_error_code(utils::UtilsError::analyzerParsingError));
-}
 
 // Helper to parse /proc/stat for system boot time
 utils::Result<long long> parseSystemBootTime(const std::string& statContent) {
@@ -71,20 +49,5 @@ utils::Result<long> ProcessAnalyzer::getSystemClockTicksPerSecond() {
         return std::unexpected(std::error_code(errno, std::system_category()));
     }
     return ticks;
-}
-
-// Initialize the test mock function pointer
-std::function<utils::Result<SystemCpuStats>()> ProcessAnalyzer::s_testMockGetSystemCpuStats = nullptr;
-
-// Implementation of ProcessAnalyzer::getSystemCpuStats
-utils::Result<SystemCpuStats> ProcessAnalyzer::getSystemCpuStats() {
-    if (s_testMockGetSystemCpuStats) {
-        return s_testMockGetSystemCpuStats();
-    }
-    auto statContent = utils::readTextFile("/proc/stat");
-    if (!statContent) {
-        return std::unexpected(statContent.error());
-    }
-    return parseSystemCpuStats(*statContent);
 }
 

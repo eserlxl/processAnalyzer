@@ -11,20 +11,6 @@
 #include <regex>
 #include <functional>
 
-// Enum for common POSIX signals
-enum class ProcessSignal {
-    sighup = 1,    // Hangup detected on controlling terminal or death of controlling process
-    sigint = 2,    // Interrupt from keyboard
-    sigquit = 3,   // Quit from keyboard
-    sigkill = 9,   // Kill signal (cannot be caught or ignored)
-    sigterm = 15,  // Termination signal
-    sigstop = 19,  // Stop process (cannot be caught or ignored)
-    sigcont = 18,  // Continue process if stopped
-    sigusR1 = 10,  // User-defined signal 1
-    sigusR2 = 12   // User-defined signal 2
-    // ... add more as needed
-};
-
 struct ProcessInfo {
     pid_t pid = 0;
     pid_t ppid = 0;
@@ -49,25 +35,6 @@ struct ProcessInfo {
     long long ioReadBytes = 0;      // Total bytes read by the process (from /proc/<pid>/io)
     long long ioWriteBytes = 0;     // Total bytes written by the process (from /proc/<pid>/io)
     int priority = 0;               // Process priority (nice value)
-    
-    // --- New Fields for Iteration 13 ---
-    float cpuUsage = 0.0F;             // Percentage of CPU usage.
-    float memoryPercentage = 0.0F;     // Percentage of total system memory used by the process (RSS-based).
-};
-
-struct ProcessCpuUsage {
-    pid_t pid = 0;
-    std::string name = "";
-    double cpuPercentage = 0.0; // CPU usage as a percentage (e.g., 50.5 for 50.5% CPU)
-                          // Note: This is an instantaneous/delta percentage between two calls.
-};
-
-// New for Iteration 9: Disk I/O Rate per Process
-struct ProcessDiskIoUsage {
-    pid_t pid = 0;
-    std::string name = "";
-    double readBytesPerSecond = 0.0;  // Disk read rate in bytes per second
-    double writeBytesPerSecond = 0.0; // Disk write rate in bytes per second
 };
 
 // New for Iteration 9: Process Threads Details
@@ -160,11 +127,6 @@ struct ProcessFilter {
     std::optional<int> maxPriority;
     std::optional<pid_t> ppidFilter;
 
-    std::optional<float> minCpuUsage;          // New: Filter by CPU usage percentage
-    std::optional<float> maxCpuUsage;          // New
-    std::optional<float> minMemoryPercentage;  // New: Filter by memory usage percentage
-    std::optional<float> maxMemoryPercentage;  // New
-
     // New: Filter processes with network connections matching criteria
     struct NetworkFilterCriteria {
         std::optional<uint16_t> localPort;
@@ -199,9 +161,7 @@ enum class ProcessSortField {
     cpuKernelTime,
     ioReadBytes,
     ioWriteBytes,
-    priority,
-    cpuUsage,         // NEW for Iteration 13
-    memoryPercentage  // NEW for Iteration 13
+    priority
 };
 
 enum class SortOrder {

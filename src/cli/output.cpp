@@ -25,20 +25,10 @@ namespace {
         if (col == "threads") return std::to_string(info.threadCount);
         if (col == "cmdline") return info.cmdline;
         // New columns for Iteration 13
-        if (col == "cpu") {
-            std::stringstream ss;
-            ss << std::fixed << std::setprecision(2) << info.cpuUsage;
-            return ss.str();
-        }
         if (col == "start-time") {
             return utils::formatTimestamp(info.startTimeUnix).value_or("N/A");
         }
         if (col == "elapsed-time") return info.elapsedTime;
-        if (col == "mem-perc") {
-            std::stringstream ss;
-            ss << std::fixed << std::setprecision(2) << info.memoryPercentage;
-            return ss.str();
-        }
         if (col == "exec-path") return info.executablePath;
         if (col == "nice") return std::to_string(info.priority);
         assert(false && "Unknown column name requested");
@@ -60,11 +50,11 @@ void printUsage() {
               << "  -h, --help                  Show this help message.\n"
               << "  -p, --pid <pid>             Target process ID.\n"
               << "  --brief                     Show a condensed table view.\n"
-              << "  --columns <c1,c2,...>       Select columns. Available: pid, ppid, uid, user, name, state, rss, vm, threads, cmdline, cpu, start-time, elapsed-time, mem-perc, exec-path, nice.\n"
+              << "  --columns <c1,c2,...>       Select columns. Available: pid, ppid, uid, user, name, state, rss, vm, threads, cmdline, start-time, elapsed-time, exec-path, nice.\n"
               << "  --config-file <path>        Path to a configuration file.\n"
               << "  --output <csv|json|table|vertical>  Set output format.\n"
               << "  --no-truncate-cmdline       Do not truncate the command line in table view.\n"
-              << "  --sort-by <field>           Sort by field. Available: pid, ppid, name, user, rss, vm, threads, state, cpu, start-time, mem-perc.\n"
+              << "  --sort-by <field>           Sort by field. Available: pid, ppid, name, user, rss, vm, threads, state, start-time.\n"
               << "  --sort-order <asc|desc>     Sort in ascending or descending order.\n"
               << "  --state <char>              Filter by process state (e.g., R, S, Z, T, D).\n"
               << "  --ppid <ppid>               Filter by parent process ID.\n\n"
@@ -91,8 +81,6 @@ void printVerticalProcessDetails(const ProcessInfo& info) {
               << "Name:              " << info.name << "\n"
               << "State:             " << info.state << "\n"
               << "Nice Value:        " << info.priority << "\n"
-              << "CPU Usage:         " << std::fixed << std::setprecision(2) << info.cpuUsage << " %\n"
-              << "Memory Usage:      " << std::fixed << std::setprecision(2) << info.memoryPercentage << " %\n"
               << "RSS Memory:        " << info.residentMemory << " KB\n"
               << "Virtual Memory:    " << info.virtualMemory << " KB\n"
               << "Threads:           " << info.threadCount << "\n"
@@ -117,10 +105,8 @@ void printProcessTable(const std::vector<ProcessInfo>& processes, const std::vec
         {"vm", 10},
         {"threads", 8},
         {"cmdline", 40},
-        {"cpu", 8},
         {"start-time", 22},
         {"elapsed-time", 14},
-        {"mem-perc", 10},
         {"exec-path", 30},
         {"nice", 6}
     };
@@ -132,7 +118,6 @@ void printProcessTable(const std::vector<ProcessInfo>& processes, const std::vec
         // Use std::ranges::transform for modernization
         std::ranges::transform(header, header.begin(), ::toupper);
         if (col == "rss" || col == "vm") header += "(KB)";
-        if (col == "cpu" || col == "mem-perc") header += "(%)";
         std::cout << std::left << std::setw(widths[col]) << header;
     }
     std::cout << std::endl;

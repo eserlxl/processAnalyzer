@@ -75,8 +75,6 @@ utils::Result<std::vector<ProcessInfo>> ProcessAnalyzer::queryProcesses(
         if (!applyRangeFilter(filter.minResidentMemoryKB, filter.maxResidentMemoryKB, pInfo.residentMemory)) continue;
         if (!applyRangeFilter(filter.minVirtualMemoryKB, filter.maxVirtualMemoryKB, pInfo.virtualMemory)) continue;
         if (!applyRangeFilter(filter.minPriority, filter.maxPriority, pInfo.priority)) continue;
-        if (!applyRangeFilter(filter.minCpuUsage, filter.maxCpuUsage, pInfo.cpuUsage)) continue;
-        if (!applyRangeFilter(filter.minMemoryPercentage, filter.maxMemoryPercentage, pInfo.memoryPercentage)) continue;
 
         if (filter.ppidFilter && pInfo.ppid != *filter.ppidFilter) continue;
 
@@ -140,8 +138,6 @@ utils::Result<std::vector<ProcessInfo>> ProcessAnalyzer::queryProcesses(
                 case ProcessSortField::ioReadBytes:     less = a.ioReadBytes < b.ioReadBytes; break;
                 case ProcessSortField::ioWriteBytes:    less = a.ioWriteBytes < b.ioWriteBytes; break;
                 case ProcessSortField::priority:        less = a.priority < b.priority; break;
-                case ProcessSortField::cpuUsage:        less = a.cpuUsage < b.cpuUsage; break;
-                case ProcessSortField::memoryPercentage:less = a.memoryPercentage < b.memoryPercentage; break;
                 default: less = a.pid < b.pid; // Default sort by PID
             }
             return (sortOrder == SortOrder::asc) ? less : !less;

@@ -176,16 +176,15 @@ TEST_F(ArgsTestFixture, ParseCommandLineWithBrief) {
 }
 
 TEST_F(ArgsTestFixture, ParseCommandLineWithColumns) {
-    std::vector<std::string> args = {"processAnalyzer", "list", "--columns", "pid,name,cpu"};
+    std::vector<std::string> args = {"processAnalyzer", "list", "--columns", "pid,name"};
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
 
     if (parsedArgs.has_value()) {
         EXPECT_EQ(parsedArgs.value().command, "list");
-        ASSERT_EQ(parsedArgs.value().selectedColumns.size(), 3);
+        ASSERT_EQ(parsedArgs.value().selectedColumns.size(), 2);
         EXPECT_EQ(parsedArgs.value().selectedColumns[0], "pid");
         EXPECT_EQ(parsedArgs.value().selectedColumns[1], "name");
-        EXPECT_EQ(parsedArgs.value().selectedColumns[2], "cpu");
     } else {
         FAIL() << "Expected a valid parsed argument object.";
     }
@@ -262,14 +261,14 @@ TEST_F(ArgsTestFixture, ParseCommandLineWithSortByAscending) {
 }
 
 TEST_F(ArgsTestFixture, ParseCommandLineWithSortByDescending) {
-    std::vector<std::string> args = {"processAnalyzer", "list", "--sort-by", "cpu", "--sort-order", "desc"};
+    std::vector<std::string> args = {"processAnalyzer", "list", "--sort-by", "name", "--sort-order", "desc"};
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
 
     if (parsedArgs.has_value()) {
         EXPECT_EQ(parsedArgs.value().command, "list");
         ASSERT_TRUE(parsedArgs.value().sortBy.has_value());
-        EXPECT_EQ(parsedArgs.value().sortBy.value(), ProcessSortField::cpuUsage);
+        EXPECT_EQ(parsedArgs.value().sortBy.value(), ProcessSortField::name);
         EXPECT_EQ(parsedArgs.value().sortOrder, SortOrder::desc);
     } else {
         FAIL() << "Expected a valid parsed argument object.";
@@ -434,7 +433,6 @@ TEST_F(ArgsTestFixture, ParseCommandLineMultipleOptions) {
         "--name", testNameChrome,
         "-u", testUserUser1,
         "-s", std::string(1, testStateS),
-        "--sort-by", "mem", "--sort-order", "desc",
         "--columns", "pid,name,cmdline",
         "--brief",
         "--no-truncate-cmdline",
@@ -453,10 +451,6 @@ TEST_F(ArgsTestFixture, ParseCommandLineMultipleOptions) {
         EXPECT_EQ(parsedArgs.value().user.value(), testUserUser1);
         ASSERT_TRUE(parsedArgs.value().stateFilter.has_value());
         EXPECT_EQ(parsedArgs.value().stateFilter.value(), testStateS);
-        ASSERT_TRUE(parsedArgs.value().sortBy.has_value());
-        // Note: "mem" argument maps to ProcessSortField::memoryPercentage
-        ASSERT_TRUE(parsedArgs.value().sortBy.has_value()); EXPECT_EQ(parsedArgs.value().sortBy.value(), ProcessSortField::memoryPercentage);
-        EXPECT_EQ(parsedArgs.value().sortOrder, SortOrder::desc);
         ASSERT_EQ(parsedArgs.value().selectedColumns.size(), 3);
         EXPECT_EQ(parsedArgs.value().selectedColumns[0], "pid");
         EXPECT_EQ(parsedArgs.value().selectedColumns[1], "name");

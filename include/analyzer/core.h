@@ -14,8 +14,6 @@
 #include <filesystem>
 #include <system_error>
 #include <generator>
-#include <sys/resource.h>
-#include <sched.h>
 #include <regex>
 
 #include "utils/types.h"
@@ -51,17 +49,6 @@ public:
     [[nodiscard]] utils::Result<std::vector<OpenFileDescriptorInfo>> getProcessOpenFileDetails(int pid) const;
     [[nodiscard]] utils::Result<std::vector<NetworkConnection>> getNetworkConnections(int pid) const;
 
-    //- Process Performance Metrics (Self-Contained)
-    [[nodiscard]] utils::Result<ProcessCpuUsage> getProcessCpuUsage(int pid, std::chrono::milliseconds durationMs) const;
-    [[nodiscard]] utils::Result<std::vector<ProcessCpuUsage>> getAllProcessesCpuUsage(std::chrono::milliseconds durationMs) const;
-    [[nodiscard]] utils::Result<ProcessDiskIoUsage> getProcessDiskIoUsage(int pid, std::chrono::milliseconds durationMs) const;
-    [[nodiscard]] utils::Result<std::vector<ProcessDiskIoUsage>> getAllProcessesDiskIoUsage(std::chrono::milliseconds durationMs) const;
-
-    //- Process Control & Manipulation
-    static utils::Result<void> sendSignal(int pid, ProcessSignal signal);
-    static utils::Result<void> setProcessNiceness(int pid, int niceness);
-    static utils::Result<void> setProcessCpuAffinity(int pid, const CpuSet& affinity);
-
     //- System-wide Information & Statistics
     [[nodiscard]] utils::Result<SystemInfo> getSystemInfo() const;
     static utils::Result<long long> getSystemBootTimeUnix();
@@ -72,14 +59,6 @@ public:
     [[nodiscard]] utils::Result<std::vector<DiskIoDeviceStats>> getSystemDiskIoStats() const;
     [[nodiscard]] utils::Result<std::vector<NetworkInterfaceStats>> getNetworkInterfaceStats() const;
     [[nodiscard]] utils::Result<SystemActivityStats> getSystemActivityStats() const;
-
-    //- System Performance Metrics (Self-Contained)
-    static utils::Result<SystemCpuStats> getSystemCpuStats();
-    [[nodiscard]] utils::Result<SystemCpuUsage> getSystemCpuUsage(std::chrono::milliseconds durationMs) const;
-    [[nodiscard]] utils::Result<PerCpuUsage> getPerCpuUsage(std::chrono::milliseconds durationMs) const;
-
-    // For testing purposes
-    static std::function<utils::Result<SystemCpuStats>()> s_testMockGetSystemCpuStats;
 
     //- Process Query & Filtering
     [[nodiscard]] utils::Result<std::vector<ProcessInfo>> queryProcesses(

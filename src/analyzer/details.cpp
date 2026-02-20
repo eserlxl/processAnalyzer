@@ -108,7 +108,7 @@ utils::Result<ProcessInfo> parseStatFile(pid_t pid, const std::string& statConte
 
 // Helper to parse /proc/[pid]/status
 // Provides uid and some memory info more clearly
-utils::Result<ProcessInfo> parseStatusFile(ProcessInfo& info, const std::string& statusContent) {
+utils::Result<void> parseStatusFile(ProcessInfo& info, const std::string& statusContent) {
     std::istringstream iss(statusContent);
     std::string line;
     while (std::getline(iss, line)) {
@@ -153,7 +153,7 @@ utils::Result<ProcessInfo> parseStatusFile(ProcessInfo& info, const std::string&
         }
         // Add more parsing for other fields as needed, e.g., Cpus_allowed_list, Mems_allowed_list, etc.
     }
-    return info;
+    return {};
 }
 
 
@@ -219,7 +219,6 @@ utils::Result<ProcessInfo> ProcessAnalyzer::getProcessDetails(int pid) const {
             // For now, we will just return the error.
             return std::unexpected(statusResult.error());
         }
-        info = statusResult.value();
     }
 
     // Read /proc/[pid]/cmdline
