@@ -8,8 +8,6 @@
 #include <fstream>
 #include <string>
 #include <vector>
-#include <thread>
-#include <chrono>
 
 #ifdef __linux__
 #include <unistd.h>
