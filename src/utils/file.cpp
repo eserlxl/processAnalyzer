@@ -103,5 +103,11 @@ Result<void> writeTextFile(const ::std::filesystem::path& path,
                      ::std::ios::out | ::std::ios::trunc | ::std::ios::binary);
 }
 
+Result<void> appendToFile(const ::std::filesystem::path& path,
+                          ::std::string_view content) {
+  return writeToPath(path, content.data(), content.size(),
+                     ::std::ios::out | ::std::ios::app | ::std::ios::binary);
+}
+
 } // namespace utils
 

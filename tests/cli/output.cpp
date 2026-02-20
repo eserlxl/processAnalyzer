@@ -78,8 +78,6 @@ ProcessInfo createDummyProcess(pid_t pid, const std::string& name, const std::st
     p.cpuUserTimeTicks = kCpuUserTimeBase + (pid % kCpuUserTimeMod);
     p.cpuKernelTimeTicks = kCpuKernelTimeBase + (pid % kCpuKernelTimeMod);
     p.priority = 0;
-    p.cpuUsage = kCpuUsageBase + static_cast<float>(pid % kCpuUsageMod);
-    p.memoryPercentage = kMemoryPercBase + (static_cast<float>(pid % kMemoryPercMod) / kMemoryPercDivisor);
     p.environmentVariables = {"PATH=/usr/bin", "LANG=en_US.UTF-8"};
     // ProcessInfo does not directly contain openFiles or networkConnections as vectors of strings/pairs.
     // They are handled by separate structs (OpenFileDescriptorInfo, NetworkConnection) and returned by specific functions.

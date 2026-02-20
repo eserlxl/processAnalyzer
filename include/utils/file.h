@@ -22,6 +22,7 @@ namespace utils {
 Result<std::string> readTextFile(const std::filesystem::path& path);
 Result<std::vector<std::byte>> readBinaryFile(const std::filesystem::path& path);
 Result<void> writeTextFile(const std::filesystem::path& path, std::string_view content);
+Result<void> appendToFile(const std::filesystem::path& path, std::string_view content);
 Result<void> writeBinaryFile(const std::filesystem::path& path, std::span<const std::byte> content);
 
 } // namespace utils

@@ -2,8 +2,6 @@
 // Copyright (c) 2026 Eser KUBALI
 
 #include <iostream>
-#include <vector>
-#include <string>
 #include <span>
 #include <iomanip>
 #include <filesystem> // Added for std::filesystem::path

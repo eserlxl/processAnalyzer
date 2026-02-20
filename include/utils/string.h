@@ -76,10 +76,13 @@ template<typename T>
  */
 template <typename TInt>
 [[nodiscard]] inline std::optional<TInt> parseInteger(std::string_view text, int base = 10) {
+    if (base != 0 && (base < 2 || base > 36)) {
+        return std::nullopt;
+    }
     TInt value{};
     const char* begin = text.data();
     const char* end = begin + text.size();
-    const auto [ptr, ec] = std::from_chars(begin, end, value, base);
+    auto [ptr, ec] = std::from_chars(begin, end, value, base);
     if (ec != std::errc{} || ptr != end) {
         return std::nullopt;
     }
