@@ -5,7 +5,6 @@
 #include "utils/string.h"
 #include "utils/types.h" // For Result<T> and UtilsError
 #include <string>
-#include <vector>
 #include <limits>
 
 namespace { // Anonymous namespace to avoid name collisions for helper functions and tests
