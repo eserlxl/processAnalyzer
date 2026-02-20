@@ -13,7 +13,6 @@
 // C++ standard library headers
 #include <array>
 #include <string>
-#include <vector>
 #include <filesystem>
 #include <mutex>
 
