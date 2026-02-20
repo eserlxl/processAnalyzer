@@ -29,6 +29,7 @@ public:
     void createFileAt(const std::filesystem::path& relativePath, const std::string& content);
     void createSymlink(int pid, const std::string& linkname, const std::string& target);
     void createDirectoryAt(const std::filesystem::path& relativePath);
+    void createPidDir(int pid);
     void createSymlinkAt(const std::filesystem::path& relativeLinkPath, const std::filesystem::path& targetPath);
     void createCmdline(int pid, const std::vector<std::string>& args);
     void createStatus(int pid, const std::map<std::string, std::string>& data);

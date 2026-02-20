@@ -35,7 +35,7 @@ protected:
         originalProcPath = analyzer.getProcPath();
         analyzer.setProcPath(mockProc->getPath());
 
-        mockProc->createPidDir(testPid);
+        mockProc->createDirectoryAt(std::to_string(testPid));
         mockProc->createDirectoryAt("net");
         // Create empty net files by default to avoid errors in tests that don't need them.
         mockProc->createFile("net/tcp", "");
