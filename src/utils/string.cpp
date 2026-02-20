@@ -310,7 +310,7 @@ Result<long> toLong(std::string_view s, int base) {
 }
 
 Result<double> toDouble(std::string_view s) {
-    return parseNumeric<double>(s);
+    return parseNumeric<double>(s, utils::defaultRadix);
 }
 
 Result<bool> parseBool(std::string_view s) {
@@ -343,7 +343,7 @@ Result<int> toInt(std::string_view s, int base) {
 }
 
 Result<float> toFloat(std::string_view s) {
-    return parseNumeric<float>(s);
+    return parseNumeric<float>(s, utils::defaultRadix);
 }
 
 } // namespace utils
