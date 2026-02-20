@@ -301,7 +301,7 @@ utils::Result<std::vector<ThreadInfo>> ProcessAnalyzer::getProcessThreads(int pi
     for (const auto& entry : std::filesystem::directory_iterator(taskPath)) {
         if (entry.is_directory()) {
             std::string tidStr = entry.path().filename().string();
-            auto tidOpt = utils::parseIntegerNoThrow<pid_t>(tidStr, parseIntegerBase);
+            auto tidOpt = utils::parseInteger<pid_t>(tidStr, parseIntegerBase);
             if (!tidOpt) continue; // Not a valid TID directory
 
             pid_t tid = *tidOpt;
@@ -364,7 +364,7 @@ utils::Result<std::vector<OpenFileDescriptorInfo>> ProcessAnalyzer::getProcessOp
 
     for (const auto& entry : std::filesystem::directory_iterator(fdPath, ec)) {
         std::string fdStr = entry.path().filename().string();
-        auto fdOpt = utils::parseIntegerNoThrow<int>(fdStr, parseIntegerBase);
+        auto fdOpt = utils::parseInteger<int>(fdStr, parseIntegerBase);
         if (!fdOpt) continue;
 
         OpenFileDescriptorInfo fdInfo;

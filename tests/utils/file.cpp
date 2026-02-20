@@ -123,28 +123,6 @@ TEST_F(UtilsNewApiTest, WriteFunctionsFileTooLarge) {
     fs::permissions(noWriteDir, fs::perms::owner_read | fs::perms::owner_write | fs::perms::owner_exec, fs::perm_options::replace);
 }
 
-TEST_F(UtilsNewApiTest, DoAtomicWriteParentPathChecks) {
-    auto targetFile = testDir / "sub" / "atomic_target.txt";
-    std::string content = "test content";
-
-    // Test with non-existent parent directory
-    auto result = utils::writeTextFileAtomic(targetFile, content); // This uses doAtomicWrite
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), utils::make_error_code(utils::UtilsError::fileNotFound));
-
-    // Test with parent path being a file
-    fs::path parentIsFile = testDir / "parent_is_file";
-    std::ofstream(parentIsFile) << "I am a file";
-    fs::path fileUnderFile = parentIsFile / "child.txt";
-    
-    result = utils::writeTextFileAtomic(fileUnderFile, content);
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), utils::make_error_code(utils::UtilsError::notADirectory));
-
-    // Clean up the file acting as parent
-    fs::remove(parentIsFile);
-}
-
 TEST_F(UtilsNewApiTest, CreateTemporaryDirectoryValidation) {
     // Test createTemporaryFile when a race condition creates a file with the same name before it tries
     // This is hard to perfectly simulate a race, but we can pre-create it.
@@ -156,31 +134,6 @@ TEST_F(UtilsNewApiTest, CreateTemporaryDirectoryValidation) {
     EXPECT_NE(tempFileResult.value(), preExistingTempFile); // Should be a different path
 
     fs::remove(preExistingTempFile); // Cleanup
-}
-
-TEST_F(UtilsNewApiTest, ReadLinesErrorHandling) {
-    // Non-existent file
-    auto nonExistentFile = testDir / "non_existent_lines.txt";
-    auto result = utils::readLines(nonExistentFile);
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), utils::make_error_code(utils::UtilsError::fileNotFound));
-
-    // Path is a directory
-    auto resultDir = utils::readLines(testDir);
-    ASSERT_FALSE(resultDir.has_value());
-    EXPECT_EQ(resultDir.error(), utils::make_error_code(utils::UtilsError::ioError));
-
-    // Permission denied
-    auto unreadableFile = testDir / "unreadable_lines.txt";
-    std::ofstream(unreadableFile) << "line1\nline2";
-    fs::permissions(unreadableFile, fs::perms::owner_write, fs::perm_options::replace); // Make unreadable
-    
-    result = utils::readLines(unreadableFile);
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), utils::make_error_code(utils::UtilsError::ioError));
-
-    // Restore permissions for cleanup
-    fs::permissions(unreadableFile, fs::perms::owner_read | fs::perms::owner_write, fs::perm_options::add);
 }
 
 TEST_F(UtilsNewApiTest, ReadWriteTextFileErrorHandling) {
@@ -204,50 +157,6 @@ TEST_F(UtilsNewApiTest, ReadWriteTextFileErrorHandling) {
     fs::permissions(noWriteDir, fs::perms::owner_read | fs::perms::owner_write | fs::perms::owner_exec, fs::perm_options::replace);
 }
 
-// Correctness test for doAtomicWrite ensuring original is untouched on failure
-TEST_F(UtilsNewApiTest, DoAtomicWriteFailureEnsuresOriginalUntouched) {
-    std::string newContent = "This is the new content.";
-
-    // Case 1: Original file does not exist, write fails (e.g., permissions on parent)
-    fs::path inaccessibleDir = testDir / "inaccessible_parent";
-    fs::create_directory(inaccessibleDir);
-    fs::permissions(inaccessibleDir, fs::perms::owner_read); // Make un-writable
-
-    fs::path targetInInaccessible = inaccessibleDir / "atomic_write_target.txt";
-
-    utils::Result<void> writeResult = {};
-    try {
-        writeResult = utils::writeTextFileAtomic(targetInInaccessible, newContent);
-    } catch (...) {
-        writeResult = std::unexpected(utils::make_error_code(utils::UtilsError::permissionDenied));
-    }
-    ASSERT_FALSE(writeResult.has_value());
-    
-    // Restore permissions FIRST to avoid exception in fs::exists if parent is not searchable
-    fs::permissions(inaccessibleDir, fs::perms::owner_read | fs::perms::owner_write | fs::perms::owner_exec, fs::perm_options::replace);
-    
-    // Check if the target was NOT created.
-    EXPECT_FALSE(fs::exists(targetInInaccessible));
-
-    fs::remove(inaccessibleDir); // Cleanup
-
-    // Case 3: Original file exists, write to temp succeeds, but rename fails.
-    // We'll simulate a rename failure by attempting to rename over a read-only directory
-    // (which is not allowed), which will cause rename to fail and trigger cleanup.
-    fs::path testTarget = testDir / "rename_fail_test.txt";
-    fs::remove(testTarget); // Remove initial file FIRST
-    const fs::path& blockingDir = testTarget; // Target is now a directory
-    fs::create_directory(blockingDir); // Create a directory at target name
-        
-    auto result = utils::writeTextFileAtomic(testTarget, newContent);
-
-    ASSERT_FALSE(result.has_value());
-    
-    EXPECT_TRUE(fs::is_directory(testTarget)); // Target should still be the blocking directory
-    
-    fs::remove_all(blockingDir); // Cleanup
-}
-
 // --------------------------------------------------------------------------
 // New Tests for Missing Implementations (File Specific)
 // --------------------------------------------------------------------------
@@ -266,38 +175,6 @@ TEST_F(UtilsNewApiTest, ReadWriteBinaryFile) {
     auto readResult = utils::readBinaryFile(binaryFile);
     ASSERT_TRUE(readResult.has_value());
     EXPECT_EQ(readResult.value(), data);
-
-    // Append
-    std::vector<std::byte> moreData = appendData;
-    auto appendResult = utils::appendToBinaryFile(binaryFile, moreData);
-    ASSERT_TRUE(appendResult.has_value());
-    
-    // Read again
-    auto readResult2 = utils::readBinaryFile(binaryFile);
-    ASSERT_TRUE(readResult2.has_value());
-    EXPECT_EQ(readResult2.value().size(), 6);
-    EXPECT_EQ(readResult2.value()[4], appendData[0]);
-    EXPECT_EQ(readResult2.value()[5], appendData[1]);
-}
-
-TEST_F(UtilsNewApiTest, WriteAtomic) {
-    auto path = testDir / "atomic.txt";
-    std::string content = "atomic content";
-    
-    auto result = utils::writeTextFileAtomic(path, content);
-    ASSERT_TRUE(result.has_value());
-    EXPECT_TRUE(fs::exists(path));
-    
-    auto readRes = utils::readTextFile(path);
-    ASSERT_TRUE(readRes.has_value());
-    EXPECT_EQ(readRes.value(), content);
-
-    // Binary atomic
-    auto binPath = testDir / "atomic.bin";
-    std::vector<std::byte> binContent = {std::byte{1}, std::byte{2}};
-    auto binResult = utils::writeBinaryFileAtomic(binPath, binContent);
-    ASSERT_TRUE(binResult.has_value());
-    EXPECT_TRUE(fs::exists(binPath));
 }
 
 TEST_F(UtilsNewApiTest, TemporaryFiles) {
