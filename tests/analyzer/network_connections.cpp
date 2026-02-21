@@ -4,7 +4,6 @@
 #include "gtest/gtest.h"
 #include "analyzer/core.h"
 #include "analyzer/network_model.h"
-#include "analyzer/system_model.h" // For NetworkInterfaceStats
 #include "utils/testing_framework.h" // For MockProc
 
 #include <vector>
@@ -312,7 +311,7 @@ class TcpStateTest : public GetNetworkConnectionsTest, public ::testing::WithPar
 
 TEST_P(TcpStateTest, ParseAllTcpStates) {
     const auto& [stateHex, expectedState] = GetParam();
-    // const uint64_t inode = 6001; // This was not used, removed
+
 
     mockProc->createProcFdLink(testPid, 1, "socket:[6001]"); // Mock inode for this test
 
