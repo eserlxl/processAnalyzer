@@ -3,7 +3,7 @@
 
 #include "utils/time.h"
 #include <ctime>
-#include <array>
+
 #include <iomanip>
 #include <sstream>
 #include <chrono> // Ensure chrono is included for time_point
@@ -45,55 +45,7 @@ Result<::std::string> formatElapsedTime(long long seconds) {
     return result;
 }
 
-/// @brief Formats a Unix timestamp (seconds since epoch) into a human-readable string (YYYY-MM-DD HH:MM:SS).
-///
-/// WARNING: This function relies on std::time_t, which may be a 32-bit integer
-/// on some systems, leading to the "Year 2038 problem". Timestamps beyond
-/// January 19, 2038, may not be represented correctly. For wider compatibility,
-/// consider using C++20 chrono features or a dedicated time library.
-///
-/// @param unixTimestamp The Unix timestamp in seconds.
-/// @return A string representing the formatted date and time (local time), or an error code.
-Result<::std::string> formatTimestamp(long long unixTimestamp) {
-    if (unixTimestamp < 0) {
-        return ::std::unexpected(make_error_code(UtilsError::invalidArgument));
-    }
 
-    auto tt = static_cast<::std::time_t>(unixTimestamp);
-    ::std::tm tmBuf{};
-    bool success = false;
-
-    // Use thread-safe C runtime functions for time conversion
-#ifdef _WIN32
-    if (::gmtime_s(&tmBuf, &tt) == 0) {
-        success = true;
-    }
-#elif defined(__unix__) || defined(__unix) || defined(__linux__) || defined(__APPLE__)
-    // Use standard POSIX gmtime_r.
-    if (gmtime_r(&tt, &tmBuf) != nullptr) {
-        success = true;
-    }
-#else
-    // Fallback for other systems, less thread-safe.
-    if (::std::tm* tmp = ::std::gmtime(&tt)) {
-        tmBuf = *tmp;
-        success = true;
-    }
-#endif
-
-    if (!success) {
-        return ::std::unexpected(make_error_code(UtilsError::unknownError));
-    }
-
-    // Use std::array for buffer for safety
-    constexpr size_t bufferSize = 64; // Sufficient for YYYY-MM-DD HH:MM:SS and null terminator
-    ::std::array<char, bufferSize> buffer{};
-    if (::strftime(buffer.data(), buffer.size(), "%Y-%m-%d %H:%M:%S", &tmBuf)) {
-        return ::std::string(buffer.data());
-    }
-    // If strftime fails
-    return ::std::unexpected(make_error_code(UtilsError::unknownError));
-}
 
 /// @brief Gets the current time from the system clock.
 /// @return A time_point from system_clock, or an error code.

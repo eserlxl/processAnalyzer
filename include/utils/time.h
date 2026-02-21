@@ -55,14 +55,7 @@ namespace utils {
     /// @param seconds The total number of seconds to format. Expected to be within a reasonable range for `long long`.
     /// @return A Result object containing the formatted string on success, or an error if formatting fails.
     Result<std::string> formatElapsedTime(long long seconds);
-    /// @brief Formats a Unix timestamp into a human-readable string.
-    ///
-    /// Converts a `long long` representing a Unix timestamp (seconds since epoch) into a formatted string.
-    /// It includes input validation for the timestamp and ensures thread-safe formatting using C++20 chrono features.
-    ///
-    /// @param unixTimestamp The Unix timestamp (seconds since epoch) to format.
-    /// @return A Result object containing the formatted string on success, or an error if the timestamp is invalid or formatting fails.
-    Result<std::string> formatTimestamp(long long unixTimestamp);
+
 } // namespace utils
 
 #endif // UTILS_TIME_H
