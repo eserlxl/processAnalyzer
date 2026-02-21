@@ -65,17 +65,11 @@ void MockProc::createProcFile(int pid, const std::string& filename, const std::s
     createFileAt(fs::path(std::to_string(pid)) / filename, content);
 }
 
-void MockProc::createFile(const std::string& relativePath, const std::string& content) {
-    createFileAt(relativePath, content);
-}
 
-void MockProc::createSymlink(int pid, const std::string& linkname, const std::string& target) {
-    createSymlinkAt(fs::path(std::to_string(pid)) / linkname, target);
-}
 
-void MockProc::createPidDir(int pid) {
-    fs::create_directory(root / std::to_string(pid));
-}
+
+
+
 
 void MockProc::createFileAt(const std::filesystem::path& relativePath, const std::string& content) {
     fs::path fullPath = root / relativePath;
@@ -163,23 +157,13 @@ void MockProc::createFdDir(int pid, const std::vector<std::pair<int, std::string
     }
 }
 
-void MockProc::createProcFdLink(int pid, int fd, const std::string& target) {
-    fs::path fdPath = root / std::to_string(pid) / "fd";
-    fs::create_directories(fdPath);
-    fs::create_symlink(target, fdPath / std::to_string(fd));
-}
 
-void MockProc::createExeSymlink(int pid, const fs::path& targetPath) {
-    createSymlink(pid, "exe", targetPath.string());
-}
 
-void MockProc::createCwdSymlink(int pid, const fs::path& targetPath) {
-    createSymlink(pid, "cwd", targetPath.string());
-}
 
-void MockProc::createRootSymlink(int pid, const fs::path& targetPath) {
-    createSymlink(pid, "root", targetPath.string());
-}
+
+
+
+
 
 void MockProc::createComm(int pid, const std::string& commName) {
     createProcFile(pid, "comm", commName + "\n");
