@@ -2,20 +2,20 @@
 // Copyright (c) 2026 Eser KUBALI
 
 #include "analyzer/core.h"
-#include "utils/core.h"
+#include "utils/file.h"
 #include "utils/string.h"
 #include "analyzer/network_model.h"
 
 #include <filesystem>
 #include <sstream>
 #include <vector>
-#include <charconv>
+
 #include <format>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <arpa/inet.h>
 #include <set>
-#include <bit>
+
 #include <cstring>
 
 constexpr int decimalBase = 10;
@@ -194,7 +194,7 @@ utils::Result<std::vector<NetworkConnection>> ProcessAnalyzer::getNetworkConnect
     constexpr int socketInodeSuffixLen = 1; // "]"
 
     for (const auto& fdInfo : *fdsResult) {
-        if (fdInfo.type == OpenFileType::Socket) {
+        if (fdInfo.type == OpenFileType::socket) {
             if (fdInfo.path.starts_with("socket:[") && fdInfo.path.back() == ']' &&
                 fdInfo.path.length() > (socketInodePrefixLen + socketInodeSuffixLen))
             {

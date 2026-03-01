@@ -255,7 +255,7 @@ std::string MockProc::SystemStatData::toString() const {
     std::stringstream ss;
     ss << user << " " << nice << " " << system << " " << idle << " "
        << iowait << " " << irq << " " << softirq << " " << steal << " "
-       << guest << " " << guest_nice;
+       << guest << " " << guestNice;
     return ss.str();
 }
 

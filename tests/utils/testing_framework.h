@@ -127,7 +127,7 @@ public:
     struct SystemStatData {
         unsigned long long user = 0, nice = 0, system = 0, idle = 0;
         unsigned long long iowait = 0, irq = 0, softirq = 0, steal = 0;
-        unsigned long long guest = 0, guest_nice = 0;
+        unsigned long long guest = 0, guestNice = 0;
         unsigned long long ctxt = 0, btime = 0, processes = 0;
         [[nodiscard]] std::string toString() const;
     };

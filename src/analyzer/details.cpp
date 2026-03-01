@@ -375,31 +375,31 @@ utils::Result<std::vector<OpenFileDescriptorInfo>> ProcessAnalyzer::getProcessOp
             fdInfo.path = linkTarget.string();
 
             if (fdInfo.path.starts_with("socket:[")) {
-                fdInfo.type = OpenFileType::Socket;
+                fdInfo.type = OpenFileType::socket;
             } else if (fdInfo.path.starts_with("pipe:[")) {
-                fdInfo.type = OpenFileType::Pipe;
+                fdInfo.type = OpenFileType::pipe;
             } else if (fdInfo.path.starts_with("anon_inode:[")) {
-                fdInfo.type = OpenFileType::AnonInode;
+                fdInfo.type = OpenFileType::anonInode;
             } else if (fdInfo.path.starts_with('/')) {
                 std::error_code statusEc;
                 auto status = std::filesystem::status(fdInfo.path, statusEc);
                 if (!statusEc) {
                     if (std::filesystem::is_block_file(status) || std::filesystem::is_character_file(status)) {
-                        fdInfo.type = OpenFileType::Device;
+                        fdInfo.type = OpenFileType::device;
                     } else if (std::filesystem::is_regular_file(status)) {
-                        fdInfo.type = OpenFileType::File;
+                        fdInfo.type = OpenFileType::file;
                     } else {
-                        fdInfo.type = OpenFileType::Other;
+                        fdInfo.type = OpenFileType::other;
                     }
                 } else {
-                    fdInfo.type = OpenFileType::Other;
+                    fdInfo.type = OpenFileType::other;
                 }
             } else {
-                fdInfo.type = OpenFileType::Other;
+                fdInfo.type = OpenFileType::other;
             }
         } else {
             fdInfo.path = "[unknown]";
-            fdInfo.type = OpenFileType::Unknown;
+            fdInfo.type = OpenFileType::unknown;
         }
         openFiles.push_back(fdInfo);
     }

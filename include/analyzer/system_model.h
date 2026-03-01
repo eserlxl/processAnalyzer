@@ -37,7 +37,7 @@ struct SystemCpuStats {
     unsigned long long softirq = 0;
     unsigned long long steal = 0;
     unsigned long long guest = 0;
-    unsigned long long guest_nice = 0;
+    unsigned long long guestNice = 0;
 };
 
 // New for Iteration 14: Per-CPU Usage

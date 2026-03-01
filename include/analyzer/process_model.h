@@ -21,15 +21,15 @@ struct ProcessInfo {
     long long residentMemory = 0; // in KB (formerly memory_usage)
     long long virtualMemory = 0;  // in KB
     long threadCount = 0;
-    std::string cmdline = "";
+    std::string cmdline;
 
     // --- New Fields for Iteration 5 ---
     long long startTimeTicks = 0; // Process start time in clock ticks since system boot
     long long startTimeUnix = 0;  // Process start time as Unix timestamp (seconds since epoch) - NEW for Iteration 13
     std::string elapsedTime = "N/A";  // Formatted string representing uptime, e.g., "01:23:45" or "1d 2h" - NEW for Iteration 13
-    std::string executablePath = ""; // Path to the executable file (symlink /proc/<pid>/exe)
-    std::string currentWorkingDirectory = ""; // Current working directory (symlink /proc/<pid>/cwd)
-    std::vector<std::string> environmentVariables = {}; // Environment variables (from /proc/<pid>/environ)
+    std::string executablePath; // Path to the executable file (symlink /proc/<pid>/exe)
+    std::string currentWorkingDirectory; // Current working directory (symlink /proc/<pid>/cwd)
+    std::vector<std::string> environmentVariables; // Environment variables (from /proc/<pid>/environ)
     long long cpuUserTimeTicks = 0; // User mode CPU time in clock ticks
     long long cpuKernelTimeTicks = 0; // Kernel mode CPU time in clock ticks
     long long ioReadBytes = 0;      // Total bytes read by the process (from /proc/<pid>/io)
@@ -40,7 +40,7 @@ struct ProcessInfo {
 // New for Iteration 9: Process Threads Details
 struct ThreadInfo {
     pid_t tid = 0;                // Thread ID (which is also the PID of the kernel's representation of the thread)
-    std::string name = "";       // Thread name (from /proc/[pid]/task/[tid]/comm)
+    std::string name;       // Thread name (from /proc/[pid]/task/[tid]/comm)
     std::string state = "?";      // Thread state (from /proc/[pid]/task/[tid]/stat)
     long long cpuUserTimeTicks = 0;    // User mode CPU time in clock ticks for this thread
     long long cpuKernelTimeTicks = 0;  // Kernel mode CPU time in clock ticks for this thread
@@ -82,20 +82,20 @@ struct CgroupInfo {
 };
 
 // New for Iteration 14: Detailed Open File Descriptors
-enum class OpenFileType {
-    File,
-    Socket,
-    Pipe,
-    AnonInode,
-    Device,
-    Other,
-    Unknown
+enum class OpenFileType : std::uint8_t {
+    file,
+    socket,
+    pipe,
+    anonInode,
+    device,
+    other,
+    unknown
 };
 
 struct OpenFileDescriptorInfo {
     int fd = -1;
     std::string path; // Target path of the symlink (e.g., filename, socket:[inode])
-    OpenFileType type = OpenFileType::Unknown; // Categorized type (File, Socket, Pipe, etc.)
+    OpenFileType type = OpenFileType::unknown; // Categorized type (File, Socket, Pipe, etc.)
     // Additional info for sockets could be added here later if needed,
     // e.g., referencing NetworkConnection details via inode.
 };
@@ -141,7 +141,7 @@ struct ProcessFilter {
     std::optional<ProcessPredicate> customPredicate; 
 };
 
-enum class ProcessSortField {
+enum class ProcessSortField : std::uint8_t {
     pid,
     ppid,
     rss,
@@ -164,7 +164,7 @@ enum class ProcessSortField {
     priority
 };
 
-enum class SortOrder {
+enum class SortOrder : std::uint8_t {
     asc,
     desc
 };
