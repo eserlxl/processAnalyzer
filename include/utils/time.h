@@ -38,6 +38,11 @@ namespace utils {
     /// @param formatStr The format string (e.g., "%Y-%m-%d %H:%M:%S"). Refer to `strftime` for valid specifiers.
     /// @return A Result object containing the formatted string on success, or an error if the format string is invalid or formatting fails.
     Result<std::string> formatTimestamp(std::chrono::system_clock::time_point tp, const std::string& formatStr);
+    /// @brief Formats a Unix timestamp into a string.
+    ///
+    /// @param unixTimestamp The Unix timestamp in seconds since epoch.
+    /// @return A Result object containing the formatted string on success, or an error.
+    Result<std::string> formatTimestamp(long long unixTimestamp);
     /// @brief Parses a timestamp string into a time_point according to a specified format.
     ///
     /// Converts a string representation of a timestamp into a `std::chrono::system_clock::time_point`.

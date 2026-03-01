@@ -112,7 +112,7 @@ protected:
 TEST_F(MockProcTest, CreateExeSymlink) {
     const int testPid = 100;
     fs::path target = "/usr/bin/my_app";
-    mockProc->createExeSymlink(testPid, target);
+    mockProc->createSymlinkAt(std::to_string(testPid) + "/exe", target);
     fs::path symlinkPath = mockRootPath / std::to_string(testPid) / "exe";
     ASSERT_TRUE(fs::is_symlink(symlinkPath));
     ASSERT_EQ(fs::read_symlink(symlinkPath), target);
@@ -121,7 +121,7 @@ TEST_F(MockProcTest, CreateExeSymlink) {
 TEST_F(MockProcTest, CreateCwdSymlink) {
     const int testPid = 101;
     fs::path target = "/home/user/project";
-    mockProc->createCwdSymlink(testPid, target);
+    mockProc->createSymlinkAt(std::to_string(testPid) + "/cwd", target);
     fs::path symlinkPath = mockRootPath / std::to_string(testPid) / "cwd";
     ASSERT_TRUE(fs::is_symlink(symlinkPath));
     ASSERT_EQ(fs::read_symlink(symlinkPath), target);
@@ -130,7 +130,7 @@ TEST_F(MockProcTest, CreateCwdSymlink) {
 TEST_F(MockProcTest, CreateRootSymlink) {
     const int testPid = 102;
     fs::path target = "/";
-    mockProc->createRootSymlink(testPid, target);
+    mockProc->createSymlinkAt(std::to_string(testPid) + "/root", target);
     fs::path symlinkPath = mockRootPath / std::to_string(testPid) / "root";
     ASSERT_TRUE(fs::is_symlink(symlinkPath));
     ASSERT_EQ(fs::read_symlink(symlinkPath), target);

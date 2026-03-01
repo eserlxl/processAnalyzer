@@ -433,9 +433,9 @@ void MockProc::addProcess(int pid, const AddProcessOptions& options) {
         createCmdline(pid, {});
     }
 
-    if (!options.exePath.empty()) createExeSymlink(pid, options.exePath);
-    if (!options.cwdPath.empty()) createCwdSymlink(pid, options.cwdPath);
-    if (!options.rootPath.empty()) createRootSymlink(pid, options.rootPath);
+    if (!options.exePath.empty()) createSymlinkAt(std::to_string(pid) + "/exe", options.exePath);
+    if (!options.cwdPath.empty()) createSymlinkAt(std::to_string(pid) + "/cwd", options.cwdPath);
+    if (!options.rootPath.empty()) createSymlinkAt(std::to_string(pid) + "/root", options.rootPath);
 
     if (!options.environVars.empty()) createEnviron(pid, options.environVars);
     if (!options.fds.empty()) createFdDir(pid, options.fds);

@@ -104,6 +104,19 @@ Result<::std::string> formatTimestamp(::std::chrono::system_clock::time_point tp
     return ss.str();
 }
 
+/// @brief Formats a Unix timestamp into a string using the default format.
+///
+/// @param unixTimestamp The Unix timestamp in seconds since epoch.
+/// @return A Result object containing the formatted string, or an error code if input is invalid.
+Result<::std::string> formatTimestamp(long long unixTimestamp) {
+    if (unixTimestamp < 0) {
+        return ::std::unexpected(make_error_code(UtilsError::invalidArgument));
+    }
+    auto tt = static_cast<::std::time_t>(unixTimestamp);
+    auto tp = ::std::chrono::system_clock::from_time_t(tt);
+    return formatTimestamp(tp, "%Y-%m-%d %H:%M:%S");
+}
+
 /// @brief Parses a timestamp string into a system_clock::time_point.
 ///
 /// This function interprets the input timestamp string according to the provided

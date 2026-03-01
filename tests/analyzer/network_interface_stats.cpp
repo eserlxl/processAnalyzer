@@ -43,7 +43,7 @@ TEST_F(GetNetworkInterfaceStatsTest, ParsesValidDevFile) {
         "    lo: 16186026  163821    0    0    0     0          0         0 16186026  163821    0    0    0     0       0          0\n"
         "  eth0: 12345678    1000    1    2    3     4          5         6 87654321    2000    7    8    9    10      11          12\n";
     
-    mockProc->createFile("net/dev", mockDevContent);
+    mockProc->createFileAt("net/dev", mockDevContent);
 
     auto statsResult = analyzer.getNetworkInterfaceStats();
     ASSERT_TRUE(statsResult.has_value());
@@ -78,7 +78,7 @@ TEST_F(GetNetworkInterfaceStatsTest, HandlesMissingFile) {
 }
 
 TEST_F(GetNetworkInterfaceStatsTest, HandlesEmptyFile) {
-    mockProc->createFile("net/dev", "");
+    mockProc->createFileAt("net/dev", "");
     auto statsResult = analyzer.getNetworkInterfaceStats();
     ASSERT_FALSE(statsResult.has_value());
     // Expect analyzerParsingError because it's empty
