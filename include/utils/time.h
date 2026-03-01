@@ -6,7 +6,6 @@
 
 #include "utils/types.h"
 #include <string>
-#include <string_view>
 #include <chrono>
 
 namespace utils {

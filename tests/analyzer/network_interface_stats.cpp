@@ -3,7 +3,6 @@
 
 #include "gtest/gtest.h"
 #include "analyzer/core.h"
-#include "analyzer/network_model.h"
 #include "analyzer/system_model.h"
 #include "utils/testing_framework.h" // For MockProc
 
@@ -11,8 +10,6 @@
 #include <string>
 #include <filesystem>
 #include <memory>
-#include <algorithm>
-#include <cstdint>
 
 // Test suite for ProcessAnalyzer::getNetworkInterfaceStats
 class GetNetworkInterfaceStatsTest : public ::testing::Test {

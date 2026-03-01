@@ -6,11 +6,9 @@
 #include <sstream>
 #include <memory>
 #include <optional>
-#include <algorithm>
 #include <vector>
 #include <string>
 #include <map>
-#include <ranges>
 #include <filesystem>
 #include <fstream>
 
@@ -20,7 +18,6 @@ namespace {
 
 // Define constants for common magic numbers
 constexpr unsigned long kbInBytes = 1024;
-constexpr unsigned long mbInBytes = 1024 * kbInBytes;
 
 // Constants for test values
 constexpr unsigned long mapOffset = 0x1000;
