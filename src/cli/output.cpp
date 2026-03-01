@@ -10,10 +10,12 @@
 #include <map>
 #include <algorithm>
 #include <cassert>
+#include <utility>
+#include <string_view>
 
 namespace {
     // Helper to get string value of a ProcessInfo field based on column name
-    std::string getProcessInfoValue(const ProcessInfo& info, const std::string& col) {
+    std::string getProcessInfoValue(const ProcessInfo& info, std::string_view col) {
         if (col == "pid") return std::to_string(info.pid);
         if (col == "ppid") return std::to_string(info.ppid);
         if (col == "uid") return std::to_string(info.uid);
@@ -31,8 +33,7 @@ namespace {
         if (col == "elapsed-time") return info.elapsedTime;
         if (col == "exec-path") return info.executablePath;
         if (col == "nice") return std::to_string(info.priority);
-        assert(false && "Unknown column name requested");
-    return ""; // Should not happen with valid column names
+        std::unreachable();
     }
 }
 

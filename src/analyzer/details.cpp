@@ -34,11 +34,11 @@ std::string getUserName(uid_t uid) {
 
 // Helper to parse /proc/[pid]/stat
 // See man proc(5) for format details
-utils::Result<ProcessInfo> parseStatFile(pid_t pid, const std::string& statContent) {
+utils::Result<ProcessInfo> parseStatFile(pid_t pid, std::string_view statContent) {
     ProcessInfo info;
     info.pid = pid;
 
-    std::istringstream iss(statContent);
+    std::istringstream iss{std::string(statContent)};
     
     // Read pid
     iss >> info.pid;
@@ -108,8 +108,8 @@ utils::Result<ProcessInfo> parseStatFile(pid_t pid, const std::string& statConte
 
 // Helper to parse /proc/[pid]/status
 // Provides uid and some memory info more clearly
-utils::Result<void> parseStatusFile(ProcessInfo& info, const std::string& statusContent) {
-    std::istringstream iss(statusContent);
+utils::Result<void> parseStatusFile(ProcessInfo& info, std::string_view statusContent) {
+    std::istringstream iss{std::string(statusContent)};
     std::string line;
     while (std::getline(iss, line)) {
         if (line.starts_with("Uid:")) {
@@ -159,8 +159,8 @@ utils::Result<void> parseStatusFile(ProcessInfo& info, const std::string& status
 
 
 // Helper to parse /proc/[pid]/io
-utils::Result<void> parseIoFile(ProcessInfo& info, const std::string& ioContent) {
-    std::istringstream iss(ioContent);
+utils::Result<void> parseIoFile(ProcessInfo& info, std::string_view ioContent) {
+    std::istringstream iss{std::string(ioContent)};
     std::string line;
     while (std::getline(iss, line)) {
         if (line.starts_with("read_bytes:")) {
@@ -181,9 +181,9 @@ utils::Result<void> parseIoFile(ProcessInfo& info, const std::string& ioContent)
 }
 
 // Helper to parse /proc/[pid]/cmdline
-utils::Result<std::string> parseCmdlineFile(const std::string& cmdlineContent) {
+utils::Result<std::string> parseCmdlineFile(std::string_view cmdlineContent) {
     // cmdline content is null-separated arguments
-    std::string cmdline = cmdlineContent;
+    std::string cmdline{cmdlineContent};
     std::ranges::replace(cmdline, '\0', ' ');
     if (!cmdline.empty() && cmdline.back() == ' ') {
         cmdline.pop_back(); // Remove trailing space

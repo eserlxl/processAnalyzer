@@ -1,8 +1,8 @@
+
 // SPDX-License-Identifier: GPL-3.0-only
 // Copyright (c) 2026 Eser KUBALI
 
 #include "analyzer/core.h"
-#include "analyzer/system_model.h"
 #include "utils/types.h"
 #include "utils/file.h"
 
@@ -14,8 +14,8 @@
 namespace {
 
 // Helper to parse /proc/stat for system boot time
-utils::Result<long long> parseSystemBootTime(const std::string& statContent) {
-    std::istringstream iss(statContent);
+utils::Result<long long> parseSystemBootTime(std::string_view statContent) {
+    std::istringstream iss{std::string(statContent)};
     std::string line;
     while (std::getline(iss, line)) {
         if (line.starts_with("btime ")) {
