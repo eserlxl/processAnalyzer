@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
-// Copyright (c) 2024 Eser KUBALI
+// Copyright (c) 2026 Eser KUBALI
 
 #ifndef UTILS_PATH_H
 #define UTILS_PATH_H
