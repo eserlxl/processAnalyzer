@@ -88,6 +88,7 @@ void printUsage() {
               << "  --threads                (With 'show' or 'pid') Show threads for process\n"
               << "  --network                (With 'show' or 'pid') Show network connections for process\n"
               << "  --ppid <ppid>            Filter processes by Parent Process ID\n"
+              << "  --uid <N>                Filter processes by numeric User ID\n"
               << "  --min-rss <KB>           Filter processes with RSS >= KB\n"
               << "  --max-rss <KB>           Filter processes with RSS <= KB\n"
               << "  --min-threads <N>        Filter processes with thread count >= N\n"
@@ -271,6 +272,17 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
             }
         } else if (arg == "--network") {
             args.showNetworkConnections = true;
+        } else if (arg == "--uid") {
+            if (i + 1 >= cliArgs.size()) {
+                std::cerr << "Error: --uid requires an argument.\n";
+                return std::nullopt;
+            }
+            if (auto uid = parseIntWithinRange(cliArgs[++i])) {
+                args.uidFilter = uid;
+            } else {
+                std::cerr << "Error: Invalid UID '" << cliArgs[i] << "'.\n";
+                return std::nullopt;
+            }
         } else if (arg == "--min-rss") {
             if (i + 1 >= cliArgs.size()) {
                 std::cerr << "Error: --min-rss requires an argument (KB).\n";

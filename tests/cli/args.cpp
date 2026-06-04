@@ -683,3 +683,52 @@ TEST_F(ArgsTestFixture, MaxThreadsIsSet) {
     ASSERT_TRUE(parsed->maxThreads.has_value());
     EXPECT_EQ(parsed->maxThreads.value(), 16L);
 }
+
+TEST_F(ArgsTestFixture, MinRssMissingValueReturnsNullopt) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--min-rss"});
+    ASSERT_FALSE(parseCommandLine(static_cast<int>(argv.size()), argv).has_value());
+}
+
+TEST_F(ArgsTestFixture, MaxRssMissingValueReturnsNullopt) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--max-rss"});
+    ASSERT_FALSE(parseCommandLine(static_cast<int>(argv.size()), argv).has_value());
+}
+
+TEST_F(ArgsTestFixture, MinThreadsMissingValueReturnsNullopt) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--min-threads"});
+    ASSERT_FALSE(parseCommandLine(static_cast<int>(argv.size()), argv).has_value());
+}
+
+TEST_F(ArgsTestFixture, MaxThreadsMissingValueReturnsNullopt) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--max-threads"});
+    ASSERT_FALSE(parseCommandLine(static_cast<int>(argv.size()), argv).has_value());
+}
+
+TEST_F(ArgsTestFixture, MaxRssInvalidValueReturnsNullopt) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--max-rss", "notanumber"});
+    ASSERT_FALSE(parseCommandLine(static_cast<int>(argv.size()), argv).has_value());
+}
+
+TEST_F(ArgsTestFixture, MinThreadsInvalidValueReturnsNullopt) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--min-threads", "notanumber"});
+    ASSERT_FALSE(parseCommandLine(static_cast<int>(argv.size()), argv).has_value());
+}
+
+TEST_F(ArgsTestFixture, UidFilterIsSet) {
+    constexpr int kTestUid = 1000;
+    auto argv = makeArgv({"processAnalyzer", "list", "--uid", "1000"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_TRUE(parsed->uidFilter.has_value());
+    EXPECT_EQ(parsed->uidFilter.value(), kTestUid);
+}
+
+TEST_F(ArgsTestFixture, UidFilterMissingValueReturnsNullopt) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--uid"});
+    ASSERT_FALSE(parseCommandLine(static_cast<int>(argv.size()), argv).has_value());
+}
+
+TEST_F(ArgsTestFixture, UidFilterInvalidValueReturnsNullopt) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--uid", "notanumber"});
+    ASSERT_FALSE(parseCommandLine(static_cast<int>(argv.size()), argv).has_value());
+}

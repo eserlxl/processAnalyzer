@@ -245,3 +245,59 @@
       Acceptance: processAnalyzer system outputs hostname, kernel, OS name, uptime, load averages, memory, and disk usage; all 378 tests pass.
       Verification: ctest --test-dir build --output-on-failure && ./build/processAnalyzer system
 
+- [x] Remove dead `default:` case in `compareLess` — restore compile-time safety for new sort fields
+      Mode: repair
+      Rationale: The `default: return a.pid < b.pid` in compareLess was dead code masking future enum coverage gaps; replaced with std::unreachable() after the switch.
+      Evidence: src/analyzer/query.cpp:143 had dead default; all 19 ProcessSortField values already handled by named cases.
+      Surfaces: src/analyzer/query.cpp
+      Acceptance: cmake --build succeeds; 389 tests pass.
+      Verification: cmake --build build && ctest --test-dir build -R "QueryProcesses" --output-on-failure
+
+- [x] Remove dead `testConfigFileCustom` constant from ArgsTest fixture
+      Mode: improve
+      Rationale: The constant was defined but never used after --config-file removal.
+      Evidence: tests/cli/args.cpp:42 definition, no references.
+      Surfaces: tests/cli/args.cpp
+      Acceptance: 389 tests pass.
+      Verification: ctest --test-dir build -R "ArgsTest" --output-on-failure
+
+- [x] Expand `pseudoFsTypes` in getSystemDiskUsage to filter fuse and binfmt_misc entries
+      Mode: repair
+      Rationale: binfmt_misc, overlay, squashfs, ramfs, fuse, fuseblk, and fuse.* subtypes appeared in disk output as spurious entries.
+      Evidence: /proc/mounts on this system shows binfmt_misc, fuse.portal, fuse.gvfsd-fuse; none were in the original set.
+      Surfaces: src/analyzer/system.cpp, tests/analyzer/system_disk_usage.cpp
+      Acceptance: SkipsBinfmtMiscAndFuseEntries test passes; 389 tests pass.
+      Verification: ctest --test-dir build -R "GetSystemDiskUsageTest" --output-on-failure
+
+- [x] Filter zero-totalSpace entries from getSystemDiskUsage result
+      Mode: repair
+      Rationale: Entries with f_blocks == 0 after statvfs produce useless 0.0 GiB rows; guard added.
+      Evidence: src/analyzer/system.cpp:197 set totalSpaceBytes without zero-check.
+      Surfaces: src/analyzer/system.cpp, tests/analyzer/system_disk_usage.cpp
+      Acceptance: SkipsNonExistentMountPoints test passes; 389 tests pass.
+      Verification: ctest --test-dir build -R "GetSystemDiskUsageTest" --output-on-failure
+
+- [x] Add "cwd" as a selectable table column
+      Mode: develop
+      Rationale: ProcessInfo::currentWorkingDirectory was populated but unreachable via --columns.
+      Evidence: validColumns had 14 entries; "cwd" absent from validColumns, getProcessInfoValue, widths, and printVerticalProcessDetails.
+      Surfaces: src/cli/args.cpp, src/cli/output.cpp, tests/cli/args.cpp, tests/cli/output.cpp
+      Acceptance: CwdIsValidColumn, TableIncludesCwdColumn, VerticalDetailsPrintsWorkingDirectory pass.
+      Verification: ctest --test-dir build -R "ArgsTest|OutputTest" --output-on-failure
+
+- [x] Show IO read/write stats in printVerticalProcessDetails
+      Mode: develop
+      Rationale: ioReadBytes and ioWriteBytes were populated but never rendered in vertical mode.
+      Evidence: output.cpp printVerticalProcessDetails had no IO lines; grep for ioReadBytes returned nothing.
+      Surfaces: src/cli/output.cpp, tests/cli/output.cpp
+      Acceptance: VerticalDetailsPrintsIoStats test passes.
+      Verification: ctest --test-dir build -R "OutputTest" --output-on-failure
+
+- [x] Add --min-rss / --max-rss / --min-threads / --max-threads CLI filter options
+      Mode: develop
+      Rationale: ProcessFilter.minResidentMemoryKB, maxResidentMemoryKB, minThreads, maxThreads existed with no CLI exposure.
+      Evidence: process_model.h declared the fields; grep for min-rss/max-rss in args.cpp returned nothing.
+      Surfaces: include/cli/args.h, src/cli/args.cpp, src/main.cpp, tests/cli/args.cpp
+      Acceptance: MinRssIsSet, MaxRssIsSet, MinRssInvalidValueReturnsNullopt, MinThreadsIsSet, MaxThreadsIsSet pass.
+      Verification: ctest --test-dir build -R "ArgsTest" --output-on-failure
+

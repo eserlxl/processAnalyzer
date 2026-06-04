@@ -5,41 +5,11 @@
 #include <utility>
 #include <vector>
 #include <string>
-#include <regex>
-#include <functional>
 
 #include "analyzer/core.h"
 #include "analyzer/process_model.h"
+#include "analyzer/internal/filter_helpers.h"
 #include "utils/types.h"
-
-namespace {
-// Helper to apply common string-based filters (contains, regex)
-bool applyStringFilter(const std::optional<std::string>& containsFilter,
-                       const std::optional<std::regex>& regexFilter,
-                       const std::string& targetString) {
-    if (containsFilter && !targetString.contains(*containsFilter)) {
-        return false;
-    }
-    if (regexFilter && !std::regex_search(targetString, *regexFilter)) {
-        return false;
-    }
-    return true;
-}
-
-// Helper to apply numerical range filters
-template<typename T>
-bool applyRangeFilter(const std::optional<T>& minVal,
-                      const std::optional<T>& maxVal,
-                      const T& targetVal) {
-    if (minVal && targetVal < *minVal) {
-        return false;
-    }
-    if (maxVal && targetVal > *maxVal) {
-        return false;
-    }
-    return true;
-}
-} // anonymous namespace
 
 utils::Result<std::vector<ProcessInfo>> ProcessAnalyzer::queryProcesses(
     const ProcessFilter& filter,
@@ -52,70 +22,26 @@ utils::Result<std::vector<ProcessInfo>> ProcessAnalyzer::queryProcesses(
     }
 
     std::vector<ProcessInfo> filteredProcesses;
-    filteredProcesses.reserve(pidsResult.value().size()); // Reserve space for efficiency
+    filteredProcesses.reserve(pidsResult.value().size());
 
     for (int pid : pidsResult.value()) {
         auto detailsResult = getProcessDetails(pid);
-        if (!detailsResult) {
-            // Log error or continue, depending on desired robustness.
-            // For now, let's just skip processes we can't get details for.
-            continue;
-        }
-        const ProcessInfo& pInfo = detailsResult.value(); // Use const reference
+        if (!detailsResult) continue;
+        const ProcessInfo& pInfo = detailsResult.value();
 
-        // Apply filters
-        if (!applyStringFilter(filter.nameContains, filter.nameRegex, pInfo.name)) continue;
-        if (!applyStringFilter(filter.cmdlineContains, filter.cmdlineRegex, pInfo.cmdline)) continue;
-        if (!applyStringFilter(filter.executablePathContains, filter.executablePathRegex, pInfo.executablePath)) continue;
+        if (!Internal::passesStaticFilters(filter, pInfo)) continue;
 
-        if (filter.userFilter && pInfo.username != *filter.userFilter) continue;
-        if (filter.stateFilter && pInfo.state.front() != *filter.stateFilter) continue;
-        if (filter.uidFilter && pInfo.uid != *filter.uidFilter) continue;
-
-        if (!applyRangeFilter(filter.minThreads, filter.maxThreads, pInfo.threadCount)) continue;
-        if (!applyRangeFilter(filter.minResidentMemoryKB, filter.maxResidentMemoryKB, pInfo.residentMemory)) continue;
-        if (!applyRangeFilter(filter.minVirtualMemoryKB, filter.maxVirtualMemoryKB, pInfo.virtualMemory)) continue;
-        if (!applyRangeFilter(filter.minPriority, filter.maxPriority, pInfo.priority)) continue;
-
-        if (filter.ppidFilter && pInfo.ppid != *filter.ppidFilter) continue;
-
-        // Custom predicate filter
-        if (filter.customPredicate && !(*filter.customPredicate)(pInfo)) {
-            continue;
-        }
-
-        // Network connection filter
         if (filter.networkConnectionFilter) {
             auto connectionsResult = getNetworkConnections(pid);
-            if (!connectionsResult) {
-                // If we can't get network connections, assume it doesn't match the filter.
+            if (!connectionsResult ||
+                !Internal::passesNetworkFilter(*filter.networkConnectionFilter, *connectionsResult)) {
                 continue;
             }
-            bool networkMatch = false;
-            for (const auto& conn : connectionsResult.value()) {
-                const auto& netFilter = *filter.networkConnectionFilter;
-                bool currentConnMatch = true;
-
-                if (netFilter.localPort && conn.localPort != *netFilter.localPort) currentConnMatch = false;
-                if (netFilter.remotePort && conn.remotePort != *netFilter.remotePort) currentConnMatch = false;
-                if (netFilter.protocol && conn.protocol != *netFilter.protocol) currentConnMatch = false;
-                if (netFilter.state && conn.state != *netFilter.state) currentConnMatch = false;
-
-                if (netFilter.remoteAddressContains && !conn.remoteAddress.contains(*netFilter.remoteAddressContains)) currentConnMatch = false;
-                if (netFilter.remoteAddressRegex && !std::regex_search(conn.remoteAddress, *netFilter.remoteAddressRegex)) currentConnMatch = false;
-
-                if (currentConnMatch) {
-                    networkMatch = true;
-                    break;
-                }
-            }
-            if (!networkMatch) continue;
         }
-        
+
         filteredProcesses.push_back(pInfo);
     }
 
-    // Sort processes.
     // compareLess implements the strict ordering for the selected field. For
     // descending order we swap the operands rather than negating the result:
     // negating would make comp(a,b) and comp(b,a) both true for equal keys,

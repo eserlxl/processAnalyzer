@@ -32,6 +32,7 @@ struct ParsedArguments {
     std::optional<long long> maxRssKb;        // Maximum resident memory in KB (--max-rss).
     std::optional<long> minThreads;           // Minimum thread count (--min-threads).
     std::optional<long> maxThreads;           // Maximum thread count (--max-threads).
+    std::optional<int> uidFilter;             // Filter by numeric UID (--uid).
 };
 
 std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const> argv);

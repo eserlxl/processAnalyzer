@@ -37,6 +37,7 @@ int main(int argc, char* argv[]) {
         filter.maxResidentMemoryKB = args.maxRssKb;
         filter.minThreads = args.minThreads;
         filter.maxThreads = args.maxThreads;
+        filter.uidFilter = args.uidFilter;
 
         if (args.command == "system") {
             constexpr int labelWidth = 20;
@@ -100,6 +101,59 @@ int main(int argc, char* argv[]) {
                               << static_cast<double>(mp.freeSpaceBytes) / static_cast<double>(bytesPerGib)
                               << "\n";
                 }
+            }
+            // Network interface stats
+            auto netIfResult = analyzer.getNetworkInterfaceStats();
+            if (netIfResult && !netIfResult->empty()) {
+                constexpr int ifNameWidth = 12;
+                constexpr int numWidth = 14;
+                std::cout << "\n=== Network Interfaces ===\n";
+                std::cout << std::left << std::setw(ifNameWidth) << "Interface"
+                          << std::right << std::setw(numWidth) << "RX Bytes"
+                          << std::setw(numWidth) << "TX Bytes"
+                          << std::setw(numWidth) << "RX Packets"
+                          << std::setw(numWidth) << "TX Packets"
+                          << "\n";
+                std::cout << std::string(ifNameWidth + (numWidth * 4), '-') << "\n";
+                for (const auto& iface : *netIfResult) {
+                    std::cout << std::left << std::setw(ifNameWidth) << iface.interfaceName
+                              << std::right << std::setw(numWidth) << iface.rxBytes
+                              << std::setw(numWidth) << iface.txBytes
+                              << std::setw(numWidth) << iface.rxPackets
+                              << std::setw(numWidth) << iface.txPackets
+                              << "\n";
+                }
+            }
+            // Disk I/O stats
+            auto diskIoResult = analyzer.getSystemDiskIoStats();
+            if (diskIoResult && !diskIoResult->empty()) {
+                constexpr int devWidth = 14;
+                constexpr int numWidth = 14;
+                std::cout << "\n=== Disk I/O Stats ===\n";
+                std::cout << std::left << std::setw(devWidth) << "Device"
+                          << std::right << std::setw(numWidth) << "Reads"
+                          << std::setw(numWidth) << "Writes"
+                          << std::setw(numWidth) << "Rd Sectors"
+                          << std::setw(numWidth) << "Wr Sectors"
+                          << "\n";
+                std::cout << std::string(devWidth + (numWidth * 4), '-') << "\n";
+                for (const auto& dev : *diskIoResult) {
+                    std::cout << std::left << std::setw(devWidth) << dev.deviceName
+                              << std::right << std::setw(numWidth) << dev.readsCompleted
+                              << std::setw(numWidth) << dev.writesCompleted
+                              << std::setw(numWidth) << dev.sectorsRead
+                              << std::setw(numWidth) << dev.sectorsWritten
+                              << "\n";
+                }
+            }
+            // System activity stats
+            auto activityResult = analyzer.getSystemActivityStats();
+            if (activityResult) {
+                const auto& act = *activityResult;
+                std::cout << "\n=== System Activity ===\n";
+                std::cout << std::left << std::setw(labelWidth) << "Context Switches:" << act.contextSwitches << "\n";
+                std::cout << std::left << std::setw(labelWidth) << "Interrupts:" << act.interruptsTotal << "\n";
+                std::cout << std::left << std::setw(labelWidth) << "Forks:" << act.processesForked << "\n";
             }
             return 0;
         }

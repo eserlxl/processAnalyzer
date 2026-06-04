@@ -172,3 +172,20 @@ TEST(OutputTest, VerticalDetailsPrintsIoStats) {
     EXPECT_NE(out.find("123456"), std::string::npos);
     EXPECT_NE(out.find("654321"), std::string::npos);
 }
+
+TEST(OutputTest, VerticalDetailsPrintsCpuTime) {
+    constexpr unsigned long long kUserTicks = 4200;
+    constexpr unsigned long long kKernelTicks = 1800;
+    ProcessInfo info = makeProcess();
+    info.cpuUserTimeTicks = kUserTicks;
+    info.cpuKernelTimeTicks = kKernelTicks;
+
+    testing::internal::CaptureStdout();
+    printVerticalProcessDetails(info);
+    const std::string out = testing::internal::GetCapturedStdout();
+
+    EXPECT_NE(out.find("CPU User Time:"), std::string::npos);
+    EXPECT_NE(out.find("CPU Kernel Time:"), std::string::npos);
+    EXPECT_NE(out.find("4200"), std::string::npos);
+    EXPECT_NE(out.find("1800"), std::string::npos);
+}

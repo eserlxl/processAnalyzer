@@ -161,3 +161,66 @@ TEST_F(QueryProcessesTest, SortDescendingByPid) {
     EXPECT_EQ(pids(result.value()),
               (std::vector<pid_t>{kPidCharlie, kPidAlphaB, kPidBravo, kPidAlphaA}));
 }
+
+// Exercises the networkConnectionFilter path in queryProcesses: only the
+// process whose socket inode appears in /proc/net/tcp with a matching port
+// should survive the filter.
+class QueryNetworkFilterTest : public ::testing::Test {
+protected:
+    ProcessAnalyzer analyzer;
+    std::filesystem::path originalProcPath;
+    std::unique_ptr<MockProc> mockProc;
+
+    static constexpr pid_t kNetPid = 500;
+    static constexpr pid_t kSilentPid = 501;
+    static constexpr int kSocketFd = 10;
+    static constexpr uint16_t kListeningPort = 8080;    // 0x1F90
+    static constexpr uint16_t kNonListeningPort = 9999; // no process bound to this
+
+    QueryNetworkFilterTest() : analyzer("/proc") {}
+
+    void SetUp() override {
+        mockProc = std::make_unique<MockProc>("mock_proc_query_net_filter");
+        originalProcPath = analyzer.getProcPath();
+        analyzer.setProcPath(mockProc->getPath());
+
+        mockProc->buildProcess(kNetPid).withName("netproc").withParent(1)
+            .withFd(kSocketFd, "socket:[12345]").create();
+        mockProc->buildProcess(kSilentPid).withName("silent").withParent(1).create();
+
+        mockProc->createDirectoryAt("net");
+        // net/tcp: one LISTEN entry on port 8080 owned by inode 12345
+        const std::string tcpContent =
+            "  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode\n"
+            "   0: 00000000:1F90 00000000:0000 0A 00000000:00000000 00:00000000 00000000  1000        0 12345 1 0000000000000000 100 0 0 10 0\n";
+        mockProc->createFileAt("net/tcp", tcpContent);
+    }
+
+    void TearDown() override {
+        mockProc.reset();
+        analyzer.setProcPath(originalProcPath);
+    }
+};
+
+TEST_F(QueryNetworkFilterTest, FilterByLocalPortReturnsOnlyMatchingProcess) {
+    ProcessFilter filter;
+    ProcessFilter::NetworkFilterCriteria netCrit;
+    netCrit.localPort = kListeningPort;
+    filter.networkConnectionFilter = netCrit;
+
+    auto result = analyzer.queryProcesses(filter, ProcessSortField::pid, SortOrder::asc);
+    ASSERT_TRUE(result.has_value());
+    ASSERT_EQ(result.value().size(), 1U);
+    EXPECT_EQ(result.value().front().pid, kNetPid);
+}
+
+TEST_F(QueryNetworkFilterTest, FilterByNonMatchingPortReturnsEmpty) {
+    ProcessFilter filter;
+    ProcessFilter::NetworkFilterCriteria netCrit;
+    netCrit.localPort = kNonListeningPort;
+    filter.networkConnectionFilter = netCrit;
+
+    auto result = analyzer.queryProcesses(filter, ProcessSortField::pid, SortOrder::asc);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(result.value().empty());
+}

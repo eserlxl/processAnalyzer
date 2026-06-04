@@ -3,7 +3,8 @@
 
 #include "analyzer/core.h"
 #include "utils/core.h"
-#include "analyzer/internal/helpers.h" // For checkPidPathExistsAndPermissions
+#include "analyzer/internal/helpers.h"
+#include "analyzer/internal/filter_helpers.h"
 #include <filesystem>
 #include <system_error>
 #include <utility> // For std::move
@@ -212,42 +213,14 @@ std::generator<ProcessInfo> ProcessAnalyzer::streamQueryProcesses(
         if (!detailsResult) continue;
         const ProcessInfo& pInfo = detailsResult.value();
 
-        if (filter.nameContains && !pInfo.name.contains(*filter.nameContains)) continue;
-        if (filter.nameRegex && !std::regex_search(pInfo.name, *filter.nameRegex)) continue;
-        if (filter.cmdlineContains && !pInfo.cmdline.contains(*filter.cmdlineContains)) continue;
-        if (filter.cmdlineRegex && !std::regex_search(pInfo.cmdline, *filter.cmdlineRegex)) continue;
-        if (filter.executablePathContains && !pInfo.executablePath.contains(*filter.executablePathContains)) continue;
-        if (filter.executablePathRegex && !std::regex_search(pInfo.executablePath, *filter.executablePathRegex)) continue;
-        if (filter.userFilter && pInfo.username != *filter.userFilter) continue;
-        if (filter.stateFilter && pInfo.state.front() != *filter.stateFilter) continue;
-        if (filter.uidFilter && pInfo.uid != *filter.uidFilter) continue;
-        if (filter.minThreads && pInfo.threadCount < *filter.minThreads) continue;
-        if (filter.maxThreads && pInfo.threadCount > *filter.maxThreads) continue;
-        if (filter.minResidentMemoryKB && pInfo.residentMemory < *filter.minResidentMemoryKB) continue;
-        if (filter.maxResidentMemoryKB && pInfo.residentMemory > *filter.maxResidentMemoryKB) continue;
-        if (filter.minVirtualMemoryKB && pInfo.virtualMemory < *filter.minVirtualMemoryKB) continue;
-        if (filter.maxVirtualMemoryKB && pInfo.virtualMemory > *filter.maxVirtualMemoryKB) continue;
-        if (filter.minPriority && pInfo.priority < *filter.minPriority) continue;
-        if (filter.maxPriority && pInfo.priority > *filter.maxPriority) continue;
-        if (filter.ppidFilter && pInfo.ppid != *filter.ppidFilter) continue;
-        if (filter.customPredicate && !(*filter.customPredicate)(pInfo)) continue;
+        if (!Internal::passesStaticFilters(filter, pInfo)) continue;
 
         if (filter.networkConnectionFilter) {
             auto connectionsResult = getNetworkConnections(pid);
-            if (!connectionsResult) continue;
-            bool networkMatch = false;
-            for (const auto& conn : connectionsResult.value()) {
-                const auto& netFilter = *filter.networkConnectionFilter;
-                bool connMatch = true;
-                if (netFilter.localPort && conn.localPort != *netFilter.localPort) connMatch = false;
-                if (netFilter.remotePort && conn.remotePort != *netFilter.remotePort) connMatch = false;
-                if (netFilter.protocol && conn.protocol != *netFilter.protocol) connMatch = false;
-                if (netFilter.state && conn.state != *netFilter.state) connMatch = false;
-                if (netFilter.remoteAddressContains && !conn.remoteAddress.contains(*netFilter.remoteAddressContains)) connMatch = false;
-                if (netFilter.remoteAddressRegex && !std::regex_search(conn.remoteAddress, *netFilter.remoteAddressRegex)) connMatch = false;
-                if (connMatch) { networkMatch = true; break; }
+            if (!connectionsResult ||
+                !Internal::passesNetworkFilter(*filter.networkConnectionFilter, *connectionsResult)) {
+                continue;
             }
-            if (!networkMatch) continue;
         }
 
         co_yield pInfo;

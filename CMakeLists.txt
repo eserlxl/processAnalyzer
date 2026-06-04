@@ -36,6 +36,7 @@ endif()
 # Create a library for the core logic to be shared with tests
 add_library(processAnalyzerLib STATIC
     src/analyzer/internal/helpers.cpp
+    src/analyzer/internal/filter_helpers.cpp
     src/analyzer/base.cpp
     src/analyzer/control.cpp
     src/analyzer/details.cpp

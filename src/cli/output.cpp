@@ -95,6 +95,8 @@ void printVerticalProcessDetails(const ProcessInfo& info) {
               << "Elapsed Time:      " << info.elapsedTime << "\n"
               << "Executable Path:   " << info.executablePath << "\n"
               << "Working Directory: " << info.currentWorkingDirectory << "\n"
+              << "CPU User Time:     " << info.cpuUserTimeTicks << " ticks\n"
+              << "CPU Kernel Time:   " << info.cpuKernelTimeTicks << " ticks\n"
               << "IO Read:           " << info.ioReadBytes << " B\n"
               << "IO Write:          " << info.ioWriteBytes << " B\n"
               << "Command:           " << info.cmdline << "\n";
