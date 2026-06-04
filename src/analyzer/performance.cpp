@@ -6,6 +6,7 @@
 #include "utils/core.h"
 #include "utils/types.h"
 
+#include <sched.h>
 #include <sys/resource.h>
 #include <algorithm>
 #include <cerrno>
@@ -63,6 +64,37 @@ utils::Result<CpuSet> ProcessAnalyzer::getProcessCpuAffinity(int pid) const {
     }
 
     return std::unexpected(utils::make_error_code(utils::UtilsError::analyzerParsingError));
+}
+
+utils::Result<void> ProcessAnalyzer::setProcessCpuAffinity(int pid, const CpuSet& affinity) const {
+    auto check = Internal::checkPidPathExistsAndPermissions(procPath, pid);
+    if (!check) {
+        return std::unexpected(check.error());
+    }
+
+    cpu_set_t mask;
+    CPU_ZERO(&mask);
+    for (int cpu : affinity.cpus) {
+        if (cpu >= 0) {
+            CPU_SET(static_cast<size_t>(cpu), &mask);
+        }
+    }
+
+    if (::sched_setaffinity(static_cast<pid_t>(pid), sizeof(cpu_set_t), &mask) == 0) {
+        return {};
+    }
+
+    switch (errno) {
+        case ESRCH:
+            return std::unexpected(utils::make_error_code(utils::UtilsError::analyzerProcessNotFound));
+        case EPERM:
+        case EACCES:
+            return std::unexpected(utils::make_error_code(utils::UtilsError::analyzerPermissionDenied));
+        case EINVAL:
+            return std::unexpected(utils::make_error_code(utils::UtilsError::analyzerParsingError));
+        default:
+            return std::unexpected(utils::make_error_code(utils::UtilsError::analyzerSystemError));
+    }
 }
 
 utils::Result<void> ProcessAnalyzer::setProcessPriority(int pid, int niceValue) const {

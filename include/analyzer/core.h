@@ -73,6 +73,7 @@ public:
     //- Process Performance
     [[nodiscard]] utils::Result<void> setProcessPriority(int pid, int niceValue) const;
     [[nodiscard]] utils::Result<CpuSet> getProcessCpuAffinity(int pid) const;
+    [[nodiscard]] utils::Result<void> setProcessCpuAffinity(int pid, const CpuSet& affinity) const;
 
     //- C++23 Streaming API (Generators)
     //- WARNING: The returned generator MUST NOT outlive the ProcessAnalyzer instance.

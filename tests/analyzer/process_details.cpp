@@ -41,6 +41,7 @@ protected:
             .withParent(kInitPpid)
             .withCmdline({"myproc", "--flag"})
             .withExe("/usr/bin/myproc")
+            .withCwd(std::filesystem::temp_directory_path())
             .withStatusField("Uid", "1000 1000 1000 1000")
             .withStatusField("VmRSS", "2048 kB")
             .withStatusField("Threads", "4")
@@ -88,6 +89,14 @@ TEST_F(ProcessDetailsTest, GetProcessDetailsParsesFields) {
 TEST_F(ProcessDetailsTest, GetProcessDetailsAbsentPidReturnsError) {
     auto result = analyzer.getProcessDetails(kAbsentPid);
     EXPECT_FALSE(result.has_value());
+}
+
+TEST_F(ProcessDetailsTest, GetProcessDetailsParsesCurrentWorkingDirectory) {
+    auto result = analyzer.getProcessDetails(kStandalonePid);
+    ASSERT_TRUE(result.has_value());
+    // temp_directory_path() may be a symlink; read_symlink returns the raw target.
+    EXPECT_EQ(result.value().currentWorkingDirectory,
+              std::filesystem::temp_directory_path().string());
 }
 
 TEST_F(ProcessDetailsTest, GetChildProcessesReturnsDirectChildren) {

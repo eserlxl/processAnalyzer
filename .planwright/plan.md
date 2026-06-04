@@ -1,68 +1,68 @@
 # planwright Plan — .
 <!-- Session: 2026-06-05T03:00:00Z -->
 
-## Cycle 13 — Coverage + Opportunity seed (depth 10)
+## Cycle 14 — Coverage + Opportunity (depth 10)
 
-Audit found: `getPids()` has zero direct tests (both success path and `fileNotFound` path are
-untested at the function boundary); `getSystemClockTicksPerSecond()` is a static method that has
-never been called from a test; `getProcessCpuAffinity()` is named in `docs/features.md`, the
-`CpuSet` struct already exists in `system_model.h`, and `details.cpp:156` has a comment
-explicitly calling out `Cpus_allowed_list` as "add more parsing here" — making this a rung-3
-seed opportunity with a real, named attachment surface.
-
----
-
-### Item 1 — `getPids()` direct test coverage
-**Mode:** improve  
-**Rung:** 2 (coverage)  
-**File:** `tests/analyzer/pids.cpp` (new), CMakeLists.txt  
-**Surfaces:** `src/analyzer/base.cpp:26-51` (`getPids`)  
-**Description:** `getPids()` is a public API method with no direct tests — it is only exercised
-indirectly through `queryProcesses()` and `snapshot()`. Two paths need coverage: (a) success —
-MockProc with 3 processes, verify `getPids()` returns exactly those PIDs; (b) error — set
-`procPath` to a non-existent directory, verify `getPids()` returns the `fileNotFound` error code.
-Create `tests/analyzer/pids.cpp` with `TEST(PidsTest, ReturnsPidListFromMockProc)` and
-`TEST(PidsTest, ReturnsFileNotFoundWhenProcPathAbsent)`. Add the new file to the test target in
-`tests/CMakeLists.txt`.  
-**Verification:** Build + ctest passes. Both new tests pass.  
-**Status:** [x] done
+Audit found: `getProcessCpuAffinity()` only has one parser test (the range format); the
+comma-list single-cpu path inside `expandCpuToken()` is untested. `currentWorkingDirectory`
+field in `ProcessInfo` is only tested indirectly (via a sort test); no test directly asserts
+the parsed field value. `setProcessCpuAffinity()` is documented in `api-reference.md` (line 53)
+and in `features.md` but the implementation is entirely missing.
 
 ---
 
-### Item 2 — `getSystemClockTicksPerSecond()` direct test
+### Item 1 — `getProcessCpuAffinity()` comma-list format test
 **Mode:** improve  
 **Rung:** 2 (coverage)  
-**File:** `tests/analyzer/system_info.cpp`  
-**Surfaces:** `src/analyzer/system.cpp:49-55` (`getSystemClockTicksPerSecond`)  
-**Description:** `getSystemClockTicksPerSecond()` is a static method that wraps `sysconf(_SC_CLK_TCK)`
-and is exercised only indirectly inside `getProcessDetails()` CPU-time calculation. No test calls it
-directly. Add `TEST(SystemClockTicksTest, ReturnsPositiveValueOnLinux)` to
-`tests/analyzer/system_info.cpp` which calls `ProcessAnalyzer::getSystemClockTicksPerSecond()`
-and asserts `result.has_value()` and `result.value() > 0L`.  
+**File:** `tests/analyzer/process_performance.cpp`  
+**Surfaces:** `src/analyzer/performance.cpp:23-32` (`expandCpuToken`)  
+**Description:** The existing `GetProcessCpuAffinityTest.ParsesRange` only exercises the
+`dashPos != npos` branch. The single-element branch (no dash) and comma-list tokenization
+are untested. Add `TEST(GetProcessCpuAffinityTest, ParsesCommaSeparatedList)` using
+`withStatusField("Cpus_allowed_list", "0,2,4")` and asserting `cpus == {0, 2, 4}`.
+This covers both the single-element branch of `expandCpuToken` and the comma-split path.  
 **Verification:** Build + ctest passes. New test passes.  
 **Status:** [x] done
 
 ---
 
-### Item 3 — `getProcessCpuAffinity()` API (rung-3 seed)
+### Item 2 — `currentWorkingDirectory` direct assertion
+**Mode:** improve  
+**Rung:** 2 (coverage)  
+**File:** `tests/analyzer/process_details.cpp`  
+**Surfaces:** `src/analyzer/details.cpp:244-250` (cwd symlink read)  
+**Description:** `currentWorkingDirectory` in `ProcessInfo` is populated from
+`/proc/<pid>/cwd` (a symlink). No test directly asserts the field is populated with the
+expected path — it is only exercised via a sort comparison in `query.cpp`. Extend the
+existing `ProcessDetailsTest` fixture: add `withCwd(std::filesystem::temp_directory_path())`
+to the `kStandalonePid` process in `SetUp()`, and add
+`TEST_F(ProcessDetailsTest, GetProcessDetailsParsesCurrentWorkingDirectory)` that calls
+`getProcessDetails(kStandalonePid)` and asserts
+`info.currentWorkingDirectory == std::filesystem::temp_directory_path().string()`.  
+**Verification:** Build + ctest passes. New test passes.  
+**Status:** [x] done
+
+---
+
+### Item 3 — `setProcessCpuAffinity()` implementation
 **Mode:** develop  
 **Rung:** 3 (opportunity)  
 **File:** `include/analyzer/core.h`, `src/analyzer/performance.cpp`,
   `tests/analyzer/process_performance.cpp`  
-**Surfaces:** `src/analyzer/details.cpp:156` (comment: "Add more parsing for other fields as
-needed, e.g., Cpus_allowed_list"), `include/analyzer/system_model.h:92-95` (`CpuSet` struct),
-`docs/features.md:11` ("set CPU affinity programmatically via the C++ API")  
-**Description:** Three signals converge: the doc names the feature, the data model exists, and
-the parser comment explicitly names the field to parse. Implement
-`getProcessCpuAffinity(int pid) -> Result<CpuSet>` which reads `/proc/<pid>/status`, finds the
-`Cpus_allowed_list:` line, and parses the range-list format (e.g., `"0-3"` → `{0,1,2,3}`;
-`"0,2"` → `{0,2}`; `"0-1,3"` → `{0,1,3}`). Return `analyzerParsingError` when the field is
-missing. Add the declaration to `core.h` under `//- Process Control`. Implement in
-`src/analyzer/performance.cpp`. Add three tests to `tests/analyzer/process_performance.cpp`:
-`GetProcessCpuAffinityParsesRange` (`withStatusField("Cpus_allowed_list", "0-3")` → cpus
-`{0,1,2,3}`), `GetProcessCpuAffinityAbsentPidReturnsError` (nonexistent PID),
-`GetProcessCpuAffinityMissingFieldReturnsError` (process exists but no `Cpus_allowed_list`
-in status).  
-**Verification:** Build + ctest passes. Three new tests cover the new API.  
+**Surfaces:** `docs/api-reference.md:53` (`setProcessCpuAffinity` documented),
+  `docs/features.md:14` ("set CPU affinity programmatically"),
+  `include/analyzer/system_model.h:92-95` (`CpuSet` struct),
+  `src/analyzer/performance.cpp` (natural home alongside `getProcessCpuAffinity`)  
+**Description:** `api-reference.md` documents `setProcessCpuAffinity(pid, affinity)` but
+the method is absent from `core.h`. Implement it using `sched_setaffinity()`: convert
+`CpuSet.cpus` to a `cpu_set_t` bitmask via `CPU_ZERO` / `CPU_SET`, then call
+`sched_setaffinity(pid, sizeof(cpu_set_t), &mask)`. Return errors for ESRCH
+(`analyzerProcessNotFound`), EPERM/EACCES (`analyzerPermissionDenied`), and EINVAL
+(`analyzerParsingError`). Add declaration to `core.h` under `//- Process Performance`.
+Add two tests to `tests/analyzer/process_performance.cpp`:
+`SetProcessCpuAffinityTest.SetsSelfAffinityToAllCpus` (builds a `CpuSet` containing CPU 0,
+calls on `getpid()`, expects success or `GTEST_SKIP` on permission denied), and
+`SetProcessCpuAffinityTest.NonexistentPidReturnsError` (absent PID via MockProc).  
+**Verification:** Build + ctest passes. New tests cover the new API.  
 **Status:** [x] done
 

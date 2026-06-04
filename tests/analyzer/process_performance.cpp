@@ -89,3 +89,42 @@ TEST(GetProcessCpuAffinityTest, MissingFieldReturnsParsingError) {
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), utils::make_error_code(utils::UtilsError::analyzerParsingError));
 }
+
+TEST(GetProcessCpuAffinityTest, ParsesCommaSeparatedList) {
+    constexpr int kPid = 5502;
+
+    MockProc mockProc("mock_proc_affinity_comma_test");
+    ProcessAnalyzer analyzer(mockProc.getPath());
+    mockProc.buildProcess(kPid).withName("commaproc").withParent(1)
+        .withStatusField("Cpus_allowed_list", "0,2,4").create();
+
+    auto result = analyzer.getProcessCpuAffinity(kPid);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result.value().cpus, (std::vector<int>{0, 2, 4}));
+}
+
+// ── setProcessCpuAffinity ────────────────────────────────────────────────────
+
+TEST(SetProcessCpuAffinityTest, SetsSelfAffinityToAllCpus) {
+    ProcessAnalyzer analyzer("/proc");
+    CpuSet affinity;
+    affinity.cpus.push_back(0);
+
+    auto result = analyzer.setProcessCpuAffinity(static_cast<int>(::getpid()), affinity);
+    if (!result.has_value() &&
+        result.error() == utils::make_error_code(utils::UtilsError::analyzerPermissionDenied)) {
+        GTEST_SKIP() << "sched_setaffinity not permitted in this environment";
+    }
+    EXPECT_TRUE(result.has_value());
+}
+
+TEST(SetProcessCpuAffinityTest, NonexistentPidReturnsError) {
+    MockProc mockProc("mock_proc_setaffinity_absent_test");
+    ProcessAnalyzer analyzer(mockProc.getPath());
+
+    constexpr int kAbsentPid = 99999;
+    CpuSet affinity;
+    affinity.cpus.push_back(0);
+    auto result = analyzer.setProcessCpuAffinity(kAbsentPid, affinity);
+    EXPECT_FALSE(result.has_value());
+}
