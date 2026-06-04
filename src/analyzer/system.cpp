@@ -179,6 +179,25 @@ utils::Result<SystemActivityStats> ProcessAnalyzer::getSystemActivityStats() con
     return stats;
 }
 
+// Implementation of ProcessAnalyzer::getSystemActivityRates
+utils::Result<SystemActivityRates> ProcessAnalyzer::getSystemActivityRates(
+    std::chrono::milliseconds duration) const {
+    auto snap1 = getSystemActivityStats();
+    if (!snap1) return std::unexpected(snap1.error());
+
+    std::this_thread::sleep_for(duration);
+
+    auto snap2 = getSystemActivityStats();
+    if (!snap2) return std::unexpected(snap2.error());
+
+    const double secs = static_cast<double>(std::max(duration.count(), decltype(duration.count()){1})) / 1000.0;
+    return SystemActivityRates{
+        .contextSwitchesPerSec = static_cast<double>(snap2->contextSwitches - snap1->contextSwitches) / secs,
+        .interruptsPerSec      = static_cast<double>(snap2->interruptsTotal  - snap1->interruptsTotal)  / secs,
+        .processForkRate       = static_cast<double>(snap2->processesForked  - snap1->processesForked)  / secs,
+    };
+}
+
 // Implementation of ProcessAnalyzer::getSystemCpuStats
 utils::Result<SystemCpuStats> ProcessAnalyzer::getSystemCpuStats() const {
     auto content = utils::readTextFile((procPath / "stat").string());

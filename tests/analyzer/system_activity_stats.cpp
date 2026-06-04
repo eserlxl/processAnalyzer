@@ -6,6 +6,7 @@
 #include "analyzer/system_model.h"
 #include "utils/testing_framework.h"
 
+#include <chrono>
 #include <filesystem>
 #include <memory>
 
@@ -79,5 +80,21 @@ TEST_F(GetSystemActivityStatsTest, ParsesInterruptsPerCpuMap) {
 
 TEST_F(GetSystemActivityStatsTest, MissingStatReturnsError) {
     auto result = analyzer.getSystemActivityStats();
+    EXPECT_FALSE(result.has_value());
+}
+
+TEST(SystemActivityRatesTest, ReturnsNonNegativeRates) {
+    ProcessAnalyzer analyzer("/proc");
+    auto result = analyzer.getSystemActivityRates(std::chrono::milliseconds(1));
+    ASSERT_TRUE(result.has_value());
+    EXPECT_GE(result->contextSwitchesPerSec, 0.0);
+    EXPECT_GE(result->interruptsPerSec,      0.0);
+    EXPECT_GE(result->processForkRate,       0.0);
+}
+
+TEST(SystemActivityRatesTest, MissingStatReturnsError) {
+    MockProc mockProc("mock_proc_activity_rates_absent");
+    ProcessAnalyzer analyzer(mockProc.getPath());
+    auto result = analyzer.getSystemActivityRates(std::chrono::milliseconds(1));
     EXPECT_FALSE(result.has_value());
 }

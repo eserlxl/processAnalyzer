@@ -196,6 +196,25 @@ int main(int argc, char* argv[]) {
                               << "\n";
                 }
             }
+            // Disk I/O rates
+            auto diskRatesResult = analyzer.getSystemDiskIoRates(std::chrono::milliseconds(kCpuSampleMs));
+            if (diskRatesResult && !diskRatesResult->empty()) {
+                constexpr int devWidth = 14;
+                constexpr int numWidth = 14;
+                std::cout << "\n=== Disk I/O Rates (" << kCpuSampleMs << " ms sample) ===\n";
+                std::cout << std::left << std::setw(devWidth) << "Device"
+                          << std::right << std::setw(numWidth) << "Reads/s"
+                          << std::setw(numWidth) << "Writes/s"
+                          << "\n";
+                std::cout << std::string(devWidth + (numWidth * 2), '-') << "\n";
+                for (const auto& dev : *diskRatesResult) {
+                    std::cout << std::left << std::setw(devWidth) << dev.deviceName
+                              << std::right << std::fixed << std::setprecision(1)
+                              << std::setw(numWidth) << dev.readsPerSec
+                              << std::setw(numWidth) << dev.writesPerSec
+                              << "\n";
+                }
+            }
             // System activity stats
             auto activityResult = analyzer.getSystemActivityStats();
             if (activityResult) {

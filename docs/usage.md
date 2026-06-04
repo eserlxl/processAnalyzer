@@ -102,7 +102,9 @@ The `system` command prints a snapshot of system-wide resource usage.
 - **Memory (MiB)** — total, free, available, buffers, cached RAM; swap total and free (if swap is present).
 - **Disk Usage** — for each mounted filesystem: device, mount point, total space (GiB), free space (GiB).
 - **Network Interfaces** — for each network interface: RX/TX bytes and packets.
+- **Network Interface Rates** — per-interface RX/TX bytes per second (200 ms sample).
 - **Disk I/O Stats** — for each block device: reads, writes, sectors read, sectors written.
+- **Disk I/O Rates** — per-device reads and writes per second (200 ms sample).
 - **System Activity** — total context switches, interrupts, and process forks since boot.
 
 **Example:**

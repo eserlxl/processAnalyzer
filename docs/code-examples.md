@@ -189,6 +189,43 @@ int main() {
 }
 ```
 
+## Monitoring System Disk I/O
+
+Use `getSystemDiskIoStats()` for cumulative block-device counters, or
+`getSystemDiskIoRates(duration)` for live reads/writes per second.
+
+```cpp
+#include "analyzer/core.h"
+#include <chrono>
+#include <iostream>
+
+int main() {
+    ProcessAnalyzer analyzer;
+
+    // Cumulative counters (total since boot)
+    auto statsResult = analyzer.getSystemDiskIoStats();
+    if (statsResult) {
+        for (const auto& dev : *statsResult) {
+            std::cout << dev.deviceName
+                      << "  reads: "  << dev.readsCompleted
+                      << "  writes: " << dev.writesCompleted << "\n";
+        }
+    }
+
+    // Live I/O rate over 200 ms
+    auto ratesResult = analyzer.getSystemDiskIoRates(std::chrono::milliseconds(200));
+    if (ratesResult) {
+        for (const auto& r : *ratesResult) {
+            std::cout << r.deviceName
+                      << "  reads/s: "  << r.readsPerSec
+                      << "  writes/s: " << r.writesPerSec << "\n";
+        }
+    }
+
+    return 0;
+}
+```
+
 ## ⚡ Library Quick Start
 
 The C++ API allows you to integrate process and system monitoring directly into your applications. You can link against the library by adding the project as a subdirectory in your CMake configuration.

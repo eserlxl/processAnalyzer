@@ -7,6 +7,7 @@
 #include "utils/testing_framework.h"
 
 #include <chrono>
+#include <cmath>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -88,4 +89,43 @@ TEST(SystemDiskIoRatesTest, MissingDiskstatsReturnsError) {
     ProcessAnalyzer analyzer(mockProc.getPath());
     auto result = analyzer.getSystemDiskIoRates(std::chrono::milliseconds(1));
     EXPECT_FALSE(result.has_value());
+}
+
+TEST(SystemDiskIoRatesTest, ZeroDurationReturnsFiniteRates) {
+    ProcessAnalyzer analyzer("/proc");
+    auto result = analyzer.getSystemDiskIoRates(std::chrono::milliseconds(0));
+    ASSERT_TRUE(result.has_value());
+    for (const auto& r : *result) {
+        EXPECT_TRUE(std::isfinite(r.readsPerSec));
+        EXPECT_TRUE(std::isfinite(r.writesPerSec));
+        EXPECT_TRUE(std::isfinite(r.sectorsReadPerSec));
+        EXPECT_TRUE(std::isfinite(r.sectorsWrittenPerSec));
+    }
+}
+
+TEST(SystemDiskIoRatesTest, SameSnapshotGivesZeroRates) {
+    MockProc mockProc("mock_proc_disk_io_rates_same_snap");
+    ProcessAnalyzer analyzer(mockProc.getPath());
+    mockProc.createFileAt("diskstats",
+        "   8   0 sda 1000 200 50000 1200 500 100 20000 600 0 800 1800 0 0 0 0 0 0\n");
+
+    auto result = analyzer.getSystemDiskIoRates(std::chrono::milliseconds(1));
+    ASSERT_TRUE(result.has_value());
+    ASSERT_EQ(result->size(), 1ULL);
+    EXPECT_EQ(result->at(0).deviceName, "sda");
+    EXPECT_DOUBLE_EQ(result->at(0).readsPerSec,          0.0);
+    EXPECT_DOUBLE_EQ(result->at(0).writesPerSec,         0.0);
+    EXPECT_DOUBLE_EQ(result->at(0).sectorsReadPerSec,    0.0);
+    EXPECT_DOUBLE_EQ(result->at(0).sectorsWrittenPerSec, 0.0);
+}
+
+TEST(SystemDiskIoRatesTest, ResultCountMatchesStatCount) {
+    ProcessAnalyzer analyzer("/proc");
+    auto statsResult = analyzer.getSystemDiskIoStats();
+    ASSERT_TRUE(statsResult.has_value());
+
+    auto ratesResult = analyzer.getSystemDiskIoRates(std::chrono::milliseconds(1));
+    ASSERT_TRUE(ratesResult.has_value());
+
+    EXPECT_EQ(ratesResult->size(), statsResult->size());
 }

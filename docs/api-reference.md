@@ -68,6 +68,9 @@ ProcessAnalyzer analyzer; // Create an instance
 ### System Performance Metrics
 -   `getSystemCpuUsage(duration)`: Samples `/proc/stat` before and after the given `std::chrono::milliseconds` sleep, returns `SystemCpuUsage.cpuPercentage` in `[0, 100]`.
 -   `getPerCpuUsage(duration)`: Samples `/proc/stat` per-CPU lines before and after the given `std::chrono::milliseconds` sleep; returns `PerCpuUsage.cpuUsages` — one `SingleCpuUsage{cpuId, cpuPercentage}` per core, each in `[0, 100]`.
+-   `getNetworkInterfaceRates(duration)`: Samples `/proc/net/dev` counters before and after `duration`, returns one `NetworkInterfaceRates{interfaceName, rxBytesPerSec, txBytesPerSec, rxPacketsPerSec, txPacketsPerSec}` per interface.
+-   `getSystemDiskIoRates(duration)`: Samples `/proc/diskstats` before and after `duration`, returns one `DiskIoDeviceRates{deviceName, readsPerSec, writesPerSec, sectorsReadPerSec, sectorsWrittenPerSec}` per block device.
+-   `getSystemActivityRates(duration)`: Samples `/proc/stat` activity counters before and after `duration`, returns `SystemActivityRates{contextSwitchesPerSec, interruptsPerSec, processForkRate}`.
 
 ### Process Query & Filtering
 -   `queryProcesses(filter, sortBy, sortOrder)`: A powerful method to find, filter, and sort processes based on flexible criteria. The `filter` is a `ProcessFilter` struct, and sorting can be done on attributes like `cpu`, `memory`, `pid`, etc.

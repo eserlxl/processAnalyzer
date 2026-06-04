@@ -64,6 +64,7 @@ public:
     [[nodiscard]] utils::Result<std::vector<NetworkInterfaceStats>> getNetworkInterfaceStats() const;
     [[nodiscard]] utils::Result<std::vector<NetworkInterfaceRates>> getNetworkInterfaceRates(std::chrono::milliseconds duration) const;
     [[nodiscard]] utils::Result<SystemActivityStats> getSystemActivityStats() const;
+    [[nodiscard]] utils::Result<SystemActivityRates> getSystemActivityRates(std::chrono::milliseconds duration) const;
 
     //- Process Query & Filtering
     [[nodiscard]] utils::Result<std::vector<ProcessInfo>> queryProcesses(

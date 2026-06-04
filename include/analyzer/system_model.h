@@ -104,6 +104,12 @@ struct SystemActivityStats {
     // ... potentially other stats from /proc/stat
 };
 
+struct SystemActivityRates {
+    double contextSwitchesPerSec;
+    double interruptsPerSec;
+    double processForkRate;
+};
+
 // New for Iteration 14: CPU Set for affinity
 struct CpuSet {
     std::vector<int> cpus; // List of CPU core IDs (0-indexed)
