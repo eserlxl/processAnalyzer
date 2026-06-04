@@ -18,6 +18,7 @@ protected:
     std::unique_ptr<MockProc> mockProc;
 
     static constexpr int kPid = 7000;
+    static constexpr int kNoMapsPid = 7001; // exists in mock but has no maps file
     static constexpr int kAbsentPid = 9999;
     static constexpr uint64_t kStart = 0x7f0000000000ULL;
     static constexpr uint64_t kEnd = 0x7f0000010000ULL;
@@ -49,6 +50,9 @@ protected:
         // anonMap.pathname left empty
 
         mockProc->createMaps(kPid, {fileMap, anonMap});
+
+        // Process with no maps file — used by MissingMapsFileReturnsError.
+        mockProc->buildProcess(kNoMapsPid).withName("nomaps").withParent(1).create();
     }
 
     void TearDown() override {
@@ -78,5 +82,11 @@ TEST_F(GetProcessMemoryMapsTest, ParsesMapEntries) {
 
 TEST_F(GetProcessMemoryMapsTest, AbsentPidReturnsError) {
     auto result = analyzer.getProcessMemoryMaps(kAbsentPid);
+    EXPECT_FALSE(result.has_value());
+}
+
+TEST_F(GetProcessMemoryMapsTest, MissingMapsFileReturnsError) {
+    // kNoMapsPid has a process directory but no maps file.
+    auto result = analyzer.getProcessMemoryMaps(kNoMapsPid);
     EXPECT_FALSE(result.has_value());
 }

@@ -162,6 +162,131 @@ TEST_F(QueryProcessesTest, SortDescendingByPid) {
               (std::vector<pid_t>{kPidCharlie, kPidAlphaB, kPidBravo, kPidAlphaA}));
 }
 
+TEST_F(QueryProcessesTest, FilterByCmdlineMatchReturnsSubset) {
+    ProcessFilter filter;
+    filter.cmdlineContains = "alpha";
+
+    auto result = analyzer.queryProcesses(filter, ProcessSortField::pid, SortOrder::asc);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(pids(result.value()), (std::vector<pid_t>{kPidAlphaA, kPidAlphaB}));
+}
+
+TEST_F(QueryProcessesTest, FilterByCmdlineNoMatchReturnsEmpty) {
+    ProcessFilter filter;
+    filter.cmdlineContains = "zzz_no_match";
+
+    auto result = analyzer.queryProcesses(filter, ProcessSortField::pid, SortOrder::asc);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(result.value().empty());
+}
+
+TEST_F(QueryProcessesTest, CustomPredicateFiltersProcesses) {
+    ProcessFilter filter;
+    filter.customPredicate = [](const ProcessInfo& info) {
+        return info.pid <= kPidBravo;
+    };
+
+    auto result = analyzer.queryProcesses(filter, ProcessSortField::pid, SortOrder::asc);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(pids(result.value()), (std::vector<pid_t>{kPidAlphaA, kPidBravo}));
+}
+
+// Fixture for filter integration tests requiring specific stat values.
+class QueryStatFilterTest : public ::testing::Test {
+protected:
+    ProcessAnalyzer analyzer;
+    std::filesystem::path originalProcPath;
+    std::unique_ptr<MockProc> mockProc;
+
+    static constexpr pid_t kLowPid = 600;
+    static constexpr pid_t kHighPid = 601;
+    // Low process: vsize=10*1024 bytes → 10 KB virtual; priority=5
+    static constexpr unsigned long kLowVsize = 10UL * 1024;
+    static constexpr long kLowPriority = 5;
+    // High process: vsize=100*1024 bytes → 100 KB virtual; priority=15
+    static constexpr unsigned long kHighVsize = 100UL * 1024;
+    static constexpr long kHighPriority = 15;
+
+    QueryStatFilterTest() : analyzer("/proc") {}
+
+    void SetUp() override {
+        mockProc = std::make_unique<MockProc>("mock_proc_stat_filter_test");
+        originalProcPath = analyzer.getProcPath();
+        analyzer.setProcPath(mockProc->getPath());
+
+        MockProc::ProcStatData lowStat;
+        lowStat.vsize = kLowVsize;
+        lowStat.priority = kLowPriority;
+        mockProc->buildProcess(kLowPid).withName("low").withParent(1).withStat(lowStat).create();
+
+        MockProc::ProcStatData highStat;
+        highStat.vsize = kHighVsize;
+        highStat.priority = kHighPriority;
+        mockProc->buildProcess(kHighPid).withName("high").withParent(1).withStat(highStat).create();
+    }
+
+    void TearDown() override {
+        mockProc.reset();
+        analyzer.setProcPath(originalProcPath);
+    }
+};
+
+TEST_F(QueryStatFilterTest, FilterByMinVmExcludesSmall) {
+    // min VM of 50 KB should exclude kLowPid (10 KB) and keep kHighPid (100 KB).
+    constexpr long long kMinVm = 50LL;
+    ProcessFilter filter;
+    filter.minVirtualMemoryKB = kMinVm;
+
+    auto result = analyzer.queryProcesses(filter, ProcessSortField::pid, SortOrder::asc);
+    ASSERT_TRUE(result.has_value());
+    std::vector<pid_t> got;
+    for (const auto& p : result.value()) got.push_back(p.pid);
+    ASSERT_EQ(got.size(), 1U);
+    EXPECT_EQ(got.front(), kHighPid);
+}
+
+TEST_F(QueryStatFilterTest, FilterByMaxVmExcludesLarge) {
+    // max VM of 50 KB should keep kLowPid (10 KB) and exclude kHighPid (100 KB).
+    constexpr long long kMaxVm = 50LL;
+    ProcessFilter filter;
+    filter.maxVirtualMemoryKB = kMaxVm;
+
+    auto result = analyzer.queryProcesses(filter, ProcessSortField::pid, SortOrder::asc);
+    ASSERT_TRUE(result.has_value());
+    std::vector<pid_t> got;
+    for (const auto& p : result.value()) got.push_back(p.pid);
+    ASSERT_EQ(got.size(), 1U);
+    EXPECT_EQ(got.front(), kLowPid);
+}
+
+TEST_F(QueryStatFilterTest, FilterByMinPriorityExcludesLow) {
+    // min priority of 10 should exclude kLowPid (priority 5) and keep kHighPid (priority 15).
+    constexpr int kMinPriority = 10;
+    ProcessFilter filter;
+    filter.minPriority = kMinPriority;
+
+    auto result = analyzer.queryProcesses(filter, ProcessSortField::pid, SortOrder::asc);
+    ASSERT_TRUE(result.has_value());
+    std::vector<pid_t> got;
+    for (const auto& p : result.value()) got.push_back(p.pid);
+    ASSERT_EQ(got.size(), 1U);
+    EXPECT_EQ(got.front(), kHighPid);
+}
+
+TEST_F(QueryStatFilterTest, FilterByMaxPriorityExcludesHigh) {
+    // max priority of 10 should keep kLowPid (priority 5) and exclude kHighPid (priority 15).
+    constexpr int kMaxPriority = 10;
+    ProcessFilter filter;
+    filter.maxPriority = kMaxPriority;
+
+    auto result = analyzer.queryProcesses(filter, ProcessSortField::pid, SortOrder::asc);
+    ASSERT_TRUE(result.has_value());
+    std::vector<pid_t> got;
+    for (const auto& p : result.value()) got.push_back(p.pid);
+    ASSERT_EQ(got.size(), 1U);
+    EXPECT_EQ(got.front(), kLowPid);
+}
+
 // Exercises the networkConnectionFilter path in queryProcesses: only the
 // process whose socket inode appears in /proc/net/tcp with a matching port
 // should survive the filter.

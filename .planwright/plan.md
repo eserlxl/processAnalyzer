@@ -1,96 +1,96 @@
 # planwright Plan — .
-<!-- Session: 2026-06-05T00:00:00Z -->
+<!-- Session: 2026-06-05T01:00:00Z -->
 
-## 1. [repair] Fix thread CPU-tick stat field offset in `getProcessThreads`
+## 1. [improve] Integration tests for `cmdlineContains` filter in `queryProcesses`
 
-**Surfaces:** `src/analyzer/details.cpp:25,338`
+**Surfaces:** `tests/analyzer/query.cpp` (`QueryProcessesTest` fixture or a new fixture)
 
-**Evidence:** `constexpr int threadStatSkipFields = 14` at line 25. After reading `state` (field 3 of `/proc/pid/task/tid/stat`), fields 4–13 (ppid through cmajflt) = 10 fields precede `utime` (field 14). Skipping 14 lands on field 17 (`cstime`), so the read pair is `priority` (18) and `nice` (19), not `utime`/`stime`. Thread CPU times always return priority/nice values instead of actual ticks.
+**Evidence:** `ProcessFilter::cmdlineContains` is applied in `passesStaticFilters` and wired to `--cmdline` in Cycle 5, but `queryProcesses` is never called with `cmdlineContains` set in any test. The CLI-to-filter-to-query path is only partially verified.
 
-**Development:** Change `constexpr int threadStatSkipFields = 14;` to `constexpr int threadStatSkipFields = 10;`. Add a one-line comment enumerating the skipped fields (ppid, pgrp, session, tty_nr, tpgid, flags, minflt, cminflt, majflt, cmajflt).
+**Development:** Add two tests using the existing `QueryProcessesTest` fixture (or a small inline mock): `FilterByCmdlineMatchReturnsSubset` — set `filter.cmdlineContains = "alpha"` and assert only the "alpha" processes (kPidAlphaA, kPidAlphaB) are returned; `FilterByCmdlineNoMatchReturnsEmpty` — set a pattern that matches nothing and assert an empty result. If the default cmdline from `withName` equals the process name, the "alpha" substring is sufficient; otherwise extend setup with `.withCmdlineArgs({"alpha", "--flag"})`.
 
-**Verification:** Build succeeds. New regression test (Item 2) fails before this change and passes after. Existing `GetProcessThreadsTest` suite still passes.
-
----
-
-## 2. [improve] Add thread CPU-tick regression test to `GetProcessThreadsTest`
-
-**Surfaces:** `tests/analyzer/details.cpp` (GetProcessThreadsTest fixture)
-
-**Evidence:** No existing test in `GetProcessThreadsTest` asserts `cpuUserTimeTicks` or `cpuKernelTimeTicks`. The Item 1 bug is invisible to the test suite — it can be re-introduced silently.
-
-**Development:** In the existing mock proc setup for `GetProcessThreadsTest`, write a `/proc/<pid>/task/<tid>/stat` file with specific known values for fields 14 (`utime`) and 15 (`stime`). Assert that `ThreadInfo::cpuUserTimeTicks` equals the written utime and `cpuKernelTimeTicks` equals the written stime. Use named `constexpr` constants (`kUtime`, `kStime`). This test must fail before Item 1 is applied.
-
-**Verification:** Test fails on the unpatched codebase (`threadStatSkipFields = 14`), passes after the fix (`= 10`). Build and full test suite pass.
+**Verification:** Build and `ctest` pass. Both new tests pass.
 
 ---
 
-## 3. [improve] Reject negative UIDs at parse time; align `uidFilter` types across the CLI–analyzer boundary
+## 2. [improve] Integration tests for virtual memory range filter in `queryProcesses`
 
-**Surfaces:** `src/cli/args.cpp` (`--uid` parsing block), `include/cli/args.h` (`ParsedArguments::uidFilter`), `src/main.cpp` (filter population)
+**Surfaces:** `tests/analyzer/query.cpp`
 
-**Evidence:** `ParsedArguments::uidFilter` is `std::optional<int>`; `ProcessFilter::uidFilter` is `std::optional<uint32_t>`. The assignment `filter.uidFilter = args.uidFilter` at the layer join compiles without warning (implicit narrowing). Passing `--uid -1` silently produces a filter for UID 4294967295, matching no process and producing a confusing zero-result instead of an error.
+**Evidence:** `ProcessFilter::minVirtualMemoryKB` / `maxVirtualMemoryKB` are implemented and wired in Cycle 5, but never exercised end-to-end. A regression in the wiring would be invisible.
 
-**Development:** In the `--uid` parsing block in `src/cli/args.cpp`, after calling `parseIntWithinRange`, add a check: if the parsed value is `< 0`, print `"Error: --uid requires a non-negative integer.\n"` and return `std::nullopt`. No type change needed in `ParsedArguments` — the runtime guard at the boundary is sufficient and avoids cascading changes.
+**Development:** Add a small fixture (or extend `QueryProcessesTest`) that creates two processes with different virtual memory values using `buildProcess(...).withStat(...)` (set `statData.vsize`). Add `FilterByMinVmExcludesSmall` and `FilterByMaxVmExcludesLarge` tests. Note: `vsize` is in bytes in the stat struct; the filter compares against KB (divide by 1024).
 
-**Verification:** `cmake --build build && ctest --test-dir build` passes. New tests: `UidFilterNegativeValueReturnsNullopt` (passes `-1`, expects nullopt). Existing UID tests unchanged.
-
----
-
-## 4. [improve] Test `streamQueryProcesses` with an active `networkConnectionFilter`
-
-**Surfaces:** `tests/analyzer/query.cpp` (new or extended fixture)
-
-**Evidence:** `QueryNetworkFilterTest` (added in Cycle 4) only calls `queryProcesses`. `streamQueryProcesses` applies `Internal::passesNetworkFilter` in its own coroutine loop — this branch is exercised by no test, so a regression there would be invisible.
-
-**Development:** In `tests/analyzer/query.cpp`, add a test `StreamQueryAppliesNetworkFilter` that calls `streamQueryProcesses` with a `ProcessFilter` whose `networkConnectionFilter.localPort = kListeningPort`. Iterate the generator and assert only the mock process with that port appears (reuse the `QueryNetworkFilterTest` mock setup via a shared helper or a new fixture). Also add a negative case: filter for `kNonListeningPort`, assert the generator yields no results.
-
-**Verification:** Build and full test suite (`ctest`) pass. Coverage of `streamQueryProcesses`'s network-filter branch is now exercised.
+**Verification:** Build and `ctest` pass.
 
 ---
 
-## 5. [docs] Update `docs/usage.md` to cover all post-Cycle-3 features
+## 3. [improve] Integration tests for priority range filter in `queryProcesses`
 
-**Surfaces:** `docs/usage.md`
+**Surfaces:** `tests/analyzer/query.cpp`
 
-**Evidence:** The file is 240 lines describing the pre-Cycle-3 state. Missing entirely: the `system` command and its subsections (System Information, Load Average, Memory, Disk Usage, Network Interfaces, Disk I/O Stats, System Activity), `--uid`, `--min-rss`, `--max-rss`, `--min-threads`, `--max-threads`, `cwd` column, CPU User/Kernel Time and IO Read/Write in vertical output, and the extended `--sort-by` fields (`cmdline`, `cwd`, `cpu-time`, `elapsed-time`, `exec-path`, `nice`).
+**Evidence:** `ProcessFilter::minPriority` / `maxPriority` are implemented and wired, but never exercised end-to-end.
 
-**Development:** Add a `## system command` section with a description and example output block. Extend the filter flags table with `--uid`, `--min-rss`, `--max-rss`, `--min-threads`, `--max-threads`. Add `cwd` to the columns reference table. Extend the `--sort-by` values list. Add the CPU/IO fields to the vertical output description.
+**Development:** Add a small fixture that creates two processes with different priority values via `buildProcess(...).withStat(...)` (set `statData.priority`). Add `FilterByMinPriorityExcludesLow` and `FilterByMaxPriorityExcludesHigh` tests. Note: the analyzer stores `info.priority = static_cast<int>(priorityL)` where `priorityL` is field 18 of `/proc/pid/stat` (kernel priority, not nice value).
 
-**Verification:** Grep the file for each added keyword (`--uid`, `system`, `cwd`, `CPU User`, etc.) — all present. No broken cross-references. Build (`cmake --build build`) and tests still pass.
-
----
-
-## 6. [develop] Add `--cmdline <pattern>` CLI filter flag
-
-**Surfaces:** `include/cli/args.h` (`ParsedArguments`), `src/cli/args.cpp` (parsing + usage), `src/main.cpp` (filter wiring)
-
-**Evidence:** `ProcessFilter::cmdlineContains` is implemented and applied in `passesStaticFilters` (filter_helpers.cpp:34) but has no CLI flag. Users cannot filter by command-line substring without writing code.
-
-**Development:** Add `std::optional<std::string> cmdlineFilter;` to `ParsedArguments` in `args.h`. In `args.cpp`, add a `--cmdline <pattern>` block (analogous to `--name`): require the next token, store it. Add usage line. In `main.cpp`, wire: `if (args.cmdlineFilter) filter.cmdlineContains = *args.cmdlineFilter;`. Add a test `CmdlineFilterIsSet` in `tests/cli/args.cpp`.
-
-**Verification:** Build passes. `CmdlineFilterIsSet` test passes. Manual smoke: `processAnalyzer list --cmdline bash` returns only processes whose cmdline contains "bash".
+**Verification:** Build and `ctest` pass.
 
 ---
 
-## 7. [develop] Add `--min-vm <KB>` / `--max-vm <KB>` CLI filter flags
+## 4. [improve] Add "missing maps file → error" test to `GetProcessMemoryMapsTest`
+
+**Surfaces:** `tests/analyzer/memory_maps.cpp`
+
+**Evidence:** Every other thin test suite (`GetProcessCgroupInfoTest`, `GetProcessResourceLimitsTest`) has a "process dir exists but the file is absent → returns error" test. `GetProcessMemoryMapsTest` has only 2 tests and is missing this case, breaking the pattern.
+
+**Development:** Add `TEST_F(GetProcessMemoryMapsTest, MissingMapsFileReturnsError)` — call `analyzer.getProcessMemoryMaps(kPid)` without creating the maps file first (the fixture's `SetUp` calls `createMaps` in the happy-path test, but the `kPid` directory exists). The result must not have a value.
+
+**Verification:** Build and `ctest` pass.
+
+---
+
+## 5. [improve] Add UDP connection test to `GetNetworkConnectionsTest`
+
+**Surfaces:** `tests/analyzer/network_connections.cpp`
+
+**Evidence:** `getNetworkConnections` parses `net/tcp`, `net/tcp6`, `net/udp`, and `net/udp6`. Only `net/tcp` is created in the existing test fixture. A bug in UDP parsing would be invisible.
+
+**Development:** Extend `GetNetworkConnectionsTest::SetUp` to also create a `net/udp` file with one UDP entry whose inode matches a second socket fd on `kMatchingPid`. Add test `ParsesMatchingUdpConnection` — call `getNetworkConnections(kMatchingPid)`, assert the result contains a connection with `protocol == "UDP"`. Alternatively, create a separate fixture if adding to `SetUp` would break the existing tests.
+
+**Verification:** Build and `ctest` pass. Both existing tests and the new UDP test pass.
+
+---
+
+## 6. [develop] Add `--env` flag to `show` command: print process environment variables
+
+**Surfaces:** `include/cli/args.h` (`ParsedArguments`), `src/cli/args.cpp`, `src/main.cpp`
+
+**Evidence:** `getProcessEnvironment(pid)` is implemented and returns `vector<string>` of `KEY=VALUE` entries. No CLI flag exposes it. The `show` command has an established subsection pattern (`--children`, `--threads`, `--open-files`, `--network`) that this slot fits naturally.
+
+**Development:** Add `bool showEnv = false;` to `ParsedArguments`. In `args.cpp`, add `--env` / `--environment` parsing. In `main.cpp`, in the `show`/`pid` single-process path (before the `return 0` at line 269), add a block identical in structure to the `--threads` block: call `getProcessEnvironment(targetPid)`, print a `"\nEnvironment Variables:\n"` header, then one line per `KEY=VALUE` entry. Add usage line. Add test `EnvFlagIsSet` in `tests/cli/args.cpp`.
+
+**Verification:** Build and `ctest` pass. Smoke: `processAnalyzer show --pid 1 --env` prints environment entries.
+
+---
+
+## 7. [develop] Add `--maps` flag to `show` command: print process memory maps
 
 **Surfaces:** `include/cli/args.h`, `src/cli/args.cpp`, `src/main.cpp`
 
-**Evidence:** `ProcessFilter::minVirtualMemoryKB` and `maxVirtualMemoryKB` are fully implemented (process_model.h:117–118, filter_helpers.cpp:41) but unreachable from the CLI.
+**Evidence:** `getProcessMemoryMaps(pid)` is implemented and returns `vector<MemoryMapInfo>`. No CLI flag exposes it. Follows the `show` subsection pattern.
 
-**Development:** Add `std::optional<long long> minVmKb;` and `std::optional<long long> maxVmKb;` to `ParsedArguments`. In `args.cpp`, add `--min-vm <KB>` and `--max-vm <KB>` parsing blocks using the existing `parseIntWithinRange` pattern (reject negative, cast to `long long`). Wire in `main.cpp`. Add usage lines. Add tests `MinVmFilterIsSet` and `MaxVmFilterIsSet` in `tests/cli/args.cpp`.
+**Development:** Add `bool showMemoryMaps = false;` to `ParsedArguments`. Parse `--maps` in `args.cpp`. In `main.cpp`, add a block that calls `getProcessMemoryMaps(targetPid)` and prints a table with columns: address range (`startAddress`–`endAddress`), permissions, pathname (or `[anon]` if empty). Use fixed-width formatting consistent with the existing threads/files output. Add usage line. Add test `MapsFlagIsSet` in `tests/cli/args.cpp`.
 
-**Verification:** Build and `ctest` pass. New arg tests pass. Cross-check: `--min-vm 0 --max-vm 0` returns no processes (no process has 0 KB virtual memory).
+**Verification:** Build and `ctest` pass. Smoke: `processAnalyzer show --pid 1 --maps` prints memory map sections.
 
 ---
 
-## 8. [develop] Add `--min-priority <N>` / `--max-priority <N>` CLI filter flags
+## 8. [improve] Add `customPredicate` test to `QueryProcessesTest`
 
-**Surfaces:** `include/cli/args.h`, `src/cli/args.cpp`, `src/main.cpp`
+**Surfaces:** `tests/analyzer/query.cpp`
 
-**Evidence:** `ProcessFilter::minPriority` and `maxPriority` (`optional<int>`) are fully implemented (process_model.h:126–127, filter_helpers.cpp:42) but unreachable from the CLI. Priority is a signed integer in the kernel (negative = high priority for RT processes).
+**Evidence:** `ProcessFilter::customPredicate` (an `optional<ProcessPredicate>`) is applied at line 44 of `filter_helpers.cpp` but has zero test coverage. Any regression in its evaluation would be silent.
 
-**Development:** Add `std::optional<int> minPriority;` and `std::optional<int> maxPriority;` to `ParsedArguments`. Add `--min-priority <N>` and `--max-priority <N>` parsing blocks in `args.cpp` using `parseIntWithinRange` (signed, so negative values are valid). Wire in `main.cpp`. Add usage lines. Add tests `MinPriorityFilterIsSet` and `MaxPriorityFilterIsSet` in `tests/cli/args.cpp`.
+**Development:** In `tests/analyzer/query.cpp`, add `TEST_F(QueryProcessesTest, CustomPredicateFiltersProcesses)` — set `filter.customPredicate` to a lambda that returns `info.pid <= kPidBravo` (i.e., only accept PIDs ≤ 20). Call `queryProcesses(filter, ...)`. Assert the result contains only kPidAlphaA (10) and kPidBravo (20), not kPidAlphaB (30) or kPidCharlie (40).
 
-**Verification:** Build and `ctest` pass. New arg tests pass. Existing `QueryFiltersTest` suite still passes.
+**Verification:** Build and `ctest` pass. The new test passes.

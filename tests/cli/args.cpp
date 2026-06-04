@@ -786,3 +786,17 @@ TEST_F(ArgsTestFixture, MaxPriorityFilterIsSet) {
     ASSERT_TRUE(parsed->maxPriority.has_value());
     EXPECT_EQ(parsed->maxPriority.value(), kMaxPriority);
 }
+
+TEST_F(ArgsTestFixture, EnvFlagIsSet) {
+    auto argv = makeArgv({"processAnalyzer", "show", "--pid", "1", "--env"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    EXPECT_TRUE(parsed->showEnv);
+}
+
+TEST_F(ArgsTestFixture, MapsFlagIsSet) {
+    auto argv = makeArgv({"processAnalyzer", "show", "--pid", "1", "--maps"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    EXPECT_TRUE(parsed->showMemoryMaps);
+}

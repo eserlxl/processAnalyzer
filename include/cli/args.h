@@ -38,6 +38,8 @@ struct ParsedArguments {
     std::optional<long long> maxVmKb;         // Maximum virtual memory in KB (--max-vm).
     std::optional<int> minPriority;           // Minimum process priority (--min-priority).
     std::optional<int> maxPriority;           // Maximum process priority (--max-priority).
+    bool showEnv = false;                     // Show environment variables (--env).
+    bool showMemoryMaps = false;              // Show memory maps (--maps).
 };
 
 std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const> argv);

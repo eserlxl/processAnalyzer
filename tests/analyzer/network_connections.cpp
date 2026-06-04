@@ -73,3 +73,30 @@ TEST_F(GetNetworkConnectionsTest, ReturnsEmptyWhenNoInodeMatches) {
     ASSERT_TRUE(result.has_value());
     EXPECT_TRUE(result.value().empty());
 }
+
+// Standalone test for UDP protocol parsing — verifies net/udp is read and that
+// the matched connection reports protocol "UDP".
+TEST(GetNetworkConnectionsUdp, ParsesMatchingUdpConnection) {
+    constexpr int kUdpPid = 300;
+    constexpr int kUdpSocketFd = 5;
+    constexpr uint16_t kUdpLocalPort = 5353;  // 0x14E9
+
+    MockProc mockProc("mock_proc_net_conn_udp_test");
+    ProcessAnalyzer analyzer(mockProc.getPath());
+
+    mockProc.createDirectoryAt("net");
+    mockProc.buildProcess(kUdpPid).withName("udpproc").withParent(1)
+        .withFd(kUdpSocketFd, "socket:[55555]").create();
+
+    // /proc/net/udp: one entry on port 5353 (0x14E9) owned by inode 55555.
+    const std::string udpContent =
+        "  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode\n"
+        "   0: 00000000:14E9 00000000:0000 07 00000000:00000000 00:00000000 00000000  1000        0 55555 2 0000000000000000\n";
+    mockProc.createFileAt("net/udp", udpContent);
+
+    auto result = analyzer.getNetworkConnections(kUdpPid);
+    ASSERT_TRUE(result.has_value());
+    ASSERT_EQ(result.value().size(), 1U);
+    EXPECT_EQ(result.value().front().protocol, "UDP");
+    EXPECT_EQ(result.value().front().localPort, kUdpLocalPort);
+}

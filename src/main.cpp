@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Eser KUBALI
 
 #include <iostream>
+#include <sstream>
 #include <span>
 #include <iomanip>
 #include <filesystem>
@@ -269,6 +270,48 @@ int main(int argc, char* argv[]) {
                          }
                     } else {
                         std::cerr << "\nError reading threads: " << threadsResult.error().message() << "\n";
+                    }
+                }
+                if (args.showEnv) {
+                    auto envResult = analyzer.getProcessEnvironment(targetPid);
+                    if (envResult) {
+                        auto& env = *envResult;
+                        if (!env.empty()) {
+                            std::cout << "\nEnvironment Variables:\n";
+                            for (const auto& entry : env) {
+                                std::cout << "  " << entry << "\n";
+                            }
+                        } else {
+                            std::cout << "\nNo environment variables found.\n";
+                        }
+                    } else {
+                        std::cerr << "\nError reading environment: " << envResult.error().message() << "\n";
+                    }
+                }
+                if (args.showMemoryMaps) {
+                    auto mapsResult = analyzer.getProcessMemoryMaps(targetPid);
+                    if (mapsResult) {
+                        auto& maps = *mapsResult;
+                        if (!maps.empty()) {
+                            constexpr int addrWidth = 20;
+                            constexpr int permWidth = 6;
+                            constexpr int separatorWidth = 60;
+                            std::cout << "\nMemory Maps:\n";
+                            std::cout << "  " << std::left << std::setw(addrWidth) << "Address Range"
+                                      << std::setw(permWidth) << "Perms" << "Pathname\n";
+                            std::cout << "  " << std::string(separatorWidth, '-') << "\n";
+                            for (const auto& map : maps) {
+                                std::ostringstream range;
+                                range << std::hex << map.startAddress << "-" << map.endAddress;
+                                std::cout << "  " << std::left << std::setw(addrWidth) << range.str()
+                                          << std::setw(permWidth) << map.permissions
+                                          << map.pathname << "\n";
+                            }
+                        } else {
+                            std::cout << "\nNo memory maps found.\n";
+                        }
+                    } else {
+                        std::cerr << "\nError reading memory maps: " << mapsResult.error().message() << "\n";
                     }
                 }
                 return 0; // Done with pid-specific output

@@ -87,6 +87,8 @@ void printUsage() {
               << "  --open-files             (With 'show' or 'pid') Show open files for process\n"
               << "  --threads                (With 'show' or 'pid') Show threads for process\n"
               << "  --network                (With 'show' or 'pid') Show network connections for process\n"
+              << "  --env, --environment     (With 'show' or 'pid') Show environment variables\n"
+              << "  --maps                   (With 'show' or 'pid') Show memory maps\n"
               << "  --ppid <ppid>            Filter processes by Parent Process ID\n"
               << "  --uid <N>                Filter processes by numeric User ID\n"
               << "  --min-rss <KB>           Filter processes with RSS >= KB\n"
@@ -277,6 +279,10 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
             }
         } else if (arg == "--network") {
             args.showNetworkConnections = true;
+        } else if (arg == "--env" || arg == "--environment") {
+            args.showEnv = true;
+        } else if (arg == "--maps") {
+            args.showMemoryMaps = true;
         } else if (arg == "--uid") {
             if (i + 1 >= cliArgs.size()) {
                 std::cerr << "Error: --uid requires an argument.\n";
@@ -415,10 +421,11 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
         return std::nullopt;
     }
 
-    // --children, --open-files, --threads, --network are only valid with 'show' command
-    if ((args.showChildren || args.showOpenFiles || args.showNetworkConnections || args.showThreads) &&
+    // Inspection flags are only valid with 'show' or 'pid' commands.
+    if ((args.showChildren || args.showOpenFiles || args.showNetworkConnections ||
+         args.showThreads || args.showEnv || args.showMemoryMaps) &&
         args.command != "show" && args.command != "pid") {
-        std::cerr << "Error: --children, --open-files, --threads, and --network are only valid with 'show' or 'pid' commands.\n";
+        std::cerr << "Error: --children, --open-files, --threads, --network, --env, and --maps are only valid with 'show' or 'pid' commands.\n";
         return std::nullopt;
     }
 

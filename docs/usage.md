@@ -186,7 +186,9 @@ Use these options with the `show` command to include additional details. May req
 | `--children` | Show child processes recursively. |
 | `--threads` | Show detailed information for each thread. |
 | `--open-files` | List all files opened by the process. |
-| `--network` | Display active network connections (TCP/UDP). |
+| `--network` | Display active network connections (TCP/UDP/TCP6/UDP6). |
+| `--env`, `--environment` | List the process's environment variables. |
+| `--maps` | Show the process's memory map (address ranges, permissions, pathnames). |
 
 ### General Options
 
