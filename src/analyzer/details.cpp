@@ -419,3 +419,61 @@ utils::Result<std::vector<std::string>> ProcessAnalyzer::getProcessEnvironment(i
     // entries; skip the empty trailing token after the final separator.
     return utils::split(*content, '\0', /*skipEmpty=*/true);
 }
+
+// Implementation of ProcessAnalyzer::getProcessMemoryMaps
+utils::Result<std::vector<MemoryMapInfo>> ProcessAnalyzer::getProcessMemoryMaps(int pid) const {
+    auto check = Internal::checkPidPathExistsAndPermissions(procPath, pid);
+    if (!check) return std::unexpected(check.error());
+
+    auto content = utils::readTextFile((procPath / std::to_string(pid) / "maps").string());
+    if (!content) return std::unexpected(content.error());
+
+    constexpr int hexBase = 16;
+    constexpr int decBase = 10;
+
+    std::vector<MemoryMapInfo> maps;
+    std::istringstream iss{*content};
+    std::string line;
+    while (std::getline(iss, line)) {
+        // Each line: "<start>-<end> <perms> <offset> <dev> <inode>[ <pathname>]"
+        std::istringstream ls(line);
+        std::string addressRange;
+        std::string perms;
+        std::string offsetStr;
+        std::string dev;
+        std::string inodeStr;
+        if (!(ls >> addressRange >> perms >> offsetStr >> dev >> inodeStr)) {
+            continue; // malformed line
+        }
+
+        auto dashPos = addressRange.find('-');
+        if (dashPos == std::string::npos) {
+            continue;
+        }
+        auto startVal = utils::parseInteger<uint64_t>(addressRange.substr(0, dashPos), hexBase);
+        auto endVal = utils::parseInteger<uint64_t>(addressRange.substr(dashPos + 1), hexBase);
+        if (!startVal || !endVal) {
+            continue;
+        }
+
+        MemoryMapInfo info;
+        info.startAddress = *startVal;
+        info.endAddress = *endVal;
+        info.permissions = perms;
+        if (auto off = utils::parseInteger<uint64_t>(offsetStr, hexBase)) {
+            info.offset = *off;
+        }
+        info.device = dev;
+        if (auto ino = utils::parseInteger<uint64_t>(inodeStr, decBase)) {
+            info.inode = *ino;
+        }
+
+        // The remainder of the line is the (optional) pathname or pseudo-path.
+        std::string rest;
+        std::getline(ls, rest);
+        info.pathname = utils::trim(rest);
+
+        maps.push_back(info);
+    }
+    return maps;
+}
