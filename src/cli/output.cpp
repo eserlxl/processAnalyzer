@@ -163,8 +163,8 @@ void printProcessCsv(const std::vector<ProcessInfo>& processes, const std::vecto
         for (const auto& col : columns) {
             std::string value = getProcessInfoValue(info, col);
 
-            // Quote if necessary
-            if (value.contains(',') || value.contains('"')) {
+            // Quote if necessary (RFC 4180: comma, quote, or embedded CR/LF)
+            if (value.contains(',') || value.contains('"') || value.contains('\n') || value.contains('\r')) {
                 value = std::string("\"") + utils::replaceAll(value, "\"", "\"\"") + "\"";
             }
             values.push_back(value);

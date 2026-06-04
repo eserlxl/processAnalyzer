@@ -94,3 +94,40 @@ TEST(OutputTest, TablePrintsUppercasedHeader) {
     EXPECT_NE(out.find("NAME"), std::string::npos);
     EXPECT_NE(out.find("bash"), std::string::npos);
 }
+
+TEST(OutputTest, CsvQuotesValuesContainingNewline) {
+    ProcessInfo info = makeProcess();
+    info.cmdline = "a\nb";
+
+    testing::internal::CaptureStdout();
+    printProcessCsv({info}, {"cmdline"});
+    const std::string out = testing::internal::GetCapturedStdout();
+
+    EXPECT_NE(out.find("\"a\nb\""), std::string::npos);
+}
+
+TEST(OutputTest, JsonEmitsArraySeparatorBetweenObjects) {
+    ProcessInfo first = makeProcess();
+    ProcessInfo second = makeProcess();
+    second.pid = first.pid + 1;
+
+    testing::internal::CaptureStdout();
+    printProcessJson({first, second}, {"pid"});
+    const std::string out = testing::internal::GetCapturedStdout();
+
+    ASSERT_FALSE(out.empty());
+    EXPECT_EQ(out.front(), '[');
+    EXPECT_NE(out.find(']'), std::string::npos);
+    EXPECT_NE(out.find("},\n"), std::string::npos); // separator between objects
+}
+
+TEST(OutputTest, VerticalDetailsPrintsLabelledFields) {
+    ProcessInfo info = makeProcess();
+
+    testing::internal::CaptureStdout();
+    printVerticalProcessDetails(info);
+    const std::string out = testing::internal::GetCapturedStdout();
+
+    EXPECT_NE(out.find("PID:"), std::string::npos);
+    EXPECT_NE(out.find("bash"), std::string::npos);
+}
