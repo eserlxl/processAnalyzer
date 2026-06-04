@@ -114,33 +114,38 @@ utils::Result<std::vector<ProcessInfo>> ProcessAnalyzer::queryProcesses(
         filteredProcesses.push_back(pInfo);
     }
 
-    // Sort processes
+    // Sort processes.
+    // compareLess implements the strict ordering for the selected field. For
+    // descending order we swap the operands rather than negating the result:
+    // negating would make comp(a,b) and comp(b,a) both true for equal keys,
+    // violating the strict-weak-ordering precondition of std::ranges::sort.
+    auto compareLess = [&](const ProcessInfo& a, const ProcessInfo& b) {
+        switch (sortBy) {
+            case ProcessSortField::pid:             return a.pid < b.pid;
+            case ProcessSortField::ppid:            return a.ppid < b.ppid;
+            case ProcessSortField::rss:             return a.residentMemory < b.residentMemory;
+            case ProcessSortField::vmsize:          return a.virtualMemory < b.virtualMemory;
+            case ProcessSortField::startTime:       return a.startTimeUnix < b.startTimeUnix;
+            case ProcessSortField::cpuTime:         return (a.cpuUserTimeTicks + a.cpuKernelTimeTicks) < (b.cpuUserTimeTicks + b.cpuKernelTimeTicks);
+            case ProcessSortField::name:            return a.name < b.name;
+            case ProcessSortField::executablePath:  return a.executablePath < b.executablePath;
+            case ProcessSortField::cmdline:         return a.cmdline < b.cmdline;
+            case ProcessSortField::uid:             return a.uid < b.uid;
+            case ProcessSortField::user:            return a.username < b.username;
+            case ProcessSortField::state:           return a.state < b.state;
+            case ProcessSortField::threads:         return a.threadCount < b.threadCount;
+            case ProcessSortField::cwd:             return a.currentWorkingDirectory < b.currentWorkingDirectory;
+            case ProcessSortField::cpuUserTime:     return a.cpuUserTimeTicks < b.cpuUserTimeTicks;
+            case ProcessSortField::cpuKernelTime:   return a.cpuKernelTimeTicks < b.cpuKernelTimeTicks;
+            case ProcessSortField::ioReadBytes:     return a.ioReadBytes < b.ioReadBytes;
+            case ProcessSortField::ioWriteBytes:    return a.ioWriteBytes < b.ioWriteBytes;
+            case ProcessSortField::priority:        return a.priority < b.priority;
+            default:                                return a.pid < b.pid; // Default sort by PID
+        }
+    };
     std::ranges::sort(filteredProcesses,
         [&](const ProcessInfo& a, const ProcessInfo& b) {
-            bool less = false;
-            switch (sortBy) {
-                case ProcessSortField::pid:             less = a.pid < b.pid; break;
-                case ProcessSortField::ppid:            less = a.ppid < b.ppid; break;
-                case ProcessSortField::rss:             less = a.residentMemory < b.residentMemory; break;
-                case ProcessSortField::vmsize:          less = a.virtualMemory < b.virtualMemory; break;
-                case ProcessSortField::startTime:       less = a.startTimeUnix < b.startTimeUnix; break;
-                case ProcessSortField::cpuTime:         less = (a.cpuUserTimeTicks + a.cpuKernelTimeTicks) < (b.cpuUserTimeTicks + b.cpuKernelTimeTicks); break;
-                case ProcessSortField::name:            less = a.name < b.name; break;
-                case ProcessSortField::executablePath:  less = a.executablePath < b.executablePath; break;
-                case ProcessSortField::cmdline:         less = a.cmdline < b.cmdline; break;
-                case ProcessSortField::uid:             less = a.uid < b.uid; break;
-                case ProcessSortField::user:            less = a.username < b.username; break;
-                case ProcessSortField::state:           less = a.state < b.state; break;
-                case ProcessSortField::threads:         less = a.threadCount < b.threadCount; break;
-                case ProcessSortField::cwd:             less = a.currentWorkingDirectory < b.currentWorkingDirectory; break;
-                case ProcessSortField::cpuUserTime:     less = a.cpuUserTimeTicks < b.cpuUserTimeTicks; break;
-                case ProcessSortField::cpuKernelTime:   less = a.cpuKernelTimeTicks < b.cpuKernelTimeTicks; break;
-                case ProcessSortField::ioReadBytes:     less = a.ioReadBytes < b.ioReadBytes; break;
-                case ProcessSortField::ioWriteBytes:    less = a.ioWriteBytes < b.ioWriteBytes; break;
-                case ProcessSortField::priority:        less = a.priority < b.priority; break;
-                default: less = a.pid < b.pid; // Default sort by PID
-            }
-            return (sortOrder == SortOrder::asc) ? less : !less;
+            return (sortOrder == SortOrder::asc) ? compareLess(a, b) : compareLess(b, a);
         }
     );
 
