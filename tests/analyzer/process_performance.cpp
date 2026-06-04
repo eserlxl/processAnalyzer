@@ -103,6 +103,19 @@ TEST(GetProcessCpuAffinityTest, ParsesCommaSeparatedList) {
     EXPECT_EQ(result.value().cpus, (std::vector<int>{0, 2, 4}));
 }
 
+TEST(GetProcessCpuAffinityTest, ParsesMixedRangeAndCommaList) {
+    constexpr int kPid = 5503;
+
+    MockProc mockProc("mock_proc_affinity_mixed_test");
+    ProcessAnalyzer analyzer(mockProc.getPath());
+    mockProc.buildProcess(kPid).withName("mixedproc").withParent(1)
+        .withStatusField("Cpus_allowed_list", "0-2,4,6-7").create();
+
+    auto result = analyzer.getProcessCpuAffinity(kPid);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result.value().cpus, (std::vector<int>{0, 1, 2, 4, 6, 7}));
+}
+
 // ── setProcessCpuAffinity ────────────────────────────────────────────────────
 
 TEST(SetProcessCpuAffinityTest, SetsSelfAffinityToAllCpus) {
@@ -167,4 +180,47 @@ TEST(ProcessDiskIoUsageTest, AbsentPidReturnsError) {
     constexpr int kAbsentPid = 77778;
     auto result = analyzer.getProcessDiskIoUsage(kAbsentPid, std::chrono::milliseconds(1));
     EXPECT_FALSE(result.has_value());
+}
+
+// ── getAllProcessesCpuUsage ───────────────────────────────────────────────────
+
+TEST(AllProcessesCpuUsageTest, ReturnsNonEmptyVectorInRange) {
+    ProcessAnalyzer analyzer("/proc");
+    auto result = analyzer.getAllProcessesCpuUsage(std::chrono::milliseconds(1));
+    ASSERT_TRUE(result.has_value());
+    EXPECT_FALSE(result->empty());
+    for (const auto& entry : *result) {
+        EXPECT_GE(entry.cpuPercentage, 0.0);
+        EXPECT_LE(entry.cpuPercentage, 100.0);
+    }
+}
+
+TEST(AllProcessesCpuUsageTest, EmptyMockProcReturnsEmptyVector) {
+    MockProc mockProc("mock_proc_all_cpu_empty_test");
+    ProcessAnalyzer analyzer(mockProc.getPath());
+    mockProc.createFileAt("stat", "cpu  1000 0 500 8000 100 50 30 10 0 0\n");
+    auto result = analyzer.getAllProcessesCpuUsage(std::chrono::milliseconds(1));
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(result->empty());
+}
+
+// ── getAllProcessesDiskIoUsage ────────────────────────────────────────────────
+
+TEST(AllProcessesDiskIoUsageTest, ReturnsNonNegativeRatesInRange) {
+    ProcessAnalyzer analyzer("/proc");
+    auto result = analyzer.getAllProcessesDiskIoUsage(std::chrono::milliseconds(1));
+    ASSERT_TRUE(result.has_value());
+    EXPECT_FALSE(result->empty());
+    for (const auto& entry : *result) {
+        EXPECT_GE(entry.readBytesPerSec, 0LL);
+        EXPECT_GE(entry.writeBytesPerSec, 0LL);
+    }
+}
+
+TEST(AllProcessesDiskIoUsageTest, EmptyMockProcReturnsEmptyVector) {
+    MockProc mockProc("mock_proc_all_disk_empty_test");
+    ProcessAnalyzer analyzer(mockProc.getPath());
+    auto result = analyzer.getAllProcessesDiskIoUsage(std::chrono::milliseconds(1));
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(result->empty());
 }

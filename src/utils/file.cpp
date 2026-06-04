@@ -77,14 +77,16 @@ Result<::std::string> readTextFile(const ::std::filesystem::path& path) {
     return ::std::unexpected(make_error_code(UtilsError::ioError));
   }
 
-  ::std::string content((::std::istreambuf_iterator<char>(file)),
-                        ::std::istreambuf_iterator<char>());
-
-  if (file.bad()) {
+  try {
+    ::std::string content((::std::istreambuf_iterator<char>(file)),
+                          ::std::istreambuf_iterator<char>());
+    if (file.bad()) {
+      return ::std::unexpected(make_error_code(UtilsError::ioError));
+    }
+    return content;
+  } catch (const ::std::ios_base::failure&) {
     return ::std::unexpected(make_error_code(UtilsError::ioError));
   }
-
-  return content;
 }
 
 Result<void> writeTextFile(const ::std::filesystem::path& path,

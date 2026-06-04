@@ -112,6 +112,45 @@ int main() {
 
 For more details on the API, refer to the [API Reference](api-reference.md).
 
+## Monitoring Process Performance
+
+This example shows how to measure CPU and disk I/O usage for a specific process over a short
+sampling interval using the delta-based performance APIs.
+
+```cpp
+#include <iostream>
+#include <chrono>
+#include <unistd.h>
+#include "analyzer/core.h"
+
+int main() {
+    ProcessAnalyzer analyzer;
+    const int pid = static_cast<int>(::getpid());
+
+    // Sample CPU usage over 500 ms
+    auto cpuResult = analyzer.getProcessCpuUsage(pid, std::chrono::milliseconds(500));
+    if (cpuResult) {
+        std::cout << "CPU usage: " << cpuResult->cpuPercentage << "%\n";
+    } else {
+        std::cerr << "CPU error: " << cpuResult.error().message() << "\n";
+    }
+
+    // Sample disk I/O rate over 500 ms
+    auto ioResult = analyzer.getProcessDiskIoUsage(pid, std::chrono::milliseconds(500));
+    if (ioResult) {
+        std::cout << "Read:  " << ioResult->readBytesPerSec  << " bytes/s\n";
+        std::cout << "Write: " << ioResult->writeBytesPerSec << " bytes/s\n";
+    } else {
+        std::cerr << "I/O error: " << ioResult.error().message() << "\n";
+    }
+
+    return 0;
+}
+```
+
+For bulk snapshots across all processes, use `getAllProcessesCpuUsage(duration)` and
+`getAllProcessesDiskIoUsage(duration)` — both complete in a single sleep interval.
+
 ## ⚡ Library Quick Start
 
 The C++ API allows you to integrate process and system monitoring directly into your applications. You can link against the library by adding the project as a subdirectory in your CMake configuration.

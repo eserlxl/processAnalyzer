@@ -98,6 +98,7 @@ The `system` command prints a snapshot of system-wide resource usage.
 **Output sections:**
 - **System Information** — hostname, OS name, kernel version, and uptime.
 - **Load Average** — 1-minute, 5-minute, and 15-minute load averages.
+- **CPU Usage** — overall CPU utilization percentage (200 ms sample) and per-core breakdown.
 - **Memory (MiB)** — total, free, available, buffers, cached RAM; swap total and free (if swap is present).
 - **Disk Usage** — for each mounted filesystem: device, mount point, total space (GiB), free space (GiB).
 - **Network Interfaces** — for each network interface: RX/TX bytes and packets.

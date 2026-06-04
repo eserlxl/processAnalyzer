@@ -52,6 +52,7 @@ int main(int argc, char* argv[]) {
 
         if (args.command == "system") {
             constexpr int labelWidth = 20;
+            constexpr int kCpuSampleMs = 200;
             // System info
             auto infoResult = analyzer.getSystemInfo();
             if (infoResult) {
@@ -72,6 +73,25 @@ int main(int argc, char* argv[]) {
                 std::cout << std::left << std::setw(labelWidth) << "1 min:" << avg.oneMin << "\n";
                 std::cout << std::left << std::setw(labelWidth) << "5 min:" << avg.fiveMin << "\n";
                 std::cout << std::left << std::setw(labelWidth) << "15 min:" << avg.fifteenMin << "\n";
+            }
+            // CPU usage (sampled over 200 ms)
+            auto cpuUsageResult = analyzer.getSystemCpuUsage(std::chrono::milliseconds(kCpuSampleMs));
+            auto perCpuResult   = analyzer.getPerCpuUsage(std::chrono::milliseconds(1));
+            if (cpuUsageResult || perCpuResult) {
+                std::cout << "\n=== CPU Usage (200 ms sample) ===\n";
+                if (cpuUsageResult) {
+                    std::cout << std::left << std::setw(labelWidth) << "Total:"
+                              << std::fixed << std::setprecision(1)
+                              << cpuUsageResult->cpuPercentage << "%\n";
+                }
+                if (perCpuResult) {
+                    for (const auto& core : perCpuResult->cpuUsages) {
+                        std::string label = "Core " + std::to_string(core.cpuId) + ":";
+                        std::cout << std::left << std::setw(labelWidth) << label
+                                  << std::fixed << std::setprecision(1)
+                                  << core.cpuPercentage << "%\n";
+                    }
+                }
             }
             // Memory
             auto memResult = analyzer.getSystemMemoryInfo();

@@ -177,3 +177,28 @@ TEST(PerCpuUsageTest, MissingStatReturnsError) {
     auto result = analyzer.getPerCpuUsage(std::chrono::milliseconds(1));
     EXPECT_FALSE(result.has_value());
 }
+
+TEST(SystemCpuUsageTest, ReturnZeroWhenStatUnchanged) {
+    MockProc mockProc("mock_proc_cpu_usage_zero_delta_test");
+    ProcessAnalyzer analyzer(mockProc.getPath());
+    mockProc.createFileAt("stat", "cpu  1000 200 500 8000 100 50 30 10 0 0\n");
+    auto result = analyzer.getSystemCpuUsage(std::chrono::milliseconds(1));
+    ASSERT_TRUE(result.has_value());
+    EXPECT_DOUBLE_EQ(result->cpuPercentage, 0.0);
+}
+
+TEST(PerCpuUsageTest, ParsesCoreCountAndIdsFromMockData) {
+    MockProc mockProc("mock_proc_per_cpu_parse_test");
+    ProcessAnalyzer analyzer(mockProc.getPath());
+    mockProc.createFileAt("stat",
+        "cpu  200 0 100 1600 0 0 0 0 0 0\n"
+        "cpu0 120 0 60 800 0 0 0 0 0 0\n"
+        "cpu1 80 0 40 800 0 0 0 0 0 0\n");
+    auto result = analyzer.getPerCpuUsage(std::chrono::milliseconds(1));
+    ASSERT_TRUE(result.has_value());
+    ASSERT_EQ(result->cpuUsages.size(), 2ULL);
+    EXPECT_EQ(result->cpuUsages[0].cpuId, 0);
+    EXPECT_EQ(result->cpuUsages[1].cpuId, 1);
+    EXPECT_DOUBLE_EQ(result->cpuUsages[0].cpuPercentage, 0.0);
+    EXPECT_DOUBLE_EQ(result->cpuUsages[1].cpuPercentage, 0.0);
+}

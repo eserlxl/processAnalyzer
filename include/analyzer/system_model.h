@@ -42,7 +42,7 @@ struct SystemCpuStats {
 
 // New for Iteration 14: Per-CPU Usage
 struct SingleCpuUsage {
-    int cpuId; // 0 for total, 1 for cpu1, etc.
+    int cpuId; // Zero-based core index: cpu0 → 0, cpu1 → 1, …; the aggregate "cpu " line is excluded.
     double cpuPercentage; // Usage for this specific CPU
 };
 
