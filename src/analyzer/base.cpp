@@ -193,23 +193,64 @@ std::generator<ProcessInfo> ProcessAnalyzer::streamQueryProcesses(
     ProcessSortField sortBy,
     SortOrder sortOrder
 ) const {
-    // This is essentially replicating the queryProcesses logic, but yielding.
-    // For now, let's implement a simpler version without full sorting for streaming,
-    // or call the existing queryProcesses and stream its result.
-    // Given the task is just to get it to compile, let's just make it yield from queryProcesses
-    // (which means it won't be truly streaming, but will work).
-    // A proper streaming query would apply filters on the fly.
-
-    // To make it truly streaming, we would replicate the filtering logic here
-    // and yield matching processes. Sorting a stream is not trivial.
-    // For compilation, let's just use the queryProcesses result.
-
-    auto queryResult = queryProcesses(filter, sortBy, sortOrder);
-    if (queryResult) {
-        for (const auto& pInfo : queryResult.value()) {
-            co_yield pInfo;
+    // Sorted queries require all results before ordering — fall back to queryProcesses.
+    const bool needsSort =
+        sortBy != ProcessSortField::pid || sortOrder != SortOrder::asc;
+    if (needsSort) {
+        auto queryResult = queryProcesses(filter, sortBy, sortOrder);
+        if (queryResult) {
+            for (const auto& pInfo : queryResult.value()) {
+                co_yield pInfo;
+            }
         }
+        co_return;
     }
-    // No co_yield if queryResult is an error.
+
+    // Filter-only path: stream lazily without buffering all processes.
+    for (int pid : streamPids()) {
+        auto detailsResult = getProcessDetails(pid);
+        if (!detailsResult) continue;
+        const ProcessInfo& pInfo = detailsResult.value();
+
+        if (filter.nameContains && !pInfo.name.contains(*filter.nameContains)) continue;
+        if (filter.nameRegex && !std::regex_search(pInfo.name, *filter.nameRegex)) continue;
+        if (filter.cmdlineContains && !pInfo.cmdline.contains(*filter.cmdlineContains)) continue;
+        if (filter.cmdlineRegex && !std::regex_search(pInfo.cmdline, *filter.cmdlineRegex)) continue;
+        if (filter.executablePathContains && !pInfo.executablePath.contains(*filter.executablePathContains)) continue;
+        if (filter.executablePathRegex && !std::regex_search(pInfo.executablePath, *filter.executablePathRegex)) continue;
+        if (filter.userFilter && pInfo.username != *filter.userFilter) continue;
+        if (filter.stateFilter && pInfo.state.front() != *filter.stateFilter) continue;
+        if (filter.uidFilter && pInfo.uid != *filter.uidFilter) continue;
+        if (filter.minThreads && pInfo.threadCount < *filter.minThreads) continue;
+        if (filter.maxThreads && pInfo.threadCount > *filter.maxThreads) continue;
+        if (filter.minResidentMemoryKB && pInfo.residentMemory < *filter.minResidentMemoryKB) continue;
+        if (filter.maxResidentMemoryKB && pInfo.residentMemory > *filter.maxResidentMemoryKB) continue;
+        if (filter.minVirtualMemoryKB && pInfo.virtualMemory < *filter.minVirtualMemoryKB) continue;
+        if (filter.maxVirtualMemoryKB && pInfo.virtualMemory > *filter.maxVirtualMemoryKB) continue;
+        if (filter.minPriority && pInfo.priority < *filter.minPriority) continue;
+        if (filter.maxPriority && pInfo.priority > *filter.maxPriority) continue;
+        if (filter.ppidFilter && pInfo.ppid != *filter.ppidFilter) continue;
+        if (filter.customPredicate && !(*filter.customPredicate)(pInfo)) continue;
+
+        if (filter.networkConnectionFilter) {
+            auto connectionsResult = getNetworkConnections(pid);
+            if (!connectionsResult) continue;
+            bool networkMatch = false;
+            for (const auto& conn : connectionsResult.value()) {
+                const auto& netFilter = *filter.networkConnectionFilter;
+                bool connMatch = true;
+                if (netFilter.localPort && conn.localPort != *netFilter.localPort) connMatch = false;
+                if (netFilter.remotePort && conn.remotePort != *netFilter.remotePort) connMatch = false;
+                if (netFilter.protocol && conn.protocol != *netFilter.protocol) connMatch = false;
+                if (netFilter.state && conn.state != *netFilter.state) connMatch = false;
+                if (netFilter.remoteAddressContains && !conn.remoteAddress.contains(*netFilter.remoteAddressContains)) connMatch = false;
+                if (netFilter.remoteAddressRegex && !std::regex_search(conn.remoteAddress, *netFilter.remoteAddressRegex)) connMatch = false;
+                if (connMatch) { networkMatch = true; break; }
+            }
+            if (!networkMatch) continue;
+        }
+
+        co_yield pInfo;
+    }
 }
 

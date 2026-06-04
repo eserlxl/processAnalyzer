@@ -420,6 +420,69 @@ utils::Result<std::vector<std::string>> ProcessAnalyzer::getProcessEnvironment(i
     return utils::split(*content, '\0', /*skipEmpty=*/true);
 }
 
+// Implementation of ProcessAnalyzer::getProcessResourceLimits
+utils::Result<ResourceLimitInfo> ProcessAnalyzer::getProcessResourceLimits(int pid) const {
+    auto check = Internal::checkPidPathExistsAndPermissions(procPath, pid);
+    if (!check) return std::unexpected(check.error());
+
+    auto content = utils::readTextFile((procPath / std::to_string(pid) / "limits").string());
+    if (!content) return std::unexpected(content.error());
+
+    // /proc/<pid>/limits uses fixed column widths: %-25s %-20s %-20s %-10s
+    constexpr std::size_t softOffset = 26;
+    constexpr std::size_t hardOffset = 47;
+    constexpr std::size_t unitsOffset = 68;
+    constexpr std::size_t nameWidth = 25;
+    constexpr std::size_t fieldWidth = 20;
+
+    ResourceLimitInfo info;
+    std::istringstream iss{*content};
+    std::string line;
+    std::getline(iss, line); // skip header
+    while (std::getline(iss, line)) {
+        if (line.size() < softOffset) continue;
+        ResourceLimit rl;
+        rl.resource = utils::trim(line.substr(0, nameWidth));
+        rl.softLimit = utils::trim(line.size() > softOffset ? line.substr(softOffset, fieldWidth) : "");
+        rl.hardLimit = utils::trim(line.size() > hardOffset ? line.substr(hardOffset, fieldWidth) : "");
+        rl.units = utils::trim(line.size() > unitsOffset ? line.substr(unitsOffset) : "");
+        if (rl.resource.empty()) continue;
+        info.limits.push_back(std::move(rl));
+    }
+    return info;
+}
+
+// Implementation of ProcessAnalyzer::getProcessCgroupInfo
+utils::Result<CgroupInfo> ProcessAnalyzer::getProcessCgroupInfo(int pid) const {
+    auto check = Internal::checkPidPathExistsAndPermissions(procPath, pid);
+    if (!check) return std::unexpected(check.error());
+
+    auto content = utils::readTextFile((procPath / std::to_string(pid) / "cgroup").string());
+    if (!content) return std::unexpected(content.error());
+
+    CgroupInfo info;
+    std::istringstream iss{*content};
+    std::string line;
+    while (std::getline(iss, line)) {
+        if (line.empty()) continue;
+        // Format: <id>:<controllers>:<path>
+        auto firstColon = line.find(':');
+        if (firstColon == std::string::npos) continue;
+        auto secondColon = line.find(':', firstColon + 1);
+        if (secondColon == std::string::npos) continue;
+
+        auto idVal = utils::parseInteger<int>(line.substr(0, firstColon), parseIntegerBase);
+        if (!idVal) continue;
+
+        CgroupEntry entry;
+        entry.id = *idVal;
+        entry.controllers = line.substr(firstColon + 1, secondColon - firstColon - 1);
+        entry.path = line.substr(secondColon + 1);
+        info.entries.push_back(std::move(entry));
+    }
+    return info;
+}
+
 // Implementation of ProcessAnalyzer::getProcessMemoryMaps
 utils::Result<std::vector<MemoryMapInfo>> ProcessAnalyzer::getProcessMemoryMaps(int pid) const {
     auto check = Internal::checkPidPathExistsAndPermissions(procPath, pid);
