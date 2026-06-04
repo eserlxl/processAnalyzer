@@ -33,6 +33,10 @@ int main(int argc, char* argv[]) {
         if (args.user) filter.userFilter = *args.user;
         if (args.ppidFilter) filter.ppidFilter = args.ppidFilter;
         filter.stateFilter = args.stateFilter;
+        filter.minResidentMemoryKB = args.minRssKb;
+        filter.maxResidentMemoryKB = args.maxRssKb;
+        filter.minThreads = args.minThreads;
+        filter.maxThreads = args.maxThreads;
 
         if (args.command == "system") {
             constexpr int labelWidth = 20;

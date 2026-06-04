@@ -37,9 +37,8 @@ protected:
     constexpr static char testStateR = 'R';
     constexpr static char testStateS = 'S';
 
-    // Config file path
+    // Dummy path used to test that --config-file is rejected as an unknown option.
     constexpr static const char* testConfigFileDefault = "/etc/processAnalyzer.conf";
-    constexpr static const char* testConfigFileCustom = "my_config.ini";
 
     // Other filter values
     constexpr static int testPpidMultipleOptions = 1000;
@@ -467,6 +466,14 @@ TEST_F(ArgsTestFixture, ParseCommandLineRejectsInvalidColumns) {
     ASSERT_FALSE(parsedArgs.has_value());
 }
 
+TEST_F(ArgsTestFixture, CwdIsValidColumn) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--columns", "pid,name,cwd"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_EQ(parsed->selectedColumns.size(), 3U);
+    EXPECT_EQ(parsed->selectedColumns[2], "cwd");
+}
+
 TEST_F(ArgsTestFixture, ParseCommandLinePositionalPidCommand) {
     std::vector<std::string> args = {"processAnalyzer", "pid", std::to_string(testPid), "--threads"};
     std::vector<char*> argv = makeArgv(args);
@@ -637,4 +644,42 @@ TEST_F(ArgsTestFixture, SortByUnknownFieldReturnsNullopt) {
     auto argv = makeArgv({"processAnalyzer", "list", "--sort-by", "not-a-field"});
     auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
     ASSERT_FALSE(parsed.has_value());
+}
+
+TEST_F(ArgsTestFixture, MinRssIsSet) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--min-rss", "1024"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_TRUE(parsed->minRssKb.has_value());
+    EXPECT_EQ(parsed->minRssKb.value(), 1024LL);
+}
+
+TEST_F(ArgsTestFixture, MaxRssIsSet) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--max-rss", "8192"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_TRUE(parsed->maxRssKb.has_value());
+    EXPECT_EQ(parsed->maxRssKb.value(), 8192LL);
+}
+
+TEST_F(ArgsTestFixture, MinRssInvalidValueReturnsNullopt) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--min-rss", "notanumber"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_FALSE(parsed.has_value());
+}
+
+TEST_F(ArgsTestFixture, MinThreadsIsSet) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--min-threads", "4"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_TRUE(parsed->minThreads.has_value());
+    EXPECT_EQ(parsed->minThreads.value(), 4L);
+}
+
+TEST_F(ArgsTestFixture, MaxThreadsIsSet) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--max-threads", "16"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_TRUE(parsed->maxThreads.has_value());
+    EXPECT_EQ(parsed->maxThreads.value(), 16L);
 }

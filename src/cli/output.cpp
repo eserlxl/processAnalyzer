@@ -33,6 +33,7 @@ namespace {
         if (col == "elapsed-time") return info.elapsedTime;
         if (col == "exec-path") return info.executablePath;
         if (col == "nice") return std::to_string(info.priority);
+        if (col == "cwd") return info.currentWorkingDirectory;
         std::unreachable();
     }
 
@@ -93,6 +94,9 @@ void printVerticalProcessDetails(const ProcessInfo& info) {
               << "Start Time:        " << utils::formatTimestamp(info.startTimeUnix).value_or("N/A") << "\n"
               << "Elapsed Time:      " << info.elapsedTime << "\n"
               << "Executable Path:   " << info.executablePath << "\n"
+              << "Working Directory: " << info.currentWorkingDirectory << "\n"
+              << "IO Read:           " << info.ioReadBytes << " B\n"
+              << "IO Write:          " << info.ioWriteBytes << " B\n"
               << "Command:           " << info.cmdline << "\n";
 }
 
@@ -114,7 +118,8 @@ void printProcessTable(const std::vector<ProcessInfo>& processes, const std::vec
         {"start-time", 22},
         {"elapsed-time", 14},
         {"exec-path", 30},
-        {"nice", 6}
+        {"nice", 6},
+        {"cwd", 30}
     };
     std::map<std::string, int> widths = defaultColumnWidths; // Use a mutable copy if needed to adjust widths dynamically later
 

@@ -64,6 +64,36 @@ TEST_F(GetSystemDiskUsageTest, SkipsPseudoFilesystems) {
     EXPECT_EQ(mounts[0].filesystemType, "ext4");
 }
 
+TEST_F(GetSystemDiskUsageTest, SkipsBinfmtMiscAndFuseEntries) {
+    std::string mountPoint = mockProc->getPath();
+    std::string mountsContent =
+        "binfmt_misc /proc/sys/fs/binfmt_misc binfmt_misc rw 0 0\n"
+        "portal /home/user/.cache/doc fuse.portal rw 0 0\n"
+        "gvfsd-fuse /home/user/.gvfs fuse.gvfsd-fuse rw 0 0\n"
+        "overlay overlay overlay rw 0 0\n"
+        "/dev/sda1 " + mountPoint + " ext4 rw,relatime 0 0\n";
+    mockProc->createFileAt("mounts", mountsContent);
+
+    auto result = analyzer.getSystemDiskUsage();
+    ASSERT_TRUE(result.has_value());
+    const auto& mounts = result.value();
+    // Only the ext4 entry (with real statvfs-queryable mount point) should survive.
+    ASSERT_EQ(mounts.size(), 1U);
+    EXPECT_EQ(mounts[0].filesystemType, "ext4");
+}
+
+TEST_F(GetSystemDiskUsageTest, SkipsNonExistentMountPoints) {
+    // A mount entry whose mount point does not exist on this system will cause
+    // statvfs() to fail, so getSystemDiskUsage() silently skips it.
+    std::string mountsContent =
+        "/dev/sda99 /nonexistent/mount/point ext4 rw 0 0\n";
+    mockProc->createFileAt("mounts", mountsContent);
+
+    auto result = analyzer.getSystemDiskUsage();
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(result.value().empty());
+}
+
 TEST_F(GetSystemDiskUsageTest, MissingMountsReturnsError) {
     auto result = analyzer.getSystemDiskUsage();
     EXPECT_FALSE(result.has_value());

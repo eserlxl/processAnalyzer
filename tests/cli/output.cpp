@@ -131,3 +131,44 @@ TEST(OutputTest, VerticalDetailsPrintsLabelledFields) {
     EXPECT_NE(out.find("PID:"), std::string::npos);
     EXPECT_NE(out.find("bash"), std::string::npos);
 }
+
+TEST(OutputTest, TableIncludesCwdColumn) {
+    ProcessInfo info = makeProcess();
+    info.currentWorkingDirectory = "/home/alice/work";
+
+    testing::internal::CaptureStdout();
+    printProcessTable({info}, {"pid", "cwd"}, false);
+    const std::string out = testing::internal::GetCapturedStdout();
+
+    EXPECT_NE(out.find("CWD"), std::string::npos);
+    EXPECT_NE(out.find("/home/alice/work"), std::string::npos);
+}
+
+TEST(OutputTest, VerticalDetailsPrintsWorkingDirectory) {
+    ProcessInfo info = makeProcess();
+    info.currentWorkingDirectory = "/tmp/mydir";
+
+    testing::internal::CaptureStdout();
+    printVerticalProcessDetails(info);
+    const std::string out = testing::internal::GetCapturedStdout();
+
+    EXPECT_NE(out.find("Working Directory:"), std::string::npos);
+    EXPECT_NE(out.find("/tmp/mydir"), std::string::npos);
+}
+
+TEST(OutputTest, VerticalDetailsPrintsIoStats) {
+    constexpr long long kIoRead = 123456;
+    constexpr long long kIoWrite = 654321;
+    ProcessInfo info = makeProcess();
+    info.ioReadBytes = kIoRead;
+    info.ioWriteBytes = kIoWrite;
+
+    testing::internal::CaptureStdout();
+    printVerticalProcessDetails(info);
+    const std::string out = testing::internal::GetCapturedStdout();
+
+    EXPECT_NE(out.find("IO Read:"), std::string::npos);
+    EXPECT_NE(out.find("IO Write:"), std::string::npos);
+    EXPECT_NE(out.find("123456"), std::string::npos);
+    EXPECT_NE(out.find("654321"), std::string::npos);
+}

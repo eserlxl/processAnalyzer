@@ -176,7 +176,11 @@ utils::Result<std::vector<MountPointInfo>> ProcessAnalyzer::getSystemDiskUsage()
     static const std::set<std::string> pseudoFsTypes{
         "proc", "sysfs", "devtmpfs", "cgroup", "cgroup2", "tmpfs", "devpts",
         "hugetlbfs", "mqueue", "debugfs", "tracefs", "securityfs", "pstore",
-        "bpf", "autofs", "fusectl", "efivarfs", "configfs"
+        "bpf", "autofs", "fusectl", "efivarfs", "configfs",
+        // kernel virtual filesystems and snap/container layers
+        "binfmt_misc", "overlay", "squashfs", "ramfs",
+        // FUSE-based virtual filesystems (portal, gvfs, sshfs, etc.)
+        "fuse", "fuseblk"
     };
     std::vector<MountPointInfo> result;
     std::istringstream iss{*content};
@@ -192,9 +196,12 @@ utils::Result<std::vector<MountPointInfo>> ProcessAnalyzer::getSystemDiskUsage()
             continue;
         }
         if (pseudoFsTypes.contains(mp.filesystemType)) continue;
+        // Filter fuse.* subtypes (fuse.portal, fuse.gvfsd-fuse, fuse.sshfs, etc.)
+        if (mp.filesystemType.starts_with("fuse.")) continue;
         struct statvfs sv{};
         if (statvfs(mp.mountPoint.c_str(), &sv) != 0) continue;
         mp.totalSpaceBytes = static_cast<unsigned long long>(sv.f_blocks) * sv.f_frsize;
+        if (mp.totalSpaceBytes == 0) continue;
         mp.freeSpaceBytes = static_cast<unsigned long long>(sv.f_bfree) * sv.f_frsize;
         mp.availableSpaceBytes = static_cast<unsigned long long>(sv.f_bavail) * sv.f_frsize;
         result.push_back(std::move(mp));

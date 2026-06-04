@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Eser KUBALI
 
 #include <algorithm>
+#include <utility>
 #include <vector>
 #include <string>
 #include <regex>
@@ -140,8 +141,8 @@ utils::Result<std::vector<ProcessInfo>> ProcessAnalyzer::queryProcesses(
             case ProcessSortField::ioReadBytes:     return a.ioReadBytes < b.ioReadBytes;
             case ProcessSortField::ioWriteBytes:    return a.ioWriteBytes < b.ioWriteBytes;
             case ProcessSortField::priority:        return a.priority < b.priority;
-            default:                                return a.pid < b.pid; // Default sort by PID
         }
+        std::unreachable();
     };
     std::ranges::sort(filteredProcesses,
         [&](const ProcessInfo& a, const ProcessInfo& b) {

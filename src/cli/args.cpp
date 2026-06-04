@@ -10,10 +10,10 @@
 #include <limits>
 
 namespace {
-    constexpr std::array<std::string_view, 14> validColumns = {
+    constexpr std::array<std::string_view, 15> validColumns = {
         "pid", "ppid", "uid", "user", "name", "state", "rss", "vm",
         "threads", "cmdline", "start-time", "elapsed-time",
-        "exec-path", "nice"
+        "exec-path", "nice", "cwd"
     };
 
     bool isValidColumn(std::string_view column) {
@@ -79,6 +79,8 @@ void printUsage() {
               << "  --sort-order <asc|desc>  Sort order (ascending or descending, default: asc)\n"
               << "  -b, --brief              Show brief process information (less columns)\n"
               << "  --columns <col1,col2,...> Select specific columns to display\n"
+              << "                           Valid: pid, ppid, uid, user, name, state, rss, vm,\n"
+              << "                           threads, cmdline, start-time, elapsed-time, exec-path, nice, cwd\n"
               << "  --no-truncate-cmdline    Do not truncate command line output\n"
               << "  -o, --output <format>    Output format (table, vertical, csv, json, default: table)\n"
               << "  --children               (With 'show' or 'pid') Show child processes\n"
@@ -86,6 +88,10 @@ void printUsage() {
               << "  --threads                (With 'show' or 'pid') Show threads for process\n"
               << "  --network                (With 'show' or 'pid') Show network connections for process\n"
               << "  --ppid <ppid>            Filter processes by Parent Process ID\n"
+              << "  --min-rss <KB>           Filter processes with RSS >= KB\n"
+              << "  --max-rss <KB>           Filter processes with RSS <= KB\n"
+              << "  --min-threads <N>        Filter processes with thread count >= N\n"
+              << "  --max-threads <N>        Filter processes with thread count <= N\n"
               << std::endl;
 }
 
@@ -265,6 +271,50 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
             }
         } else if (arg == "--network") {
             args.showNetworkConnections = true;
+        } else if (arg == "--min-rss") {
+            if (i + 1 >= cliArgs.size()) {
+                std::cerr << "Error: --min-rss requires an argument (KB).\n";
+                return std::nullopt;
+            }
+            if (auto val = utils::toLong(cliArgs[++i])) {
+                args.minRssKb = static_cast<long long>(*val);
+            } else {
+                std::cerr << "Error: Invalid value for --min-rss '" << cliArgs[i] << "'.\n";
+                return std::nullopt;
+            }
+        } else if (arg == "--max-rss") {
+            if (i + 1 >= cliArgs.size()) {
+                std::cerr << "Error: --max-rss requires an argument (KB).\n";
+                return std::nullopt;
+            }
+            if (auto val = utils::toLong(cliArgs[++i])) {
+                args.maxRssKb = static_cast<long long>(*val);
+            } else {
+                std::cerr << "Error: Invalid value for --max-rss '" << cliArgs[i] << "'.\n";
+                return std::nullopt;
+            }
+        } else if (arg == "--min-threads") {
+            if (i + 1 >= cliArgs.size()) {
+                std::cerr << "Error: --min-threads requires an argument.\n";
+                return std::nullopt;
+            }
+            if (auto val = utils::toLong(cliArgs[++i])) {
+                args.minThreads = *val;
+            } else {
+                std::cerr << "Error: Invalid value for --min-threads '" << cliArgs[i] << "'.\n";
+                return std::nullopt;
+            }
+        } else if (arg == "--max-threads") {
+            if (i + 1 >= cliArgs.size()) {
+                std::cerr << "Error: --max-threads requires an argument.\n";
+                return std::nullopt;
+            }
+            if (auto val = utils::toLong(cliArgs[++i])) {
+                args.maxThreads = *val;
+            } else {
+                std::cerr << "Error: Invalid value for --max-threads '" << cliArgs[i] << "'.\n";
+                return std::nullopt;
+            }
         } else if (utils::startsWith(arg, "-")) {
             // This catches any unknown options that start with '-'
             std::cerr << "Error: Unknown option '" << arg << "'.\n";
