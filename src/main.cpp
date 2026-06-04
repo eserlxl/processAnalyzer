@@ -76,7 +76,7 @@ int main(int argc, char* argv[]) {
             }
             // CPU usage (sampled over 200 ms)
             auto cpuUsageResult = analyzer.getSystemCpuUsage(std::chrono::milliseconds(kCpuSampleMs));
-            auto perCpuResult   = analyzer.getPerCpuUsage(std::chrono::milliseconds(1));
+            auto perCpuResult   = analyzer.getPerCpuUsage(std::chrono::milliseconds(kCpuSampleMs));
             if (cpuUsageResult || perCpuResult) {
                 std::cout << "\n=== CPU Usage (200 ms sample) ===\n";
                 if (cpuUsageResult) {
@@ -382,6 +382,25 @@ int main(int argc, char* argv[]) {
                         }
                     } else {
                         std::cerr << "\nError reading cgroup info: " << cgroupResult.error().message() << "\n";
+                    }
+                }
+                if (args.showPerf) {
+                    auto cpuResult = analyzer.getProcessCpuUsage(
+                        targetPid, std::chrono::milliseconds(args.perfDurationMs));
+                    auto ioResult = analyzer.getProcessDiskIoUsage(
+                        targetPid, std::chrono::milliseconds(args.perfDurationMs));
+                    std::cout << "\nPerformance (" << args.perfDurationMs << " ms sample):\n";
+                    if (cpuResult) {
+                        std::cout << "  CPU:         " << std::fixed << std::setprecision(1)
+                                  << cpuResult->cpuPercentage << "%\n";
+                    } else {
+                        std::cerr << "  CPU:         error: " << cpuResult.error().message() << "\n";
+                    }
+                    if (ioResult) {
+                        std::cout << "  Read:        " << ioResult->readBytesPerSec << " bytes/s\n";
+                        std::cout << "  Write:       " << ioResult->writeBytesPerSec << " bytes/s\n";
+                    } else {
+                        std::cerr << "  I/O:         error: " << ioResult.error().message() << "\n";
                     }
                 }
                 return 0; // Done with pid-specific output

@@ -309,6 +309,14 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
             args.showLimits = true;
         } else if (arg == "--cgroup") {
             args.showCgroupInfo = true;
+        } else if (arg == "--perf") {
+            args.showPerf = true;
+            if (i + 1 < cliArgs.size()) {
+                if (auto dur = parseIntWithinRange(cliArgs[i + 1]); dur && *dur > 0) {
+                    args.perfDurationMs = static_cast<int>(*dur);
+                    ++i;
+                }
+            }
         } else if (arg == "--uid") {
             if (i + 1 >= cliArgs.size()) {
                 std::cerr << "Error: --uid requires an argument.\n";

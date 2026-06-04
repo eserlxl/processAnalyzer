@@ -141,3 +141,37 @@ TEST_F(ProcessDetailsTest, GetAllDescendantProcessesReturnsEmptyForLeafProcess) 
     ASSERT_TRUE(result.has_value());
     EXPECT_TRUE(result.value().empty());
 }
+
+TEST_F(ProcessDetailsTest, GetParentProcessAbsentPidReturnsError) {
+    auto result = analyzer.getParentProcess(kAbsentPid);
+    EXPECT_FALSE(result.has_value());
+}
+
+TEST_F(ProcessDetailsTest, GetChildProcessesAbsentPidReturnsEmpty) {
+    auto result = analyzer.getChildProcesses(kAbsentPid);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(result->empty());
+}
+
+TEST_F(ProcessDetailsTest, GetAllDescendantProcessesAbsentPidReturnsEmpty) {
+    auto result = analyzer.getAllDescendantProcesses(kAbsentPid);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(result->empty());
+}
+
+TEST(GetParentProcessTest, KernelThreadPpidZeroReturnsError) {
+    constexpr int kKernelPid = 8800;
+    MockProc mockProc("mock_proc_kernel_thread_test");
+    ProcessAnalyzer analyzer(mockProc.getPath());
+    mockProc.buildProcess(kKernelPid).withName("kthread").withParent(0).create();
+    auto result = analyzer.getParentProcess(kKernelPid);
+    EXPECT_FALSE(result.has_value());
+}
+
+TEST(SnapshotTest, EmptyProcReturnsEmptyVector) {
+    MockProc mockProc("mock_proc_snapshot_empty_test");
+    ProcessAnalyzer analyzer(mockProc.getPath());
+    auto result = analyzer.snapshot();
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(result->empty());
+}

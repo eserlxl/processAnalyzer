@@ -47,7 +47,7 @@ struct SingleCpuUsage {
 };
 
 struct PerCpuUsage {
-    std::vector<SingleCpuUsage> cpuUsages; // Includes total system CPU as cpuId 0
+    std::vector<SingleCpuUsage> cpuUsages; // One entry per physical core (cpu0, cpu1, …); the aggregate "cpu " line is excluded.
 };
 
 // New for Iteration 14: Disk I/O per Device

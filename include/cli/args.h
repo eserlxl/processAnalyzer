@@ -43,6 +43,9 @@ struct ParsedArguments {
     bool showMemoryMaps = false;              // Show memory maps (--maps).
     bool showLimits = false;                  // Show resource limits (--limits).
     bool showCgroupInfo = false;              // Show cgroup membership (--cgroup).
+    bool showPerf = false;                    // Show performance metrics (--perf).
+    static constexpr int kDefaultPerfDurationMs = 200;
+    int perfDurationMs = kDefaultPerfDurationMs; // Sample duration in ms for --perf.
 };
 
 std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const> argv);
