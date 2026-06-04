@@ -100,3 +100,31 @@ TEST(GetNetworkConnectionsUdp, ParsesMatchingUdpConnection) {
     EXPECT_EQ(result.value().front().protocol, "UDP");
     EXPECT_EQ(result.value().front().localPort, kUdpLocalPort);
 }
+
+// Standalone test for TCP6 protocol — verifies net/tcp6 is read and that the matched
+// connection reports protocol "TCP6" with the expected local port.
+TEST(GetNetworkConnectionsTcp6, ParsesTcp6Connection) {
+    constexpr int kTcp6Pid = 400;
+    constexpr int kTcp6SocketFd = 7;
+    constexpr uint16_t kTcp6LocalPort = 9000; // 0x2328
+
+    MockProc mockProc("mock_proc_net_conn_tcp6_test");
+    ProcessAnalyzer analyzer(mockProc.getPath());
+
+    mockProc.createDirectoryAt("net");
+    mockProc.buildProcess(kTcp6Pid).withName("tcp6proc").withParent(1)
+        .withFd(kTcp6SocketFd, "socket:[88888]").create();
+
+    // /proc/net/tcp6: ::1:9000 in LISTEN state, inode 88888.
+    // IPv6 ::1 encodes as 00000000000000000000000001000000 (4 LE uint32 words).
+    const std::string tcp6Content =
+        "  sl  local_address                         remote_address                        st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode\n"
+        "   0: 00000000000000000000000001000000:2328 00000000000000000000000000000000:0000 0A 00000000:00000000 00:00000000 00000000  1000        0 88888 1 0000000000000000 100 0 0 10 0\n";
+    mockProc.createFileAt("net/tcp6", tcp6Content);
+
+    auto result = analyzer.getNetworkConnections(kTcp6Pid);
+    ASSERT_TRUE(result.has_value());
+    ASSERT_EQ(result.value().size(), 1U);
+    EXPECT_EQ(result.value().front().protocol, "TCP6");
+    EXPECT_EQ(result.value().front().localPort, kTcp6LocalPort);
+}

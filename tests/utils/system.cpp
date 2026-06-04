@@ -90,6 +90,30 @@ TEST(SystemUtilsTest, GetCurrentWorkingDirectoryReturnsValidPath) {
     EXPECT_TRUE(std::filesystem::exists(result.value()));
 }
 
+TEST(SystemUtilsTest, SetCurrentWorkingDirectoryRejectsEmptyPath) {
+    auto result = utils::setCurrentWorkingDirectory("");
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), utils::make_error_code(utils::UtilsError::invalidArgument));
+}
+
+TEST(SystemUtilsTest, SetCurrentWorkingDirectoryChangesDir) {
+    auto originalCwd = utils::getCurrentWorkingDirectory();
+    ASSERT_TRUE(originalCwd.has_value());
+
+    const std::filesystem::path tempDir = std::filesystem::temp_directory_path();
+    auto setResult = utils::setCurrentWorkingDirectory(tempDir);
+    ASSERT_TRUE(setResult.has_value());
+
+    auto newCwd = utils::getCurrentWorkingDirectory();
+    ASSERT_TRUE(newCwd.has_value());
+    // The real path may differ from temp_directory_path() due to symlinks.
+    EXPECT_TRUE(std::filesystem::equivalent(newCwd.value(), tempDir));
+
+    // Restore original CWD.
+    auto restoreResult = utils::setCurrentWorkingDirectory(originalCwd.value());
+    EXPECT_TRUE(restoreResult.has_value());
+}
+
 // ── executeCommand ────────────────────────────────────────────────────────────
 
 TEST(SystemUtilsTest, ExecuteCommandRejectsEmptyCommand) {
@@ -103,4 +127,10 @@ TEST(SystemUtilsTest, ExecuteCommandCapturesStdout) {
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result.value().exitCode, 0);
     EXPECT_NE(result.value().stdoutStr.find("hello"), std::string::npos);
+}
+
+TEST(SystemUtilsTest, ExecuteCommandCapturesStderr) {
+    auto result = utils::executeCommand("echo errline >&2");
+    ASSERT_TRUE(result.has_value());
+    EXPECT_NE(result.value().stderrStr.find("errline"), std::string::npos);
 }
