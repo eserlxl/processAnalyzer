@@ -1,96 +1,119 @@
 # planwright Plan — .
-<!-- Session: 2026-06-05T02:00:00Z -->
+<!-- Session: 2026-06-05T03:00:00Z -->
 
-## 1. [improve] Integration test for `nameRegex` filter in `queryProcesses`
+## Cycle 8 — Coverage (depth 10)
 
-**Surfaces:** `tests/analyzer/query.cpp` (`QueryProcessesTest` fixture)
-
-**Evidence:** `ProcessFilter::nameRegex` is applied in `passesStaticFilters` (filter_helpers.cpp:33 via `applyStringFilter`) but no test ever calls `queryProcesses` with `nameRegex` set. The regex code path is exercised by zero tests.
-
-**Development:** In `QueryProcessesTest`, add `FilterByNameRegexMatchesSubset` — set `filter.nameRegex = std::regex("^alpha$")` and assert only the two "alpha" PIDs (kPidAlphaA, kPidAlphaB) are returned. Add `FilterByNameRegexNoMatch` — set a pattern that matches nothing and assert empty result.
-
-**Verification:** Build and `ctest` pass.
+Audit found 16 of 18 ProcessSortField enum values with zero test coverage, plus three untested
+filter paths (cmdlineRegex, executablePathRegex, remotePort/remoteAddressContains).
+All items are rung-2 coverage unless noted.
 
 ---
 
-## 2. [improve] Test `NetworkFilterCriteria::state` filter in `queryProcesses`
-
-**Surfaces:** `tests/analyzer/query.cpp` (`QueryNetworkFilterTest` fixture)
-
-**Evidence:** `passesNetworkFilter` at line 55 checks `netFilter.state`, but this field is set by no test. The existing TCP connection in the fixture has `state == "ESTABLISHED"` (hex `01`). Filtering by state can be tested with that existing mock.
-
-**Development:** Add `FilterByConnectionStateMatches` — set `netFilter.state = "ESTABLISHED"`, assert `kNetPid` is returned. Add `FilterByConnectionStateNoMatch` — set `netFilter.state = "LISTEN"`, assert empty result.
-
-**Verification:** Build and `ctest` pass.
-
----
-
-## 3. [improve] Test `NetworkFilterCriteria::protocol` filter in `queryProcesses`
-
-**Surfaces:** `tests/analyzer/query.cpp` (`QueryNetworkFilterTest` fixture or new fixture)
-
-**Evidence:** `passesNetworkFilter` line 54 checks `netFilter.protocol`, but zero tests exercise this field. A TCP-only process should pass `protocol == "TCP"` and fail `protocol == "UDP"`.
-
-**Development:** Add `FilterByProtocolTcpMatches` — set `netFilter.protocol = "TCP"`, assert `kNetPid` is returned. Add `FilterByProtocolUdpNoMatch` — set `netFilter.protocol = "UDP"`, assert empty result (no UDP entry in the fixture's `net/tcp`).
-
-**Verification:** Build and `ctest` pass.
+### Item 1 — Sort by RSS and VmSize
+**Mode:** improve  
+**Rung:** 2 (coverage)  
+**File:** `tests/analyzer/query.cpp`  
+**Surfaces:** `src/analyzer/query.cpp:53-54` (ProcessSortField::rss, ::vmsize comparators)  
+**Description:** Add `QuerySortByStatTest` fixture with two processes having distinct `rss` and
+`vsize` values in `ProcStatData`. Tests verify ascending order for `ProcessSortField::rss` and
+`ProcessSortField::vmsize`. Existing `QueryStatFilterTest` only tests filtering, not sort ordering
+on these fields.  
+**Verification:** Build + ctest passes. New tests: `SortByRssAscending`, `SortByVmsizeAscending`.  
+**Status:** [x] done
 
 ---
 
-## 4. [improve] Validate that inspection flags are rejected with `list` command
-
-**Surfaces:** `tests/cli/args.cpp`
-
-**Evidence:** The validation block in `args.cpp` (line 425) rejects `--env` and `--maps` when used with `list`, but there are zero tests for this rejection. The pattern is broken — `--children`, `--threads`, `--open-files`, `--network` have no validation tests either.
-
-**Development:** Add four tests in `tests/cli/args.cpp`: `EnvFlagWithListCommandReturnsNullopt` (`list --env` → nullopt), `MapsFlagWithListCommandReturnsNullopt` (`list --maps` → nullopt), `ChildrenFlagWithListCommandReturnsNullopt` (`list --children` → nullopt), `ThreadsFlagWithListCommandReturnsNullopt` (`list --threads` → nullopt). Use `makeArgv({"processAnalyzer", "list", "--env"})` etc.
-
-**Verification:** Build and `ctest` pass. All four new tests pass.
-
----
-
-## 5. [improve] Test `executablePathContains` integration filter in `queryProcesses`
-
-**Surfaces:** `tests/analyzer/query.cpp`
-
-**Evidence:** `ProcessFilter::executablePathContains` is applied at `filter_helpers.cpp:35` but no test ever sets it and calls `queryProcesses`. Processes in `QueryProcessesTest` have no `executablePath` set (no exe symlink). A new fixture is needed.
-
-**Development:** Add a small fixture with two processes that have distinct exe paths (e.g., `/usr/bin/server` and `/usr/lib/helper`) via `buildProcess(...).withExe(mockFilePath).create()`. Add `FilterByExecPathMatchReturnsSubset` and `FilterByExecPathNoMatchReturnsEmpty`.
-
-**Verification:** Build and `ctest` pass.
+### Item 2 — Sort by threads and priority
+**Mode:** improve  
+**Rung:** 2 (coverage)  
+**File:** `tests/analyzer/query.cpp`  
+**Surfaces:** `src/analyzer/query.cpp:63,69` (ProcessSortField::threads, ::priority comparators)  
+**Description:** Extend `QuerySortByStatTest` with processes differing in `num_threads` and
+`priority`. Tests verify ascending order for `ProcessSortField::threads` and
+`ProcessSortField::priority`. Both comparator branches are live but untested.  
+**Verification:** Build + ctest passes. New tests: `SortByThreadsAscending`, `SortByPriorityAscending`.  
+**Status:** [x] done
 
 ---
 
-## 6. [develop] Add `--limits` flag to `show` command: print resource limits
-
-**Surfaces:** `include/cli/args.h`, `src/cli/args.cpp`, `src/main.cpp`
-
-**Evidence:** `getProcessResourceLimits(pid)` is implemented and returns `ResourceLimitInfo` with a `limits` vector (resource, softLimit, hardLimit, units). No CLI flag exposes it. Follows the established `show` subsection pattern.
-
-**Development:** Add `bool showLimits = false;` to `ParsedArguments`. Parse `--limits` in `args.cpp` and add to the inspection-flag validation block. In `main.cpp`, add a block calling `getProcessResourceLimits(targetPid)` and print a table: Limit name, Soft Limit, Hard Limit, Units. Add usage line and a `LimitsFlagIsSet` test in `tests/cli/args.cpp`.
-
-**Verification:** Build and `ctest` pass.
-
----
-
-## 7. [develop] Add `--cgroup` flag to `show` command: print cgroup membership
-
-**Surfaces:** `include/cli/args.h`, `src/cli/args.cpp`, `src/main.cpp`
-
-**Evidence:** `getProcessCgroupInfo(pid)` is implemented and returns `CgroupInfo` with entries (id, controllers, path). No CLI flag exposes it. Follows the `show` subsection pattern.
-
-**Development:** Add `bool showCgroupInfo = false;` to `ParsedArguments`. Parse `--cgroup` in `args.cpp` and add to the inspection-flag validation block. In `main.cpp`, add a block printing each cgroup entry as `id:controllers:path`. Add usage line and a `CgroupFlagIsSet` test.
-
-**Verification:** Build and `ctest` pass.
+### Item 3 — Sort by CPU ticks (cpuUserTime, cpuKernelTime, cpuTime)
+**Mode:** improve  
+**Rung:** 2 (coverage)  
+**File:** `tests/analyzer/query.cpp`  
+**Surfaces:** `src/analyzer/query.cpp:56,65-66` (::cpuTime, ::cpuUserTime, ::cpuKernelTime)  
+**Description:** Extend `QuerySortByStatTest` with `utime` and `stime` differences in `ProcStatData`.
+Tests verify ordering for all three CPU-tick sort fields: `cpuUserTime`, `cpuKernelTime`, and
+the combined `cpuTime` (utime+stime). The threadStatSkipFields fix in Cycle 5 ensures the right
+values are populated; this closes the coverage gap on those comparator branches.  
+**Verification:** Build + ctest passes. New tests: `SortByCpuUserTimeAscending`, `SortByCpuKernelTimeAscending`, `SortByCpuTimeAscending`.  
+**Status:** [x] done
 
 ---
 
-## 8. [improve] Add edge-case tests to `GetProcessEnvironmentTest`
+### Item 4 — Sort by ioReadBytes and ioWriteBytes
+**Mode:** improve  
+**Rung:** 2 (coverage)  
+**File:** `tests/analyzer/query.cpp`  
+**Surfaces:** `src/analyzer/query.cpp:67-68` (::ioReadBytes, ::ioWriteBytes comparators)  
+**Description:** Extend `QuerySortByStatTest` with `ProcIoStats::readBytes` and `writeBytes`
+differences, using `withIoStats`. Tests verify ascending ordering for both I/O byte sort fields.
+These comparator branches are reachable only when processes have been built with io stat data.  
+**Verification:** Build + ctest passes. New tests: `SortByIoReadBytesAscending`, `SortByIoWriteBytesAscending`.  
+**Status:** [x] done
 
-**Surfaces:** `tests/analyzer/environment.cpp`
+---
 
-**Evidence:** Only 2 tests exist: happy path (2 vars) and absent pid. Missing: (a) env var whose value contains `=` (e.g., `PATH=/usr/bin:/bin`) — the split on `\0` is correct but it's never verified that `=` in the value is preserved; (b) empty environ file → empty vector returned (not an error).
+### Item 5 — Sort by state and ppid
+**Mode:** improve  
+**Rung:** 2 (coverage)  
+**File:** `tests/analyzer/query.cpp`  
+**Surfaces:** `src/analyzer/query.cpp:52,62` (::ppid, ::state comparators)  
+**Description:** Add `QuerySortByStateAndPpidTest` fixture with two processes: one with state='R'
+and ppid=1, another with state='S' and ppid=2. Tests verify `ProcessSortField::state` and
+`ProcessSortField::ppid` ascending ordering. State and ppid comparators exist but have no tests.  
+**Verification:** Build + ctest passes. New tests: `SortByStateAscending`, `SortByPpidAscending`.  
+**Status:** [x] done
 
-**Development:** Add `ReturnsEntryWithEqualsInValue` — create a process with an environ containing `PATH=/usr/bin:/bin`, call `getProcessEnvironment`, assert that the entry `"PATH=/usr/bin:/bin"` (the whole string including the `=` in the value) is in the result. Add `EmptyEnvironReturnsEmptyVector` — create a process with an empty `environ` file and assert the result is a non-error empty vector.
+---
 
-**Verification:** Build and `ctest` pass.
+### Item 6 — Sort by executablePath, cmdline, cwd
+**Mode:** improve  
+**Rung:** 2 (coverage)  
+**File:** `tests/analyzer/query.cpp`  
+**Surfaces:** `src/analyzer/query.cpp:58-59,64` (::executablePath, ::cmdline, ::cwd comparators)  
+**Description:** Add `QuerySortByPathTest` fixture with two processes differing in executable path
+(`withExe`), cmdline (`withCmdline`), and cwd (`withCwd`). Tests verify ascending ordering for
+`ProcessSortField::executablePath`, `::cmdline`, and `::cwd`. All three comparator branches are
+untested despite being on live code paths.  
+**Verification:** Build + ctest passes. New tests: `SortByExecPathAscending`, `SortByCmdlineAscending`, `SortByCwdAscending`.  
+**Status:** [x] done
+
+---
+
+### Item 7 — cmdlineRegex and executablePathRegex filter tests
+**Mode:** improve  
+**Rung:** 2 (coverage)  
+**File:** `tests/analyzer/query.cpp`  
+**Surfaces:** `src/analyzer/internal/filter_helpers.cpp:34-35` (`cmdlineRegex`, `executablePathRegex` paths in `applyStringFilter`)  
+**Description:** Add regex filter tests using `ProcessFilter::cmdlineRegex` and
+`executablePathRegex` with `std::regex`. The `applyStringFilter` function handles both `contains`
+and regex paths, but the regex branches for cmdline and executablePath are exercised by zero tests.
+Tests: match case (regex matches subset), no-match case (regex matches nothing).  
+**Verification:** Build + ctest passes. New tests: `FilterByCmdlineRegexMatchesSubset`,
+`FilterByCmdlineRegexNoMatch`, `FilterByExecPathRegexMatchesSubset`, `FilterByExecPathRegexNoMatch`.  
+**Status:** [x] done
+
+---
+
+### Item 8 — remotePort and remoteAddressContains network filter tests
+**Mode:** improve  
+**Rung:** 2 (coverage)  
+**File:** `tests/analyzer/query.cpp`  
+**Surfaces:** `src/analyzer/internal/filter_helpers.cpp:53,56` (`remotePort`, `remoteAddressContains` in `passesNetworkFilter`)  
+**Description:** Extend `QueryNetworkFilterTest` to include a mock `net/tcp` entry with a
+non-zero remote port (e.g. 443) and remote address (e.g. `1.2.3.4`). Tests verify:
+`FilterByRemotePortMatches` (port 443 → returns netproc), `FilterByRemotePortNoMatch` (port 80 →
+empty), `FilterByRemoteAddressContainsMatches` ("1.2.3" → returns netproc). These filter branches
+exist in `passesNetworkFilter` but have zero test coverage.  
+**Verification:** Build + ctest passes. New tests: `FilterByRemotePortMatches`, `FilterByRemotePortNoMatch`, `FilterByRemoteAddressContainsMatches`.  
+**Status:** [x] done
