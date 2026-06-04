@@ -79,3 +79,9 @@ TEST_F(GetSystemInfoTest, MissingVersionReturnsError) {
     auto result = analyzer.getSystemInfo();
     EXPECT_FALSE(result.has_value());
 }
+
+TEST(SystemClockTicksTest, ReturnsPositiveValueOnLinux) {
+    auto result = ProcessAnalyzer::getSystemClockTicksPerSecond();
+    ASSERT_TRUE(result.has_value());
+    EXPECT_GT(result.value(), 0L);
+}

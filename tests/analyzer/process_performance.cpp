@@ -52,3 +52,40 @@ TEST_F(SetProcessPriorityTest, NonexistentPidReturnsError) {
     auto result = analyzer.setProcessPriority(kAbsentPid, 0);
     EXPECT_FALSE(result.has_value());
 }
+
+// ── getProcessCpuAffinity ────────────────────────────────────────────────────
+
+TEST(GetProcessCpuAffinityTest, ParsesRange) {
+    constexpr int kPid = 5500;
+
+    MockProc mockProc("mock_proc_affinity_test");
+    ProcessAnalyzer analyzer(mockProc.getPath());
+    mockProc.buildProcess(kPid).withName("affinproc").withParent(1)
+        .withStatusField("Cpus_allowed_list", "0-3").create();
+
+    auto result = analyzer.getProcessCpuAffinity(kPid);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result.value().cpus, (std::vector<int>{0, 1, 2, 3}));
+}
+
+TEST(GetProcessCpuAffinityTest, AbsentPidReturnsError) {
+    MockProc mockProc("mock_proc_affinity_absent_test");
+    ProcessAnalyzer analyzer(mockProc.getPath());
+
+    constexpr int kAbsentPid = 99999;
+    auto result = analyzer.getProcessCpuAffinity(kAbsentPid);
+    EXPECT_FALSE(result.has_value());
+}
+
+TEST(GetProcessCpuAffinityTest, MissingFieldReturnsParsingError) {
+    constexpr int kPid = 5501;
+
+    MockProc mockProc("mock_proc_affinity_nofield_test");
+    ProcessAnalyzer analyzer(mockProc.getPath());
+    // Process exists but status has no Cpus_allowed_list field.
+    mockProc.buildProcess(kPid).withName("affinproc2").withParent(1).create();
+
+    auto result = analyzer.getProcessCpuAffinity(kPid);
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), utils::make_error_code(utils::UtilsError::analyzerParsingError));
+}
