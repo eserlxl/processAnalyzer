@@ -389,6 +389,7 @@ install/
 .antigravity/
 .gemini/
 .codex/
+.planwright/
 
 ###############################################################################
 # RELEASES
