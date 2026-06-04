@@ -66,9 +66,8 @@ ProcessAnalyzer analyzer; // Create an instance
 -   `getSystemCpuStats()`: Returns raw aggregate CPU time counters (user, nice, system, idle, iowait, irq, softirq, steal, guest, guestNice) from the first `cpu` line in `/proc/stat`.
 
 ### System Performance Metrics
--   `getSystemCpuStats()`: Gets raw CPU time statistics (user, system, idle, etc.) for all cores combined since boot.
--   `getSystemCpuUsage(duration)`: Calculates the overall system CPU utilization as a percentage over a given duration.
--   `getPerCpuUsage(duration)`: Calculates the CPU utilization for each CPU core individually.
+-   `getSystemCpuUsage(duration)`: Samples `/proc/stat` before and after the given `std::chrono::milliseconds` sleep, returns `SystemCpuUsage.cpuPercentage` in `[0, 100]`.
+-   `getPerCpuUsage(duration)`: Calculates the CPU utilization for each CPU core individually (not yet implemented).
 
 ### Process Query & Filtering
 -   `queryProcesses(filter, sortBy, sortOrder)`: A powerful method to find, filter, and sort processes based on flexible criteria. The `filter` is a `ProcessFilter` struct, and sorting can be done on attributes like `cpu`, `memory`, `pid`, etc.

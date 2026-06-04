@@ -54,6 +54,7 @@ public:
     [[nodiscard]] utils::Result<long long> getSystemBootTimeUnix() const;
     static utils::Result<long> getSystemClockTicksPerSecond();
     [[nodiscard]] utils::Result<SystemCpuStats> getSystemCpuStats() const;
+    [[nodiscard]] utils::Result<SystemCpuUsage> getSystemCpuUsage(std::chrono::milliseconds duration) const;
     [[nodiscard]] utils::Result<SystemMemoryInfo> getSystemMemoryInfo() const;
     [[nodiscard]] utils::Result<SystemLoadAverage> getSystemLoadAverage() const;
     [[nodiscard]] utils::Result<std::vector<MountPointInfo>> getSystemDiskUsage() const;

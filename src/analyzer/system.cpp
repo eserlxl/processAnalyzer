@@ -9,6 +9,7 @@
 
 #include <string>
 #include <sstream>
+#include <thread>
 #include <unistd.h>
 #include <sys/statvfs.h>
 #include <set>
@@ -166,6 +167,36 @@ utils::Result<SystemCpuStats> ProcessAnalyzer::getSystemCpuStats() const {
     }
 
     return std::unexpected(utils::make_error_code(utils::UtilsError::analyzerParsingError));
+}
+
+// Implementation of ProcessAnalyzer::getSystemCpuUsage
+utils::Result<SystemCpuUsage> ProcessAnalyzer::getSystemCpuUsage(std::chrono::milliseconds duration) const {
+    auto stats1 = getSystemCpuStats();
+    if (!stats1) {
+        return std::unexpected(stats1.error());
+    }
+
+    std::this_thread::sleep_for(duration);
+
+    auto stats2 = getSystemCpuStats();
+    if (!stats2) {
+        return std::unexpected(stats2.error());
+    }
+
+    const auto active1 = stats1->user + stats1->nice + stats1->system
+                         + stats1->irq + stats1->softirq + stats1->steal;
+    const auto active2 = stats2->user + stats2->nice + stats2->system
+                         + stats2->irq + stats2->softirq + stats2->steal;
+    const auto total1  = active1 + stats1->idle + stats1->iowait;
+    const auto total2  = active2 + stats2->idle + stats2->iowait;
+
+    const auto totalDelta = total2 - total1;
+    if (totalDelta == 0ULL) {
+        return SystemCpuUsage{0.0};
+    }
+
+    const auto activeDelta = static_cast<double>(active2 - active1);
+    return SystemCpuUsage{activeDelta / static_cast<double>(totalDelta) * 100.0};
 }
 
 // Implementation of ProcessAnalyzer::getSystemDiskIoStats

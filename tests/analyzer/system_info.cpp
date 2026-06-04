@@ -117,3 +117,30 @@ TEST(SystemCpuStatsTest, MissingStatReturnsError) {
     auto result = analyzer.getSystemCpuStats();
     EXPECT_FALSE(result.has_value());
 }
+
+TEST(SystemCpuStatsTest, MalformedCpuLineReturnsError) {
+    MockProc mockProc("mock_proc_cpu_stats_malformed_test");
+    ProcessAnalyzer analyzer(mockProc.getPath());
+    // cpu line has only 2 numeric fields instead of the 8 required for parsing.
+    mockProc.createFileAt("stat", "cpu  100 20\n");
+
+    auto result = analyzer.getSystemCpuStats();
+    EXPECT_FALSE(result.has_value());
+}
+
+TEST(SystemCpuUsageTest, ReturnsPercentageInRange) {
+    // Use real /proc so both snapshots read actual CPU data.
+    ProcessAnalyzer analyzer("/proc");
+    auto result = analyzer.getSystemCpuUsage(std::chrono::milliseconds(1));
+    ASSERT_TRUE(result.has_value());
+    EXPECT_GE(result.value().cpuPercentage, 0.0);
+    EXPECT_LE(result.value().cpuPercentage, 100.0);
+}
+
+TEST(SystemCpuUsageTest, MissingStatReturnsError) {
+    MockProc mockProc("mock_proc_cpu_usage_absent_test");
+    ProcessAnalyzer analyzer(mockProc.getPath());
+    // No stat file — getSystemCpuStats() will fail on the first call.
+    auto result = analyzer.getSystemCpuUsage(std::chrono::milliseconds(1));
+    EXPECT_FALSE(result.has_value());
+}
