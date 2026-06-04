@@ -224,3 +224,30 @@ TEST_F(QueryNetworkFilterTest, FilterByNonMatchingPortReturnsEmpty) {
     ASSERT_TRUE(result.has_value());
     EXPECT_TRUE(result.value().empty());
 }
+
+TEST_F(QueryNetworkFilterTest, StreamAppliesNetworkFilterMatchingPort) {
+    ProcessFilter filter;
+    ProcessFilter::NetworkFilterCriteria netCrit;
+    netCrit.localPort = kListeningPort;
+    filter.networkConnectionFilter = netCrit;
+
+    std::vector<pid_t> pids;
+    for (const ProcessInfo& info : analyzer.streamQueryProcesses(filter)) {
+        pids.push_back(info.pid);
+    }
+    ASSERT_EQ(pids.size(), 1U);
+    EXPECT_EQ(pids.front(), kNetPid);
+}
+
+TEST_F(QueryNetworkFilterTest, StreamAppliesNetworkFilterNonMatchingPort) {
+    ProcessFilter filter;
+    ProcessFilter::NetworkFilterCriteria netCrit;
+    netCrit.localPort = kNonListeningPort;
+    filter.networkConnectionFilter = netCrit;
+
+    std::vector<pid_t> pids;
+    for (const ProcessInfo& info : analyzer.streamQueryProcesses(filter)) {
+        pids.push_back(info.pid);
+    }
+    EXPECT_TRUE(pids.empty());
+}

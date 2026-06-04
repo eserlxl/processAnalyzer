@@ -22,7 +22,9 @@ namespace {
 
 constexpr int kilobyteSize = 1024;
 constexpr int parseIntegerBase = 10;
-constexpr int threadStatSkipFields = 14;
+// Fields to skip after state (field 3) to reach utime (field 14):
+// ppid, pgrp, session, tty_nr, tpgid, flags, minflt, cminflt, majflt, cmajflt
+constexpr int threadStatSkipFields = 10;
 
 // Helper to get username from UID
 std::string getUserName(uid_t uid) {
@@ -333,8 +335,7 @@ utils::Result<std::vector<ThreadInfo>> ProcessAnalyzer::getProcessThreads(int pi
                 if (iss >> stateChar) {
                     threadInfo.state = std::string(1, stateChar);
                 }
-                // Skip many fields to get utime and stime
-                // (p_pid to policy - 14 fields)
+                // Skip fields 4–13 (ppid through cmajflt) to reach utime (field 14).
                 for (int i = 0; i < threadStatSkipFields; ++i) iss >> token;
                 if (iss >> utimeUl >> stimeUl) {
                     threadInfo.cpuUserTimeTicks = static_cast<long long>(utimeUl);

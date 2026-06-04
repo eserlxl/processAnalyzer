@@ -119,3 +119,32 @@ TEST_F(GetOpenFilesTest, AbsentFdDirReturnsError) {
     auto result = analyzer.getProcessOpenFileDetails(kAbsentPid);
     EXPECT_FALSE(result.has_value());
 }
+
+// Regression test: getProcessThreads must read utime/stime (fields 14–15), not
+// priority/nice (fields 18–19). Previously threadStatSkipFields was 14 instead of 10.
+TEST(GetProcessThreadsCpuTicks, ReadsUtimeAndStimeNotPriorityAndNice) {
+    constexpr int kTestPid = 6000;
+    constexpr int kTestTid = 6001;
+    constexpr unsigned long kUtime = 4200UL;
+    constexpr unsigned long kStime = 1800UL;
+
+    MockProc mockProc("mock_proc_thread_cpu_ticks");
+    ProcessAnalyzer analyzer(mockProc.getPath());
+
+    mockProc.buildProcess(kTestPid).withName("main").withParent(1).create();
+
+    MockProc::AddThreadOptions opts;
+    opts.name = "worker";
+    opts.statData.utime = kUtime;
+    opts.statData.stime = kStime;
+    mockProc.addThread(kTestPid, kTestTid, opts);
+
+    auto result = analyzer.getProcessThreads(kTestPid);
+    ASSERT_TRUE(result.has_value());
+
+    const auto& threads = result.value();
+    auto it = std::ranges::find_if(threads, [](const ThreadInfo& t) { return t.tid == kTestTid; });
+    ASSERT_NE(it, threads.end());
+    EXPECT_EQ(it->cpuUserTimeTicks, static_cast<long long>(kUtime));
+    EXPECT_EQ(it->cpuKernelTimeTicks, static_cast<long long>(kStime));
+}

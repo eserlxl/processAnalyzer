@@ -38,6 +38,11 @@ int main(int argc, char* argv[]) {
         filter.minThreads = args.minThreads;
         filter.maxThreads = args.maxThreads;
         filter.uidFilter = args.uidFilter;
+        if (args.cmdlineFilter) filter.cmdlineContains = *args.cmdlineFilter;
+        filter.minVirtualMemoryKB = args.minVmKb;
+        filter.maxVirtualMemoryKB = args.maxVmKb;
+        filter.minPriority = args.minPriority;
+        filter.maxPriority = args.maxPriority;
 
         if (args.command == "system") {
             constexpr int labelWidth = 20;

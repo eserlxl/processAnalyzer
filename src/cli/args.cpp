@@ -93,6 +93,11 @@ void printUsage() {
               << "  --max-rss <KB>           Filter processes with RSS <= KB\n"
               << "  --min-threads <N>        Filter processes with thread count >= N\n"
               << "  --max-threads <N>        Filter processes with thread count <= N\n"
+              << "  --cmdline <pattern>      Filter processes by command-line substring\n"
+              << "  --min-vm <KB>            Filter processes with virtual memory >= KB\n"
+              << "  --max-vm <KB>            Filter processes with virtual memory <= KB\n"
+              << "  --min-priority <N>       Filter processes with priority >= N\n"
+              << "  --max-priority <N>       Filter processes with priority <= N\n"
               << std::endl;
 }
 
@@ -278,6 +283,10 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
                 return std::nullopt;
             }
             if (auto uid = parseIntWithinRange(cliArgs[++i])) {
+                if (*uid < 0) {
+                    std::cerr << "Error: --uid requires a non-negative integer.\n";
+                    return std::nullopt;
+                }
                 args.uidFilter = uid;
             } else {
                 std::cerr << "Error: Invalid UID '" << cliArgs[i] << "'.\n";
@@ -325,6 +334,54 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
                 args.maxThreads = *val;
             } else {
                 std::cerr << "Error: Invalid value for --max-threads '" << cliArgs[i] << "'.\n";
+                return std::nullopt;
+            }
+        } else if (arg == "--cmdline") {
+            if (i + 1 >= cliArgs.size()) {
+                std::cerr << "Error: --cmdline requires an argument.\n";
+                return std::nullopt;
+            }
+            args.cmdlineFilter = std::string(cliArgs[++i]);
+        } else if (arg == "--min-vm") {
+            if (i + 1 >= cliArgs.size()) {
+                std::cerr << "Error: --min-vm requires an argument (KB).\n";
+                return std::nullopt;
+            }
+            if (auto val = utils::toLong(cliArgs[++i])) {
+                args.minVmKb = static_cast<long long>(*val);
+            } else {
+                std::cerr << "Error: Invalid value for --min-vm '" << cliArgs[i] << "'.\n";
+                return std::nullopt;
+            }
+        } else if (arg == "--max-vm") {
+            if (i + 1 >= cliArgs.size()) {
+                std::cerr << "Error: --max-vm requires an argument (KB).\n";
+                return std::nullopt;
+            }
+            if (auto val = utils::toLong(cliArgs[++i])) {
+                args.maxVmKb = static_cast<long long>(*val);
+            } else {
+                std::cerr << "Error: Invalid value for --max-vm '" << cliArgs[i] << "'.\n";
+                return std::nullopt;
+            }
+        } else if (arg == "--min-priority") {
+            if (i + 1 >= cliArgs.size()) {
+                std::cerr << "Error: --min-priority requires an argument.\n";
+                return std::nullopt;
+            }
+            args.minPriority = parseIntWithinRange(cliArgs[++i]);
+            if (!args.minPriority) {
+                std::cerr << "Error: Invalid value for --min-priority '" << cliArgs[i] << "'.\n";
+                return std::nullopt;
+            }
+        } else if (arg == "--max-priority") {
+            if (i + 1 >= cliArgs.size()) {
+                std::cerr << "Error: --max-priority requires an argument.\n";
+                return std::nullopt;
+            }
+            args.maxPriority = parseIntWithinRange(cliArgs[++i]);
+            if (!args.maxPriority) {
+                std::cerr << "Error: Invalid value for --max-priority '" << cliArgs[i] << "'.\n";
                 return std::nullopt;
             }
         } else if (utils::startsWith(arg, "-")) {

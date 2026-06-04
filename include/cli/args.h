@@ -33,6 +33,11 @@ struct ParsedArguments {
     std::optional<long> minThreads;           // Minimum thread count (--min-threads).
     std::optional<long> maxThreads;           // Maximum thread count (--max-threads).
     std::optional<int> uidFilter;             // Filter by numeric UID (--uid).
+    std::optional<std::string> cmdlineFilter; // Filter by cmdline substring (--cmdline).
+    std::optional<long long> minVmKb;         // Minimum virtual memory in KB (--min-vm).
+    std::optional<long long> maxVmKb;         // Maximum virtual memory in KB (--max-vm).
+    std::optional<int> minPriority;           // Minimum process priority (--min-priority).
+    std::optional<int> maxPriority;           // Maximum process priority (--max-priority).
 };
 
 std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const> argv);

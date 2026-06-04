@@ -10,10 +10,12 @@ This document provides detailed instructions for using the `processAnalyzer` com
 - [Commands](#-commands)
   - [`list`](#list-command)
   - [`show`](#show-command)
+  - [`system`](#system-command)
 - [Options Reference](#-options-reference)
   - [Filtering Options](#filtering-options)
   - [Sorting Options](#sorting-options)
   - [Output Control](#output-control)
+  - [Column Reference](#column-reference)
   - [Inspection Options](#inspection-options)
   - [General Options](#general-options)
 - [Practical Examples](#-practical-examples)
@@ -39,6 +41,7 @@ processAnalyzer [command] [options]
 
 -   `./processAnalyzer list`: List all running processes.
 -   `./processAnalyzer show --pid <PID>`: Get detailed information about a specific process.
+-   `./processAnalyzer system`: Show system-wide information (memory, CPU load, disk, network).
 -   `./processAnalyzer --help`: Display all available commands and options.
 
 ---
@@ -75,10 +78,35 @@ The `show` command provides a deep dive into a single process, identified by its
 **Description:**
 Use this command for detailed diagnostics of a specific process. You can include information about its children, open files, network connections, and threads. Accessing certain details may require `sudo` privileges.
 
+The vertical output includes: PID, PPID, UID, user, name, state, nice value, RSS memory (KB), virtual memory (KB), thread count, start time, elapsed time, executable path, working directory, CPU user time (ticks), CPU kernel time (ticks), I/O read bytes, I/O write bytes, and full command line.
+
 **Example:**
 ```bash
 # Show detailed info for PID 1, including children and open files
 sudo ./processAnalyzer show --pid 1 --children --open-files
+```
+
+### `system` Command
+
+The `system` command prints a snapshot of system-wide resource usage.
+
+**Syntax:**
+```bash
+./processAnalyzer system
+```
+
+**Output sections:**
+- **System Information** — hostname, OS name, kernel version, and uptime.
+- **Load Average** — 1-minute, 5-minute, and 15-minute load averages.
+- **Memory (MiB)** — total, free, available, buffers, cached RAM; swap total and free (if swap is present).
+- **Disk Usage** — for each mounted filesystem: device, mount point, total space (GiB), free space (GiB).
+- **Network Interfaces** — for each network interface: RX/TX bytes and packets.
+- **Disk I/O Stats** — for each block device: reads, writes, sectors read, sectors written.
+- **System Activity** — total context switches, interrupts, and process forks since boot.
+
+**Example:**
+```bash
+./processAnalyzer system
 ```
 
 ---
@@ -93,8 +121,19 @@ Apply these options with the `list` command to narrow down results.
 | :--- | :--- | :--- |
 | `--ppid <pid>` | Filter by Parent Process ID. | `--ppid 1` |
 | `--name <name>` | Filter by process name (case-insensitive substring). | `--name nginx` |
-| `--user <user>` | Filter by username or UID. | `--user root` |
+| `--user <user>` | Filter by username. | `--user root` |
+| `--uid <N>` | Filter by numeric User ID (non-negative integer). | `--uid 1000` |
 | `--state <char>` | Filter by process state (e.g., 'R', 'S', 'Z'). | `--state Z` |
+| `--cmdline <pattern>` | Filter by command-line substring. | `--cmdline --config` |
+| `--min-rss <KB>` | Minimum resident set size in KB. | `--min-rss 51200` |
+| `--max-rss <KB>` | Maximum resident set size in KB. | `--max-rss 102400` |
+| `--min-vm <KB>` | Minimum virtual memory size in KB. | `--min-vm 1024` |
+| `--max-vm <KB>` | Maximum virtual memory size in KB. | `--max-vm 524288` |
+| `--min-threads <N>` | Minimum thread count. | `--min-threads 4` |
+| `--max-threads <N>` | Maximum thread count. | `--max-threads 16` |
+| `--min-priority <N>` | Minimum process priority (signed; lower = higher priority). | `--min-priority 0` |
+| `--max-priority <N>` | Maximum process priority. | `--max-priority 19` |
+| `--network <port>` | Show only processes with an active connection on the given local port. | `--network 8080` |
 
 ### Sorting Options
 
@@ -102,7 +141,7 @@ Apply these options with the `list` command to order the results.
 
 | Option | Description |
 | :--- | :--- |
-| `--sort-by <field>` | Field to sort by. Valid fields: `pid`, `ppid`, `uid`, `user`, `name`, `state`, `rss`, `vm`, `threads`, `cpu`, `start-time`, `mem`. |
+| `--sort-by <field>` | Field to sort by. Valid fields: `pid`, `ppid`, `uid`, `user`, `name`, `state`, `rss`, `vm`, `threads`, `cpu`, `start-time`, `mem`, `cmdline`, `cwd`, `cpu-time`, `elapsed-time`, `exec-path`, `nice`. |
 | `--sort-order <order>` | Sort order. Valid values: `asc` (ascending) or `desc` (descending). Default is `asc`. |
 
 ### Output Control
@@ -112,9 +151,31 @@ Customize the appearance of the output for the `list` command.
 | Option | Description |
 | :--- | :--- |
 | `--output <format>` | Output format. Options: `table` (default), `csv`, `json`, `vertical`. |
-| `--columns <c1,c2...>`| Comma-separated list of columns to display (e.g., `pid,name,cpu,rss`). |
+| `--columns <c1,c2...>`| Comma-separated list of columns to display. See [Column Reference](#column-reference) for valid names. |
 | `--no-truncate-cmdline`| Prevents truncating long command line arguments in the output. |
 | `--brief`, `-b` | Use a brief, single-line output format. |
+
+### Column Reference
+
+Use these names with `--columns`:
+
+| Column | Description |
+| :--- | :--- |
+| `pid` | Process ID |
+| `ppid` | Parent process ID |
+| `uid` | Numeric user ID |
+| `user` | Username |
+| `name` | Process name |
+| `state` | State character (R, S, D, Z, T, …) |
+| `rss` | Resident set size (KB) |
+| `vm` | Virtual memory size (KB) |
+| `threads` | Thread count |
+| `cmdline` | Full command line |
+| `start-time` | Process start timestamp |
+| `elapsed-time` | Elapsed wall-clock time since start |
+| `exec-path` | Path to the executable |
+| `nice` | Nice value (priority offset) |
+| `cwd` | Current working directory |
 
 ### Inspection Options
 
@@ -133,7 +194,6 @@ Use these options with the `show` command to include additional details. May req
 | :--- | :--- |
 | `--help`, `-h` | Show the help message and exit. |
 | `--pid <pid>`, `-p <pid>` | Target Process ID for the `show` command. |
-| `--config-file <path>` | Specify a path to a custom configuration file. |
 
 ---
 

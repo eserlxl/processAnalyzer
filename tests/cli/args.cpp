@@ -732,3 +732,57 @@ TEST_F(ArgsTestFixture, UidFilterInvalidValueReturnsNullopt) {
     auto argv = makeArgv({"processAnalyzer", "list", "--uid", "notanumber"});
     ASSERT_FALSE(parseCommandLine(static_cast<int>(argv.size()), argv).has_value());
 }
+
+TEST_F(ArgsTestFixture, UidFilterNegativeValueReturnsNullopt) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--uid", "-1"});
+    ASSERT_FALSE(parseCommandLine(static_cast<int>(argv.size()), argv).has_value());
+}
+
+TEST_F(ArgsTestFixture, CmdlineFilterIsSet) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--cmdline", "--config"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_TRUE(parsed->cmdlineFilter.has_value());
+    EXPECT_EQ(parsed->cmdlineFilter.value(), "--config");
+}
+
+TEST_F(ArgsTestFixture, CmdlineFilterMissingValueReturnsNullopt) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--cmdline"});
+    ASSERT_FALSE(parseCommandLine(static_cast<int>(argv.size()), argv).has_value());
+}
+
+TEST_F(ArgsTestFixture, MinVmFilterIsSet) {
+    constexpr long long kMinVm = 4096LL;
+    auto argv = makeArgv({"processAnalyzer", "list", "--min-vm", "4096"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_TRUE(parsed->minVmKb.has_value());
+    EXPECT_EQ(parsed->minVmKb.value(), kMinVm);
+}
+
+TEST_F(ArgsTestFixture, MaxVmFilterIsSet) {
+    constexpr long long kMaxVm = 524288LL;
+    auto argv = makeArgv({"processAnalyzer", "list", "--max-vm", "524288"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_TRUE(parsed->maxVmKb.has_value());
+    EXPECT_EQ(parsed->maxVmKb.value(), kMaxVm);
+}
+
+TEST_F(ArgsTestFixture, MinPriorityFilterIsSet) {
+    constexpr int kMinPriority = 0;
+    auto argv = makeArgv({"processAnalyzer", "list", "--min-priority", "0"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_TRUE(parsed->minPriority.has_value());
+    EXPECT_EQ(parsed->minPriority.value(), kMinPriority);
+}
+
+TEST_F(ArgsTestFixture, MaxPriorityFilterIsSet) {
+    constexpr int kMaxPriority = 19;
+    auto argv = makeArgv({"processAnalyzer", "list", "--max-priority", "19"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_TRUE(parsed->maxPriority.has_value());
+    EXPECT_EQ(parsed->maxPriority.value(), kMaxPriority);
+}
