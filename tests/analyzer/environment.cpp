@@ -50,3 +50,32 @@ TEST_F(GetProcessEnvironmentTest, AbsentPidReturnsError) {
     auto result = analyzer.getProcessEnvironment(kAbsentPid);
     EXPECT_FALSE(result.has_value());
 }
+
+TEST(GetProcessEnvironmentEdgeCases, EntryWithEqualsInValuePreserved) {
+    constexpr int kPid = 6100;
+    MockProc mockProc("mock_proc_environ_equals_test");
+    ProcessAnalyzer analyzer(mockProc.getPath());
+    mockProc.buildProcess(kPid).withName("proc").withParent(1).create();
+
+    // Environ file with a value that contains '=': PATH=/usr/bin:/bin
+    std::string content = "PATH=/usr/bin:/bin";
+    content += '\0';
+    mockProc.createFileAt(std::to_string(kPid) + "/environ", content);
+
+    auto result = analyzer.getProcessEnvironment(kPid);
+    ASSERT_TRUE(result.has_value());
+    ASSERT_EQ(result.value().size(), 1U);
+    EXPECT_EQ(result.value().front(), "PATH=/usr/bin:/bin");
+}
+
+TEST(GetProcessEnvironmentEdgeCases, EmptyEnvironReturnsEmptyVector) {
+    constexpr int kPid = 6200;
+    MockProc mockProc("mock_proc_environ_empty_test");
+    ProcessAnalyzer analyzer(mockProc.getPath());
+    mockProc.buildProcess(kPid).withName("proc").withParent(1).create();
+    mockProc.createFileAt(std::to_string(kPid) + "/environ", "");
+
+    auto result = analyzer.getProcessEnvironment(kPid);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(result.value().empty());
+}

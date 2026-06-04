@@ -89,6 +89,8 @@ void printUsage() {
               << "  --network                (With 'show' or 'pid') Show network connections for process\n"
               << "  --env, --environment     (With 'show' or 'pid') Show environment variables\n"
               << "  --maps                   (With 'show' or 'pid') Show memory maps\n"
+              << "  --limits                 (With 'show' or 'pid') Show resource limits\n"
+              << "  --cgroup                 (With 'show' or 'pid') Show cgroup membership\n"
               << "  --ppid <ppid>            Filter processes by Parent Process ID\n"
               << "  --uid <N>                Filter processes by numeric User ID\n"
               << "  --min-rss <KB>           Filter processes with RSS >= KB\n"
@@ -283,6 +285,10 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
             args.showEnv = true;
         } else if (arg == "--maps") {
             args.showMemoryMaps = true;
+        } else if (arg == "--limits") {
+            args.showLimits = true;
+        } else if (arg == "--cgroup") {
+            args.showCgroupInfo = true;
         } else if (arg == "--uid") {
             if (i + 1 >= cliArgs.size()) {
                 std::cerr << "Error: --uid requires an argument.\n";
@@ -423,9 +429,10 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
 
     // Inspection flags are only valid with 'show' or 'pid' commands.
     if ((args.showChildren || args.showOpenFiles || args.showNetworkConnections ||
-         args.showThreads || args.showEnv || args.showMemoryMaps) &&
+         args.showThreads || args.showEnv || args.showMemoryMaps ||
+         args.showLimits || args.showCgroupInfo) &&
         args.command != "show" && args.command != "pid") {
-        std::cerr << "Error: --children, --open-files, --threads, --network, --env, and --maps are only valid with 'show' or 'pid' commands.\n";
+        std::cerr << "Error: --children, --open-files, --threads, --network, --env, --maps, --limits, and --cgroup are only valid with 'show' or 'pid' commands.\n";
         return std::nullopt;
     }
 

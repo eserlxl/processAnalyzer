@@ -314,6 +314,51 @@ int main(int argc, char* argv[]) {
                         std::cerr << "\nError reading memory maps: " << mapsResult.error().message() << "\n";
                     }
                 }
+                if (args.showLimits) {
+                    auto limitsResult = analyzer.getProcessResourceLimits(targetPid);
+                    if (limitsResult) {
+                        auto& info = *limitsResult;
+                        if (!info.limits.empty()) {
+                            constexpr int resourceWidth = 28;
+                            constexpr int limitWidth = 22;
+                            constexpr int separatorWidth = 76;
+                            std::cout << "\nResource Limits:\n";
+                            std::cout << "  " << std::left << std::setw(resourceWidth) << "Limit"
+                                      << std::setw(limitWidth) << "Soft Limit"
+                                      << std::setw(limitWidth) << "Hard Limit"
+                                      << "Units\n";
+                            std::cout << "  " << std::string(separatorWidth, '-') << "\n";
+                            for (const auto& lim : info.limits) {
+                                std::cout << "  " << std::left << std::setw(resourceWidth) << lim.resource
+                                          << std::setw(limitWidth) << lim.softLimit
+                                          << std::setw(limitWidth) << lim.hardLimit
+                                          << lim.units << "\n";
+                            }
+                        } else {
+                            std::cout << "\nNo resource limits found.\n";
+                        }
+                    } else {
+                        std::cerr << "\nError reading resource limits: " << limitsResult.error().message() << "\n";
+                    }
+                }
+                if (args.showCgroupInfo) {
+                    auto cgroupResult = analyzer.getProcessCgroupInfo(targetPid);
+                    if (cgroupResult) {
+                        auto& info = *cgroupResult;
+                        if (!info.entries.empty()) {
+                            std::cout << "\nCgroup Membership:\n";
+                            for (const auto& entry : info.entries) {
+                                std::cout << "  " << entry.id << ":"
+                                          << entry.controllers << ":"
+                                          << entry.path << "\n";
+                            }
+                        } else {
+                            std::cout << "\nNo cgroup entries found.\n";
+                        }
+                    } else {
+                        std::cerr << "\nError reading cgroup info: " << cgroupResult.error().message() << "\n";
+                    }
+                }
                 return 0; // Done with pid-specific output
             }
             // Otherwise, add to list for table/csv/json output

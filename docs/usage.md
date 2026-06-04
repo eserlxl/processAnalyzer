@@ -189,6 +189,8 @@ Use these options with the `show` command to include additional details. May req
 | `--network` | Display active network connections (TCP/UDP/TCP6/UDP6). |
 | `--env`, `--environment` | List the process's environment variables. |
 | `--maps` | Show the process's memory map (address ranges, permissions, pathnames). |
+| `--limits` | Show resource limits (soft/hard limits for CPU, memory, files, etc.). |
+| `--cgroup` | Show cgroup membership (id, controllers, hierarchy path). |
 
 ### General Options
 

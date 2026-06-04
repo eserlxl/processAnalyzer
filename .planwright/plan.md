@@ -1,96 +1,96 @@
 # planwright Plan — .
-<!-- Session: 2026-06-05T01:00:00Z -->
+<!-- Session: 2026-06-05T02:00:00Z -->
 
-## 1. [improve] Integration tests for `cmdlineContains` filter in `queryProcesses`
+## 1. [improve] Integration test for `nameRegex` filter in `queryProcesses`
 
-**Surfaces:** `tests/analyzer/query.cpp` (`QueryProcessesTest` fixture or a new fixture)
+**Surfaces:** `tests/analyzer/query.cpp` (`QueryProcessesTest` fixture)
 
-**Evidence:** `ProcessFilter::cmdlineContains` is applied in `passesStaticFilters` and wired to `--cmdline` in Cycle 5, but `queryProcesses` is never called with `cmdlineContains` set in any test. The CLI-to-filter-to-query path is only partially verified.
+**Evidence:** `ProcessFilter::nameRegex` is applied in `passesStaticFilters` (filter_helpers.cpp:33 via `applyStringFilter`) but no test ever calls `queryProcesses` with `nameRegex` set. The regex code path is exercised by zero tests.
 
-**Development:** Add two tests using the existing `QueryProcessesTest` fixture (or a small inline mock): `FilterByCmdlineMatchReturnsSubset` — set `filter.cmdlineContains = "alpha"` and assert only the "alpha" processes (kPidAlphaA, kPidAlphaB) are returned; `FilterByCmdlineNoMatchReturnsEmpty` — set a pattern that matches nothing and assert an empty result. If the default cmdline from `withName` equals the process name, the "alpha" substring is sufficient; otherwise extend setup with `.withCmdlineArgs({"alpha", "--flag"})`.
+**Development:** In `QueryProcessesTest`, add `FilterByNameRegexMatchesSubset` — set `filter.nameRegex = std::regex("^alpha$")` and assert only the two "alpha" PIDs (kPidAlphaA, kPidAlphaB) are returned. Add `FilterByNameRegexNoMatch` — set a pattern that matches nothing and assert empty result.
 
-**Verification:** Build and `ctest` pass. Both new tests pass.
+**Verification:** Build and `ctest` pass.
 
 ---
 
-## 2. [improve] Integration tests for virtual memory range filter in `queryProcesses`
+## 2. [improve] Test `NetworkFilterCriteria::state` filter in `queryProcesses`
+
+**Surfaces:** `tests/analyzer/query.cpp` (`QueryNetworkFilterTest` fixture)
+
+**Evidence:** `passesNetworkFilter` at line 55 checks `netFilter.state`, but this field is set by no test. The existing TCP connection in the fixture has `state == "ESTABLISHED"` (hex `01`). Filtering by state can be tested with that existing mock.
+
+**Development:** Add `FilterByConnectionStateMatches` — set `netFilter.state = "ESTABLISHED"`, assert `kNetPid` is returned. Add `FilterByConnectionStateNoMatch` — set `netFilter.state = "LISTEN"`, assert empty result.
+
+**Verification:** Build and `ctest` pass.
+
+---
+
+## 3. [improve] Test `NetworkFilterCriteria::protocol` filter in `queryProcesses`
+
+**Surfaces:** `tests/analyzer/query.cpp` (`QueryNetworkFilterTest` fixture or new fixture)
+
+**Evidence:** `passesNetworkFilter` line 54 checks `netFilter.protocol`, but zero tests exercise this field. A TCP-only process should pass `protocol == "TCP"` and fail `protocol == "UDP"`.
+
+**Development:** Add `FilterByProtocolTcpMatches` — set `netFilter.protocol = "TCP"`, assert `kNetPid` is returned. Add `FilterByProtocolUdpNoMatch` — set `netFilter.protocol = "UDP"`, assert empty result (no UDP entry in the fixture's `net/tcp`).
+
+**Verification:** Build and `ctest` pass.
+
+---
+
+## 4. [improve] Validate that inspection flags are rejected with `list` command
+
+**Surfaces:** `tests/cli/args.cpp`
+
+**Evidence:** The validation block in `args.cpp` (line 425) rejects `--env` and `--maps` when used with `list`, but there are zero tests for this rejection. The pattern is broken — `--children`, `--threads`, `--open-files`, `--network` have no validation tests either.
+
+**Development:** Add four tests in `tests/cli/args.cpp`: `EnvFlagWithListCommandReturnsNullopt` (`list --env` → nullopt), `MapsFlagWithListCommandReturnsNullopt` (`list --maps` → nullopt), `ChildrenFlagWithListCommandReturnsNullopt` (`list --children` → nullopt), `ThreadsFlagWithListCommandReturnsNullopt` (`list --threads` → nullopt). Use `makeArgv({"processAnalyzer", "list", "--env"})` etc.
+
+**Verification:** Build and `ctest` pass. All four new tests pass.
+
+---
+
+## 5. [improve] Test `executablePathContains` integration filter in `queryProcesses`
 
 **Surfaces:** `tests/analyzer/query.cpp`
 
-**Evidence:** `ProcessFilter::minVirtualMemoryKB` / `maxVirtualMemoryKB` are implemented and wired in Cycle 5, but never exercised end-to-end. A regression in the wiring would be invisible.
+**Evidence:** `ProcessFilter::executablePathContains` is applied at `filter_helpers.cpp:35` but no test ever sets it and calls `queryProcesses`. Processes in `QueryProcessesTest` have no `executablePath` set (no exe symlink). A new fixture is needed.
 
-**Development:** Add a small fixture (or extend `QueryProcessesTest`) that creates two processes with different virtual memory values using `buildProcess(...).withStat(...)` (set `statData.vsize`). Add `FilterByMinVmExcludesSmall` and `FilterByMaxVmExcludesLarge` tests. Note: `vsize` is in bytes in the stat struct; the filter compares against KB (divide by 1024).
-
-**Verification:** Build and `ctest` pass.
-
----
-
-## 3. [improve] Integration tests for priority range filter in `queryProcesses`
-
-**Surfaces:** `tests/analyzer/query.cpp`
-
-**Evidence:** `ProcessFilter::minPriority` / `maxPriority` are implemented and wired, but never exercised end-to-end.
-
-**Development:** Add a small fixture that creates two processes with different priority values via `buildProcess(...).withStat(...)` (set `statData.priority`). Add `FilterByMinPriorityExcludesLow` and `FilterByMaxPriorityExcludesHigh` tests. Note: the analyzer stores `info.priority = static_cast<int>(priorityL)` where `priorityL` is field 18 of `/proc/pid/stat` (kernel priority, not nice value).
+**Development:** Add a small fixture with two processes that have distinct exe paths (e.g., `/usr/bin/server` and `/usr/lib/helper`) via `buildProcess(...).withExe(mockFilePath).create()`. Add `FilterByExecPathMatchReturnsSubset` and `FilterByExecPathNoMatchReturnsEmpty`.
 
 **Verification:** Build and `ctest` pass.
 
 ---
 
-## 4. [improve] Add "missing maps file → error" test to `GetProcessMemoryMapsTest`
-
-**Surfaces:** `tests/analyzer/memory_maps.cpp`
-
-**Evidence:** Every other thin test suite (`GetProcessCgroupInfoTest`, `GetProcessResourceLimitsTest`) has a "process dir exists but the file is absent → returns error" test. `GetProcessMemoryMapsTest` has only 2 tests and is missing this case, breaking the pattern.
-
-**Development:** Add `TEST_F(GetProcessMemoryMapsTest, MissingMapsFileReturnsError)` — call `analyzer.getProcessMemoryMaps(kPid)` without creating the maps file first (the fixture's `SetUp` calls `createMaps` in the happy-path test, but the `kPid` directory exists). The result must not have a value.
-
-**Verification:** Build and `ctest` pass.
-
----
-
-## 5. [improve] Add UDP connection test to `GetNetworkConnectionsTest`
-
-**Surfaces:** `tests/analyzer/network_connections.cpp`
-
-**Evidence:** `getNetworkConnections` parses `net/tcp`, `net/tcp6`, `net/udp`, and `net/udp6`. Only `net/tcp` is created in the existing test fixture. A bug in UDP parsing would be invisible.
-
-**Development:** Extend `GetNetworkConnectionsTest::SetUp` to also create a `net/udp` file with one UDP entry whose inode matches a second socket fd on `kMatchingPid`. Add test `ParsesMatchingUdpConnection` — call `getNetworkConnections(kMatchingPid)`, assert the result contains a connection with `protocol == "UDP"`. Alternatively, create a separate fixture if adding to `SetUp` would break the existing tests.
-
-**Verification:** Build and `ctest` pass. Both existing tests and the new UDP test pass.
-
----
-
-## 6. [develop] Add `--env` flag to `show` command: print process environment variables
-
-**Surfaces:** `include/cli/args.h` (`ParsedArguments`), `src/cli/args.cpp`, `src/main.cpp`
-
-**Evidence:** `getProcessEnvironment(pid)` is implemented and returns `vector<string>` of `KEY=VALUE` entries. No CLI flag exposes it. The `show` command has an established subsection pattern (`--children`, `--threads`, `--open-files`, `--network`) that this slot fits naturally.
-
-**Development:** Add `bool showEnv = false;` to `ParsedArguments`. In `args.cpp`, add `--env` / `--environment` parsing. In `main.cpp`, in the `show`/`pid` single-process path (before the `return 0` at line 269), add a block identical in structure to the `--threads` block: call `getProcessEnvironment(targetPid)`, print a `"\nEnvironment Variables:\n"` header, then one line per `KEY=VALUE` entry. Add usage line. Add test `EnvFlagIsSet` in `tests/cli/args.cpp`.
-
-**Verification:** Build and `ctest` pass. Smoke: `processAnalyzer show --pid 1 --env` prints environment entries.
-
----
-
-## 7. [develop] Add `--maps` flag to `show` command: print process memory maps
+## 6. [develop] Add `--limits` flag to `show` command: print resource limits
 
 **Surfaces:** `include/cli/args.h`, `src/cli/args.cpp`, `src/main.cpp`
 
-**Evidence:** `getProcessMemoryMaps(pid)` is implemented and returns `vector<MemoryMapInfo>`. No CLI flag exposes it. Follows the `show` subsection pattern.
+**Evidence:** `getProcessResourceLimits(pid)` is implemented and returns `ResourceLimitInfo` with a `limits` vector (resource, softLimit, hardLimit, units). No CLI flag exposes it. Follows the established `show` subsection pattern.
 
-**Development:** Add `bool showMemoryMaps = false;` to `ParsedArguments`. Parse `--maps` in `args.cpp`. In `main.cpp`, add a block that calls `getProcessMemoryMaps(targetPid)` and prints a table with columns: address range (`startAddress`–`endAddress`), permissions, pathname (or `[anon]` if empty). Use fixed-width formatting consistent with the existing threads/files output. Add usage line. Add test `MapsFlagIsSet` in `tests/cli/args.cpp`.
+**Development:** Add `bool showLimits = false;` to `ParsedArguments`. Parse `--limits` in `args.cpp` and add to the inspection-flag validation block. In `main.cpp`, add a block calling `getProcessResourceLimits(targetPid)` and print a table: Limit name, Soft Limit, Hard Limit, Units. Add usage line and a `LimitsFlagIsSet` test in `tests/cli/args.cpp`.
 
-**Verification:** Build and `ctest` pass. Smoke: `processAnalyzer show --pid 1 --maps` prints memory map sections.
+**Verification:** Build and `ctest` pass.
 
 ---
 
-## 8. [improve] Add `customPredicate` test to `QueryProcessesTest`
+## 7. [develop] Add `--cgroup` flag to `show` command: print cgroup membership
 
-**Surfaces:** `tests/analyzer/query.cpp`
+**Surfaces:** `include/cli/args.h`, `src/cli/args.cpp`, `src/main.cpp`
 
-**Evidence:** `ProcessFilter::customPredicate` (an `optional<ProcessPredicate>`) is applied at line 44 of `filter_helpers.cpp` but has zero test coverage. Any regression in its evaluation would be silent.
+**Evidence:** `getProcessCgroupInfo(pid)` is implemented and returns `CgroupInfo` with entries (id, controllers, path). No CLI flag exposes it. Follows the `show` subsection pattern.
 
-**Development:** In `tests/analyzer/query.cpp`, add `TEST_F(QueryProcessesTest, CustomPredicateFiltersProcesses)` — set `filter.customPredicate` to a lambda that returns `info.pid <= kPidBravo` (i.e., only accept PIDs ≤ 20). Call `queryProcesses(filter, ...)`. Assert the result contains only kPidAlphaA (10) and kPidBravo (20), not kPidAlphaB (30) or kPidCharlie (40).
+**Development:** Add `bool showCgroupInfo = false;` to `ParsedArguments`. Parse `--cgroup` in `args.cpp` and add to the inspection-flag validation block. In `main.cpp`, add a block printing each cgroup entry as `id:controllers:path`. Add usage line and a `CgroupFlagIsSet` test.
 
-**Verification:** Build and `ctest` pass. The new test passes.
+**Verification:** Build and `ctest` pass.
+
+---
+
+## 8. [improve] Add edge-case tests to `GetProcessEnvironmentTest`
+
+**Surfaces:** `tests/analyzer/environment.cpp`
+
+**Evidence:** Only 2 tests exist: happy path (2 vars) and absent pid. Missing: (a) env var whose value contains `=` (e.g., `PATH=/usr/bin:/bin`) — the split on `\0` is correct but it's never verified that `=` in the value is preserved; (b) empty environ file → empty vector returned (not an error).
+
+**Development:** Add `ReturnsEntryWithEqualsInValue` — create a process with an environ containing `PATH=/usr/bin:/bin`, call `getProcessEnvironment`, assert that the entry `"PATH=/usr/bin:/bin"` (the whole string including the `=` in the value) is in the result. Add `EmptyEnvironReturnsEmptyVector` — create a process with an empty `environ` file and assert the result is a non-error empty vector.
+
+**Verification:** Build and `ctest` pass.

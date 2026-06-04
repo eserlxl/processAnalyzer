@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <memory>
+#include <regex>
 #include <string>
 #include <vector>
 
@@ -180,6 +181,24 @@ TEST_F(QueryProcessesTest, FilterByCmdlineNoMatchReturnsEmpty) {
     EXPECT_TRUE(result.value().empty());
 }
 
+TEST_F(QueryProcessesTest, FilterByNameRegexMatchesSubset) {
+    ProcessFilter filter;
+    filter.nameRegex = std::regex("^alpha$");
+
+    auto result = analyzer.queryProcesses(filter, ProcessSortField::pid, SortOrder::asc);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(pids(result.value()), (std::vector<pid_t>{kPidAlphaA, kPidAlphaB}));
+}
+
+TEST_F(QueryProcessesTest, FilterByNameRegexNoMatch) {
+    ProcessFilter filter;
+    filter.nameRegex = std::regex("^zzz_no_match$");
+
+    auto result = analyzer.queryProcesses(filter, ProcessSortField::pid, SortOrder::asc);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(result.value().empty());
+}
+
 TEST_F(QueryProcessesTest, CustomPredicateFiltersProcesses) {
     ProcessFilter filter;
     filter.customPredicate = [](const ProcessInfo& info) {
@@ -287,6 +306,54 @@ TEST_F(QueryStatFilterTest, FilterByMaxPriorityExcludesHigh) {
     EXPECT_EQ(got.front(), kLowPid);
 }
 
+// Exercises the executablePathContains filter.
+class QueryExecPathFilterTest : public ::testing::Test {
+protected:
+    ProcessAnalyzer analyzer;
+    std::filesystem::path originalProcPath;
+    std::unique_ptr<MockProc> mockProc;
+
+    static constexpr pid_t kServerPid = 700;
+    static constexpr pid_t kHelperPid = 701;
+
+    QueryExecPathFilterTest() : analyzer("/proc") {}
+
+    void SetUp() override {
+        mockProc = std::make_unique<MockProc>("mock_proc_exec_filter_test");
+        originalProcPath = analyzer.getProcPath();
+        analyzer.setProcPath(mockProc->getPath());
+
+        mockProc->buildProcess(kServerPid).withName("server").withParent(1)
+            .withExe("/usr/bin/server").create();
+        mockProc->buildProcess(kHelperPid).withName("helper").withParent(1)
+            .withExe("/usr/lib/helper").create();
+    }
+
+    void TearDown() override {
+        mockProc.reset();
+        analyzer.setProcPath(originalProcPath);
+    }
+};
+
+TEST_F(QueryExecPathFilterTest, FilterByExecPathMatchReturnsSubset) {
+    ProcessFilter filter;
+    filter.executablePathContains = "/usr/bin";
+
+    auto result = analyzer.queryProcesses(filter, ProcessSortField::pid, SortOrder::asc);
+    ASSERT_TRUE(result.has_value());
+    ASSERT_EQ(result.value().size(), 1U);
+    EXPECT_EQ(result.value().front().pid, kServerPid);
+}
+
+TEST_F(QueryExecPathFilterTest, FilterByExecPathNoMatchReturnsEmpty) {
+    ProcessFilter filter;
+    filter.executablePathContains = "/opt/zzz";
+
+    auto result = analyzer.queryProcesses(filter, ProcessSortField::pid, SortOrder::asc);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(result.value().empty());
+}
+
 // Exercises the networkConnectionFilter path in queryProcesses: only the
 // process whose socket inode appears in /proc/net/tcp with a matching port
 // should survive the filter.
@@ -375,4 +442,52 @@ TEST_F(QueryNetworkFilterTest, StreamAppliesNetworkFilterNonMatchingPort) {
         pids.push_back(info.pid);
     }
     EXPECT_TRUE(pids.empty());
+}
+
+TEST_F(QueryNetworkFilterTest, FilterByConnectionStateMatches) {
+    // The fixture's net/tcp entry has state 0x0A = LISTEN.
+    ProcessFilter filter;
+    ProcessFilter::NetworkFilterCriteria netCrit;
+    netCrit.state = "LISTEN";
+    filter.networkConnectionFilter = netCrit;
+
+    auto result = analyzer.queryProcesses(filter, ProcessSortField::pid, SortOrder::asc);
+    ASSERT_TRUE(result.has_value());
+    ASSERT_EQ(result.value().size(), 1U);
+    EXPECT_EQ(result.value().front().pid, kNetPid);
+}
+
+TEST_F(QueryNetworkFilterTest, FilterByConnectionStateNoMatch) {
+    ProcessFilter filter;
+    ProcessFilter::NetworkFilterCriteria netCrit;
+    netCrit.state = "ESTABLISHED";
+    filter.networkConnectionFilter = netCrit;
+
+    auto result = analyzer.queryProcesses(filter, ProcessSortField::pid, SortOrder::asc);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(result.value().empty());
+}
+
+TEST_F(QueryNetworkFilterTest, FilterByProtocolTcpMatches) {
+    ProcessFilter filter;
+    ProcessFilter::NetworkFilterCriteria netCrit;
+    netCrit.protocol = "TCP";
+    filter.networkConnectionFilter = netCrit;
+
+    auto result = analyzer.queryProcesses(filter, ProcessSortField::pid, SortOrder::asc);
+    ASSERT_TRUE(result.has_value());
+    ASSERT_EQ(result.value().size(), 1U);
+    EXPECT_EQ(result.value().front().pid, kNetPid);
+}
+
+TEST_F(QueryNetworkFilterTest, FilterByProtocolUdpNoMatch) {
+    // The fixture only has a net/tcp entry; no UDP connections exist.
+    ProcessFilter filter;
+    ProcessFilter::NetworkFilterCriteria netCrit;
+    netCrit.protocol = "UDP";
+    filter.networkConnectionFilter = netCrit;
+
+    auto result = analyzer.queryProcesses(filter, ProcessSortField::pid, SortOrder::asc);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(result.value().empty());
 }

@@ -800,3 +800,37 @@ TEST_F(ArgsTestFixture, MapsFlagIsSet) {
     ASSERT_TRUE(parsed.has_value());
     EXPECT_TRUE(parsed->showMemoryMaps);
 }
+
+TEST_F(ArgsTestFixture, EnvFlagWithListCommandReturnsNullopt) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--env"});
+    ASSERT_FALSE(parseCommandLine(static_cast<int>(argv.size()), argv).has_value());
+}
+
+TEST_F(ArgsTestFixture, MapsFlagWithListCommandReturnsNullopt) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--maps"});
+    ASSERT_FALSE(parseCommandLine(static_cast<int>(argv.size()), argv).has_value());
+}
+
+TEST_F(ArgsTestFixture, ChildrenFlagWithListCommandReturnsNullopt) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--children"});
+    ASSERT_FALSE(parseCommandLine(static_cast<int>(argv.size()), argv).has_value());
+}
+
+TEST_F(ArgsTestFixture, ThreadsFlagWithListCommandReturnsNullopt) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--threads"});
+    ASSERT_FALSE(parseCommandLine(static_cast<int>(argv.size()), argv).has_value());
+}
+
+TEST_F(ArgsTestFixture, LimitsFlagIsSet) {
+    auto argv = makeArgv({"processAnalyzer", "show", "--pid", "1", "--limits"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    EXPECT_TRUE(parsed->showLimits);
+}
+
+TEST_F(ArgsTestFixture, CgroupFlagIsSet) {
+    auto argv = makeArgv({"processAnalyzer", "show", "--pid", "1", "--cgroup"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    EXPECT_TRUE(parsed->showCgroupInfo);
+}

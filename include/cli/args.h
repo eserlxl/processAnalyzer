@@ -40,6 +40,8 @@ struct ParsedArguments {
     std::optional<int> maxPriority;           // Maximum process priority (--max-priority).
     bool showEnv = false;                     // Show environment variables (--env).
     bool showMemoryMaps = false;              // Show memory maps (--maps).
+    bool showLimits = false;                  // Show resource limits (--limits).
+    bool showCgroupInfo = false;              // Show cgroup membership (--cgroup).
 };
 
 std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const> argv);
