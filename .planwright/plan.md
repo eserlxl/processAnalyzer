@@ -1,68 +1,72 @@
 # planwright Plan — .
 <!-- Session: 2026-06-05T03:00:00Z -->
 
-## Cycle 14 — Coverage + Opportunity (depth 10)
+## Cycle 15 — Coverage + Opportunity (depth 10)
 
-Audit found: `getProcessCpuAffinity()` only has one parser test (the range format); the
-comma-list single-cpu path inside `expandCpuToken()` is untested. `currentWorkingDirectory`
-field in `ProcessInfo` is only tested indirectly (via a sort test); no test directly asserts
-the parsed field value. `setProcessCpuAffinity()` is documented in `api-reference.md` (line 53)
-and in `features.md` but the implementation is entirely missing.
-
----
-
-### Item 1 — `getProcessCpuAffinity()` comma-list format test
-**Mode:** improve  
-**Rung:** 2 (coverage)  
-**File:** `tests/analyzer/process_performance.cpp`  
-**Surfaces:** `src/analyzer/performance.cpp:23-32` (`expandCpuToken`)  
-**Description:** The existing `GetProcessCpuAffinityTest.ParsesRange` only exercises the
-`dashPos != npos` branch. The single-element branch (no dash) and comma-list tokenization
-are untested. Add `TEST(GetProcessCpuAffinityTest, ParsesCommaSeparatedList)` using
-`withStatusField("Cpus_allowed_list", "0,2,4")` and asserting `cpus == {0, 2, 4}`.
-This covers both the single-element branch of `expandCpuToken` and the comma-split path.  
-**Verification:** Build + ctest passes. New test passes.  
-**Status:** [x] done
+Audit found: `getChildProcesses()` and `getAllDescendantProcesses()` are only tested in the
+"has children" case — the leaf-node empty-result path is untested. `getSystemCpuStats()` is
+documented in `api-reference.md:67`, the `SystemCpuStats` struct is fully defined in
+`system_model.h:30-41`, but the implementation is entirely absent. `api-reference.md` lacks
+entries for `getProcessCpuAffinity()` and `getSystemCpuStats()` (both added in this session),
+leaving callers with no docs for two public API methods.
 
 ---
 
-### Item 2 — `currentWorkingDirectory` direct assertion
+### Item 1 — Leaf-node hierarchy empty results
 **Mode:** improve  
 **Rung:** 2 (coverage)  
 **File:** `tests/analyzer/process_details.cpp`  
-**Surfaces:** `src/analyzer/details.cpp:244-250` (cwd symlink read)  
-**Description:** `currentWorkingDirectory` in `ProcessInfo` is populated from
-`/proc/<pid>/cwd` (a symlink). No test directly asserts the field is populated with the
-expected path — it is only exercised via a sort comparison in `query.cpp`. Extend the
-existing `ProcessDetailsTest` fixture: add `withCwd(std::filesystem::temp_directory_path())`
-to the `kStandalonePid` process in `SetUp()`, and add
-`TEST_F(ProcessDetailsTest, GetProcessDetailsParsesCurrentWorkingDirectory)` that calls
-`getProcessDetails(kStandalonePid)` and asserts
-`info.currentWorkingDirectory == std::filesystem::temp_directory_path().string()`.  
-**Verification:** Build + ctest passes. New test passes.  
+**Surfaces:** `src/analyzer/base.cpp:154-179` (`getChildProcesses`, `getAllDescendantProcesses`)  
+**Description:** Both functions are tested only when the target process has descendants.
+The leaf-node case (process with no children) is untested — both should return an empty
+vector on success. Add two tests using the existing `kGrand` process (which has no children
+in the fixture):
+- `TEST_F(ProcessDetailsTest, GetChildProcessesReturnsEmptyForLeafProcess)` — asserts
+  `getChildProcesses(kGrand)` succeeds and returns empty.
+- `TEST_F(ProcessDetailsTest, GetAllDescendantProcessesReturnsEmptyForLeafProcess)` — asserts
+  `getAllDescendantProcesses(kGrand)` succeeds and returns empty.  
+**Verification:** Build + ctest passes. Both new tests pass.  
 **Status:** [x] done
 
 ---
 
-### Item 3 — `setProcessCpuAffinity()` implementation
+### Item 2 — `getSystemCpuStats()` implementation
 **Mode:** develop  
 **Rung:** 3 (opportunity)  
-**File:** `include/analyzer/core.h`, `src/analyzer/performance.cpp`,
-  `tests/analyzer/process_performance.cpp`  
-**Surfaces:** `docs/api-reference.md:53` (`setProcessCpuAffinity` documented),
-  `docs/features.md:14` ("set CPU affinity programmatically"),
-  `include/analyzer/system_model.h:92-95` (`CpuSet` struct),
-  `src/analyzer/performance.cpp` (natural home alongside `getProcessCpuAffinity`)  
-**Description:** `api-reference.md` documents `setProcessCpuAffinity(pid, affinity)` but
-the method is absent from `core.h`. Implement it using `sched_setaffinity()`: convert
-`CpuSet.cpus` to a `cpu_set_t` bitmask via `CPU_ZERO` / `CPU_SET`, then call
-`sched_setaffinity(pid, sizeof(cpu_set_t), &mask)`. Return errors for ESRCH
-(`analyzerProcessNotFound`), EPERM/EACCES (`analyzerPermissionDenied`), and EINVAL
-(`analyzerParsingError`). Add declaration to `core.h` under `//- Process Performance`.
-Add two tests to `tests/analyzer/process_performance.cpp`:
-`SetProcessCpuAffinityTest.SetsSelfAffinityToAllCpus` (builds a `CpuSet` containing CPU 0,
-calls on `getpid()`, expects success or `GTEST_SKIP` on permission denied), and
-`SetProcessCpuAffinityTest.NonexistentPidReturnsError` (absent PID via MockProc).  
+**File:** `include/analyzer/core.h`, `src/analyzer/system.cpp`,
+  `tests/analyzer/system_info.cpp`  
+**Surfaces:** `docs/api-reference.md:67` (`getSystemCpuStats()` documented),
+  `include/analyzer/system_model.h:30-41` (`SystemCpuStats` struct fully defined),
+  `src/analyzer/system.cpp` (natural home: already implements other `/proc/stat` readers)  
+**Description:** `api-reference.md` documents `getSystemCpuStats()` but the method is absent
+from `core.h`. Implement it: read `/proc/stat`, find the `cpu ` aggregate line, parse the
+10 fields into `SystemCpuStats` (user, nice, system, idle, iowait, irq, softirq, steal,
+guest, guestNice). Return `analyzerParsingError` if the `cpu` line is absent. Add the
+declaration to `core.h` under `//- System-wide Information & Statistics`. Implement in
+`src/analyzer/system.cpp`. Add two tests to `tests/analyzer/system_info.cpp`:
+- `TEST(SystemCpuStatsTest, ParsesCpuLine)` — create a mock `stat` file with a known `cpu`
+  line, assert all 10 fields parse correctly.
+- `TEST(SystemCpuStatsTest, MissingStatReturnsError)` — absent `stat` file returns error.  
 **Verification:** Build + ctest passes. New tests cover the new API.  
+**Status:** [x] done
+
+---
+
+### Item 3 — `api-reference.md` documents new APIs
+**Mode:** docs  
+**Rung:** 3 (opportunity)  
+**File:** `docs/api-reference.md`  
+**Surfaces:** `include/analyzer/core.h:75-76` (`getProcessCpuAffinity`,
+  `setProcessCpuAffinity`), `include/analyzer/core.h` (`getSystemCpuStats` once added)  
+**Description:** Two API methods added in Cycles 13–14 (`getProcessCpuAffinity`,
+`setProcessCpuAffinity`) are missing from `api-reference.md`; the doc still uses the old
+name `setProcessNiceness` instead of the actual method name `setProcessPriority`. Fix three
+documentation gaps:
+(a) Under "Process Control & Manipulation", add `getProcessCpuAffinity(pid)` before
+`setProcessCpuAffinity`, and rename `setProcessNiceness` to `setProcessPriority`.
+(b) Under "System-wide Information & Statistics", add `getSystemCpuStats()` once Item 2 is
+done.  
+**Verification:** `docs/api-reference.md` matches the actual `core.h` public surface for the
+listed functions.  
 **Status:** [x] done
 

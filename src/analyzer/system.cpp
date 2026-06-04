@@ -141,6 +141,33 @@ utils::Result<SystemActivityStats> ProcessAnalyzer::getSystemActivityStats() con
     return stats;
 }
 
+// Implementation of ProcessAnalyzer::getSystemCpuStats
+utils::Result<SystemCpuStats> ProcessAnalyzer::getSystemCpuStats() const {
+    auto content = utils::readTextFile((procPath / "stat").string());
+    if (!content) {
+        return std::unexpected(content.error());
+    }
+
+    std::istringstream iss{*content};
+    std::string line;
+    while (std::getline(iss, line)) {
+        if (!line.starts_with("cpu ")) {
+            continue;
+        }
+        SystemCpuStats stats;
+        std::string label;
+        std::istringstream ls(line);
+        if (!(ls >> label >> stats.user >> stats.nice >> stats.system >> stats.idle
+                          >> stats.iowait >> stats.irq >> stats.softirq >> stats.steal)) {
+            return std::unexpected(utils::make_error_code(utils::UtilsError::analyzerParsingError));
+        }
+        ls >> stats.guest >> stats.guestNice; // optional fields; ignore failures
+        return stats;
+    }
+
+    return std::unexpected(utils::make_error_code(utils::UtilsError::analyzerParsingError));
+}
+
 // Implementation of ProcessAnalyzer::getSystemDiskIoStats
 utils::Result<std::vector<DiskIoDeviceStats>> ProcessAnalyzer::getSystemDiskIoStats() const {
     auto content = utils::readTextFile((procPath / "diskstats").string());

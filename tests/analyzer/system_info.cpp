@@ -85,3 +85,35 @@ TEST(SystemClockTicksTest, ReturnsPositiveValueOnLinux) {
     ASSERT_TRUE(result.has_value());
     EXPECT_GT(result.value(), 0L);
 }
+
+TEST(SystemCpuStatsTest, ParsesCpuLine) {
+    MockProc mockProc("mock_proc_cpu_stats_test");
+    ProcessAnalyzer analyzer(mockProc.getPath());
+    // cpu  user nice system idle iowait irq softirq steal guest guestNice
+    mockProc.createFileAt("stat",
+        "cpu  100 20 50 800 10 5 3 1 0 0\n"
+        "cpu0 100 20 50 800 10 5 3 1 0 0\n"
+        "ctxt 12345\n");
+
+    auto result = analyzer.getSystemCpuStats();
+    ASSERT_TRUE(result.has_value());
+    const SystemCpuStats& stats = result.value();
+    EXPECT_EQ(stats.user,    100ULL);
+    EXPECT_EQ(stats.nice,    20ULL);
+    EXPECT_EQ(stats.system,  50ULL);
+    EXPECT_EQ(stats.idle,    800ULL);
+    EXPECT_EQ(stats.iowait,  10ULL);
+    EXPECT_EQ(stats.irq,     5ULL);
+    EXPECT_EQ(stats.softirq, 3ULL);
+    EXPECT_EQ(stats.steal,   1ULL);
+    EXPECT_EQ(stats.guest,   0ULL);
+    EXPECT_EQ(stats.guestNice, 0ULL);
+}
+
+TEST(SystemCpuStatsTest, MissingStatReturnsError) {
+    MockProc mockProc("mock_proc_cpu_stats_absent_test");
+    ProcessAnalyzer analyzer(mockProc.getPath());
+
+    auto result = analyzer.getSystemCpuStats();
+    EXPECT_FALSE(result.has_value());
+}

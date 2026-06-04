@@ -129,3 +129,15 @@ TEST_F(ProcessDetailsTest, GetAllDescendantProcessesIncludesGrandchild) {
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(sortedPids(result.value()), (std::vector<pid_t>{kChild1, kChild2, kGrand}));
 }
+
+TEST_F(ProcessDetailsTest, GetChildProcessesReturnsEmptyForLeafProcess) {
+    auto result = analyzer.getChildProcesses(kGrand);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(result.value().empty());
+}
+
+TEST_F(ProcessDetailsTest, GetAllDescendantProcessesReturnsEmptyForLeafProcess) {
+    auto result = analyzer.getAllDescendantProcesses(kGrand);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(result.value().empty());
+}

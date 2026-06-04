@@ -49,8 +49,9 @@ ProcessAnalyzer analyzer; // Create an instance
 ### Process Control & Manipulation
 *Note: These functions often require elevated privileges.*
 -   `sendSignal(pid, signal)`: Sends a signal (e.g., `SIGTERM`, `SIGKILL`) to a process.
--   `setProcessNiceness(pid, niceness)`: Adjusts the scheduling priority (niceness) of a process.
--   `setProcessCpuAffinity(pid, affinity)`: Sets the CPU affinity, binding a process to specific CPU cores.
+-   `setProcessPriority(pid, niceValue)`: Adjusts the scheduling priority (niceness) of a process.
+-   `getProcessCpuAffinity(pid)`: Returns the CPU affinity of a process as a `CpuSet` (list of CPU core IDs), parsed from `/proc/<pid>/status`.
+-   `setProcessCpuAffinity(pid, affinity)`: Sets the CPU affinity, binding a process to specific CPU cores via `sched_setaffinity`.
 
 ### System-wide Information & Statistics
 -   `getSystemInfo()`: Gets static system information (e.g., hostname, OS version, kernel version).
@@ -62,6 +63,7 @@ ProcessAnalyzer analyzer; // Create an instance
 -   `getSystemDiskIoStats()`: Gets aggregated device-level disk I/O statistics.
 -   `getNetworkInterfaceStats()`: Retrieves I/O statistics for all network interfaces.
 -   `getSystemActivityStats()`: Provides system-wide statistics like context switches and total processes created since boot.
+-   `getSystemCpuStats()`: Returns raw aggregate CPU time counters (user, nice, system, idle, iowait, irq, softirq, steal, guest, guestNice) from the first `cpu` line in `/proc/stat`.
 
 ### System Performance Metrics
 -   `getSystemCpuStats()`: Gets raw CPU time statistics (user, system, idle, etc.) for all cores combined since boot.
