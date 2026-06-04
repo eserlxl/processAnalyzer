@@ -1,0 +1,122 @@
+// SPDX-License-Identifier: GPL-3.0-only
+// Copyright (c) 2026 Eser KUBALI
+
+#include "gtest/gtest.h"
+#include "analyzer/core.h"
+#include "analyzer/process_model.h"
+#include "utils/testing_framework.h" // For MockProc
+
+#include <algorithm>
+#include <filesystem>
+#include <memory>
+#include <vector>
+
+// Direct coverage for getProcessDetails parsing and the hierarchy/snapshot API.
+class ProcessDetailsTest : public ::testing::Test {
+protected:
+    ProcessAnalyzer analyzer;
+    std::filesystem::path originalProcPath;
+    std::unique_ptr<MockProc> mockProc;
+
+    static constexpr int kInitPpid = 1;
+    static constexpr int kStandalonePid = 4242;
+    static constexpr int kParent = 4300;
+    static constexpr int kChild1 = 4301;
+    static constexpr int kChild2 = 4302;
+    static constexpr int kGrand = 4303;
+    static constexpr int kAbsentPid = 9999;
+    static constexpr uid_t kUid = 1000;
+    static constexpr long long kRssKb = 2048;
+    static constexpr long kThreads = 4;
+
+    ProcessDetailsTest() : analyzer("/proc") {}
+
+    void SetUp() override {
+        mockProc = std::make_unique<MockProc>("mock_proc_details_test");
+        originalProcPath = analyzer.getProcPath();
+        analyzer.setProcPath(mockProc->getPath());
+
+        mockProc->buildProcess(kStandalonePid)
+            .withName("myproc")
+            .withParent(kInitPpid)
+            .withCmdline({"myproc", "--flag"})
+            .withExe("/usr/bin/myproc")
+            .withStatusField("Uid", "1000 1000 1000 1000")
+            .withStatusField("VmRSS", "2048 kB")
+            .withStatusField("Threads", "4")
+            .create();
+
+        // Hierarchy: parent -> {child1, child2}; child1 -> grand.
+        mockProc->buildProcess(kParent).withName("parent").create();
+        mockProc->buildProcess(kChild1).withName("child1").withParent(kParent).create();
+        mockProc->buildProcess(kChild2).withName("child2").withParent(kParent).create();
+        mockProc->buildProcess(kGrand).withName("grand").withParent(kChild1).create();
+    }
+
+    void TearDown() override {
+        mockProc.reset();
+        analyzer.setProcPath(originalProcPath);
+    }
+
+    static std::vector<pid_t> sortedPids(const std::vector<ProcessInfo>& procs) {
+        std::vector<pid_t> out;
+        out.reserve(procs.size());
+        for (const auto& p : procs) {
+            out.push_back(p.pid);
+        }
+        std::ranges::sort(out);
+        return out;
+    }
+};
+
+TEST_F(ProcessDetailsTest, GetProcessDetailsParsesFields) {
+    auto result = analyzer.getProcessDetails(kStandalonePid);
+    ASSERT_TRUE(result.has_value());
+    const ProcessInfo& info = result.value();
+
+    EXPECT_EQ(info.pid, kStandalonePid);
+    EXPECT_EQ(info.name, "myproc");
+    EXPECT_EQ(info.ppid, kInitPpid);
+    EXPECT_EQ(info.state, "R"); // default stat state
+    EXPECT_EQ(info.uid, kUid);
+    EXPECT_EQ(info.residentMemory, kRssKb);
+    EXPECT_EQ(info.threadCount, kThreads);
+    EXPECT_EQ(info.cmdline, "myproc --flag");
+    EXPECT_EQ(info.executablePath, "/usr/bin/myproc");
+}
+
+TEST_F(ProcessDetailsTest, GetProcessDetailsAbsentPidReturnsError) {
+    auto result = analyzer.getProcessDetails(kAbsentPid);
+    EXPECT_FALSE(result.has_value());
+}
+
+TEST_F(ProcessDetailsTest, GetChildProcessesReturnsDirectChildren) {
+    auto result = analyzer.getChildProcesses(kParent);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(sortedPids(result.value()), (std::vector<pid_t>{kChild1, kChild2}));
+}
+
+TEST_F(ProcessDetailsTest, GetParentProcessReturnsParent) {
+    auto result = analyzer.getParentProcess(kChild1);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result.value().pid, kParent);
+}
+
+TEST_F(ProcessDetailsTest, GetParentProcessOfInitChildReturnsError) {
+    // kStandalonePid has ppid 1, which has no meaningful parent.
+    auto result = analyzer.getParentProcess(kStandalonePid);
+    EXPECT_FALSE(result.has_value());
+}
+
+TEST_F(ProcessDetailsTest, SnapshotReturnsAllProcesses) {
+    auto result = analyzer.snapshot();
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(sortedPids(result.value()),
+              (std::vector<pid_t>{kStandalonePid, kParent, kChild1, kChild2, kGrand}));
+}
+
+TEST_F(ProcessDetailsTest, GetAllDescendantProcessesIncludesGrandchild) {
+    auto result = analyzer.getAllDescendantProcesses(kParent);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(sortedPids(result.value()), (std::vector<pid_t>{kChild1, kChild2, kGrand}));
+}
