@@ -141,6 +141,36 @@ TEST(SystemCpuStatsTest, StatFileWithNoCpuAggregateLineReturnsError) {
     EXPECT_FALSE(result.has_value());
 }
 
+TEST(SystemCpuStatsTest, ParsesCpuLineWithoutOptionalFields) {
+    MockProc mockProc("mock_proc_cpu_stats_8field_test");
+    ProcessAnalyzer analyzer(mockProc.getPath());
+    // Exactly 8 numeric fields — no guest/guestNice; the optional reads fail silently.
+    mockProc.createFileAt("stat",
+        "cpu  200 30 60 900 15 8 4 2\n"
+        "ctxt 99\n");
+
+    auto result = analyzer.getSystemCpuStats();
+    ASSERT_TRUE(result.has_value());
+    const auto& stats = result.value();
+    EXPECT_EQ(stats.user,      200ULL);
+    EXPECT_EQ(stats.steal,     2ULL);
+    EXPECT_EQ(stats.guest,     0ULL);
+    EXPECT_EQ(stats.guestNice, 0ULL);
+}
+
+TEST(SystemCpuStatsTest, ParsesCpuLineWithNonZeroGuestFields) {
+    MockProc mockProc("mock_proc_cpu_stats_guest_test");
+    ProcessAnalyzer analyzer(mockProc.getPath());
+    mockProc.createFileAt("stat",
+        "cpu  100 20 50 800 10 5 3 1 7 4\n"
+        "ctxt 42\n");
+
+    auto result = analyzer.getSystemCpuStats();
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result.value().guest,     7ULL);
+    EXPECT_EQ(result.value().guestNice, 4ULL);
+}
+
 TEST(SystemCpuUsageTest, ReturnsPercentageInRange) {
     // Use real /proc so both snapshots read actual CPU data.
     ProcessAnalyzer analyzer("/proc");
@@ -201,4 +231,25 @@ TEST(PerCpuUsageTest, ParsesCoreCountAndIdsFromMockData) {
     EXPECT_EQ(result->cpuUsages[1].cpuId, 1);
     EXPECT_DOUBLE_EQ(result->cpuUsages[0].cpuPercentage, 0.0);
     EXPECT_DOUBLE_EQ(result->cpuUsages[1].cpuPercentage, 0.0);
+}
+
+TEST(NetworkInterfaceRatesTest, ReturnsFourRates) {
+    ProcessAnalyzer analyzer("/proc");
+    auto result = analyzer.getNetworkInterfaceRates(std::chrono::milliseconds(1));
+    ASSERT_TRUE(result.has_value());
+    ASSERT_FALSE(result->empty());
+    for (const auto& r : *result) {
+        EXPECT_FALSE(r.interfaceName.empty());
+        EXPECT_GE(r.rxBytesPerSec,   0.0);
+        EXPECT_GE(r.txBytesPerSec,   0.0);
+        EXPECT_GE(r.rxPacketsPerSec, 0.0);
+        EXPECT_GE(r.txPacketsPerSec, 0.0);
+    }
+}
+
+TEST(NetworkInterfaceRatesTest, MissingNetDevReturnsError) {
+    MockProc mockProc("mock_proc_net_rates_absent_test");
+    ProcessAnalyzer analyzer(mockProc.getPath());
+    auto result = analyzer.getNetworkInterfaceRates(std::chrono::milliseconds(1));
+    EXPECT_FALSE(result.has_value());
 }

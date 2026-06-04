@@ -79,6 +79,14 @@ struct NetworkInterfaceStats {
     // ... more fields from /proc/net/dev as needed
 };
 
+struct NetworkInterfaceRates {
+    std::string interfaceName;
+    double rxBytesPerSec;
+    double txBytesPerSec;
+    double rxPacketsPerSec;
+    double txPacketsPerSec;
+};
+
 // New for Iteration 14: Interrupts and Context Switches
 struct SystemActivityStats {
     uint64_t interruptsTotal;

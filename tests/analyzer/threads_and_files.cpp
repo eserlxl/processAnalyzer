@@ -120,6 +120,11 @@ TEST_F(GetOpenFilesTest, AbsentFdDirReturnsError) {
     EXPECT_FALSE(result.has_value());
 }
 
+TEST_F(GetProcessThreadsTest, AbsentPidReturnsError) {
+    auto result = analyzer.getProcessThreads(kAbsentPid);
+    EXPECT_FALSE(result.has_value());
+}
+
 // Regression test: getProcessThreads must read utime/stime (fields 14–15), not
 // priority/nice (fields 18–19). Previously threadStatSkipFields was 14 instead of 10.
 TEST(GetProcessThreadsCpuTicks, ReadsUtimeAndStimeNotPriorityAndNice) {

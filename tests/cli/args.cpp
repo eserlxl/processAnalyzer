@@ -913,3 +913,24 @@ TEST_F(ArgsTestFixture, CgroupFlagIsSet) {
     ASSERT_TRUE(parsed.has_value());
     EXPECT_TRUE(parsed->showCgroupInfo);
 }
+
+TEST_F(ArgsTestFixture, PerfFlagIsSet) {
+    auto argv = makeArgv({"processAnalyzer", "show", "--pid", "1", "--perf"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    EXPECT_TRUE(parsed->showPerf);
+    EXPECT_EQ(parsed->perfDurationMs, 200);
+}
+
+TEST_F(ArgsTestFixture, PerfFlagWithCustomDuration) {
+    auto argv = makeArgv({"processAnalyzer", "show", "--pid", "1", "--perf", "500"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    EXPECT_TRUE(parsed->showPerf);
+    EXPECT_EQ(parsed->perfDurationMs, 500);
+}
+
+TEST_F(ArgsTestFixture, PerfFlagWithListCommandReturnsNullopt) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--perf"});
+    ASSERT_FALSE(parseCommandLine(static_cast<int>(argv.size()), argv).has_value());
+}

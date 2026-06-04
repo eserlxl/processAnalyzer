@@ -458,9 +458,9 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
     // Inspection flags are only valid with 'show' or 'pid' commands.
     if ((args.showChildren || args.showOpenFiles || args.showNetworkConnections ||
          args.showThreads || args.showEnv || args.showMemoryMaps ||
-         args.showLimits || args.showCgroupInfo) &&
+         args.showLimits || args.showCgroupInfo || args.showPerf) &&
         args.command != "show" && args.command != "pid") {
-        std::cerr << "Error: --children, --open-files, --threads, --network, --env, --maps, --limits, and --cgroup are only valid with 'show' or 'pid' commands.\n";
+        std::cerr << "Error: --children, --open-files, --threads, --network, --env, --maps, --limits, --cgroup, and --perf are only valid with 'show' or 'pid' commands.\n";
         return std::nullopt;
     }
 

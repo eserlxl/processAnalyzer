@@ -8,6 +8,8 @@
 
 #include <filesystem>
 #include <sstream>
+#include <thread>
+#include <unordered_map>
 #include <vector>
 
 #include <format>
@@ -272,4 +274,39 @@ utils::Result<std::vector<NetworkInterfaceStats>> ProcessAnalyzer::getNetworkInt
         return std::unexpected(utils::make_error_code(utils::UtilsError::analyzerParsingError));
     }
     return stats;
+}
+
+utils::Result<std::vector<NetworkInterfaceRates>> ProcessAnalyzer::getNetworkInterfaceRates(
+    std::chrono::milliseconds duration) const {
+    auto snap1 = getNetworkInterfaceStats();
+    if (!snap1) return std::unexpected(snap1.error());
+
+    std::this_thread::sleep_for(duration);
+
+    auto snap2 = getNetworkInterfaceStats();
+    if (!snap2) return std::unexpected(snap2.error());
+
+    const double secs = static_cast<double>(duration.count()) / 1000.0;
+
+    std::unordered_map<std::string, const NetworkInterfaceStats*> map1;
+    map1.reserve(snap1->size());
+    for (const auto& s : *snap1) {
+        map1.emplace(s.interfaceName, &s);
+    }
+
+    std::vector<NetworkInterfaceRates> rates;
+    rates.reserve(snap2->size());
+    for (const auto& s2 : *snap2) {
+        auto it = map1.find(s2.interfaceName);
+        if (it == map1.end()) continue;
+        const auto& s1 = *it->second;
+        NetworkInterfaceRates r;
+        r.interfaceName    = s2.interfaceName;
+        r.rxBytesPerSec    = static_cast<double>(s2.rxBytes   - s1.rxBytes)   / secs;
+        r.txBytesPerSec    = static_cast<double>(s2.txBytes   - s1.txBytes)   / secs;
+        r.rxPacketsPerSec  = static_cast<double>(s2.rxPackets - s1.rxPackets) / secs;
+        r.txPacketsPerSec  = static_cast<double>(s2.txPackets - s1.txPackets) / secs;
+        rates.push_back(std::move(r));
+    }
+    return rates;
 }
