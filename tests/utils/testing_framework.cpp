@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <iostream>
 #include <fstream>
+#include <unistd.h>
 
 namespace fs = std::filesystem;
 
@@ -37,7 +38,8 @@ constexpr int netDevTxCollsWidth = 6;
 constexpr int netDevTxCarrierWidth = 8;
 constexpr int netDevTxCompressedWidth = 11;
 
-MockProc::MockProc(const std::string& basePath) : root(basePath) {
+MockProc::MockProc(const std::string& basePath)
+    : root(fs::temp_directory_path() / ("pa_" + std::to_string(getpid())) / basePath) {
     fs::create_directories(root);
 }
 

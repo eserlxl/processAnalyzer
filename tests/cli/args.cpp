@@ -646,6 +646,70 @@ TEST_F(ArgsTestFixture, SortByUnknownFieldReturnsNullopt) {
     ASSERT_FALSE(parsed.has_value());
 }
 
+TEST_F(ArgsTestFixture, SortByUid) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--sort-by", "uid"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_TRUE(parsed->sortBy.has_value());
+    EXPECT_EQ(parsed->sortBy.value(), ProcessSortField::uid);
+}
+
+TEST_F(ArgsTestFixture, SortByUser) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--sort-by", "user"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_TRUE(parsed->sortBy.has_value());
+    EXPECT_EQ(parsed->sortBy.value(), ProcessSortField::user);
+}
+
+TEST_F(ArgsTestFixture, SortByRss) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--sort-by", "rss"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_TRUE(parsed->sortBy.has_value());
+    EXPECT_EQ(parsed->sortBy.value(), ProcessSortField::rss);
+}
+
+TEST_F(ArgsTestFixture, SortByVm) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--sort-by", "vm"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_TRUE(parsed->sortBy.has_value());
+    EXPECT_EQ(parsed->sortBy.value(), ProcessSortField::vmsize);
+}
+
+TEST_F(ArgsTestFixture, SortByState) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--sort-by", "state"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_TRUE(parsed->sortBy.has_value());
+    EXPECT_EQ(parsed->sortBy.value(), ProcessSortField::state);
+}
+
+TEST_F(ArgsTestFixture, SortByPpid) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--sort-by", "ppid"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_TRUE(parsed->sortBy.has_value());
+    EXPECT_EQ(parsed->sortBy.value(), ProcessSortField::ppid);
+}
+
+TEST_F(ArgsTestFixture, SortByThreads) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--sort-by", "threads"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_TRUE(parsed->sortBy.has_value());
+    EXPECT_EQ(parsed->sortBy.value(), ProcessSortField::threads);
+}
+
+TEST_F(ArgsTestFixture, SortByStartTime) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--sort-by", "start-time"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_TRUE(parsed->sortBy.has_value());
+    EXPECT_EQ(parsed->sortBy.value(), ProcessSortField::startTime);
+}
+
 TEST_F(ArgsTestFixture, MinRssIsSet) {
     auto argv = makeArgv({"processAnalyzer", "list", "--min-rss", "1024"});
     auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);

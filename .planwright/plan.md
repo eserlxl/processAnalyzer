@@ -1,119 +1,134 @@
 # planwright Plan — .
 <!-- Session: 2026-06-05T03:00:00Z -->
 
-## Cycle 8 — Coverage (depth 10)
+## Cycle 9 — Coverage + Repair (depth 10)
 
-Audit found 16 of 18 ProcessSortField enum values with zero test coverage, plus three untested
-filter paths (cmdlineRegex, executablePathRegex, remotePort/remoteAddressContains).
-All items are rung-2 coverage unless noted.
+Audit found: MockProc parallel race condition; docs lie about `--sort-by` valid values;
+CLI args tests missing for 8 sort-by strings; integration tests missing for uidFilter,
+userFilter, sort-by-uid, sort-by-user, sort-by-startTime; remoteAddressRegex untested.
 
 ---
 
-### Item 1 — Sort by RSS and VmSize
-**Mode:** improve  
-**Rung:** 2 (coverage)  
-**File:** `tests/analyzer/query.cpp`  
-**Surfaces:** `src/analyzer/query.cpp:53-54` (ProcessSortField::rss, ::vmsize comparators)  
-**Description:** Add `QuerySortByStatTest` fixture with two processes having distinct `rss` and
-`vsize` values in `ProcStatData`. Tests verify ascending order for `ProcessSortField::rss` and
-`ProcessSortField::vmsize`. Existing `QueryStatFilterTest` only tests filtering, not sort ordering
-on these fields.  
-**Verification:** Build + ctest passes. New tests: `SortByRssAscending`, `SortByVmsizeAscending`.  
+### Item 1 — Fix MockProc parallel test isolation
+**Mode:** repair  
+**Rung:** 1  
+**File:** `tests/utils/testing_framework.cpp`, `tests/utils/testing_framework.h`  
+**Surfaces:** `tests/utils/testing_framework.cpp:40` (MockProc constructor)  
+**Description:** When ctest runs with `-j>1`, multiple test binary instances create MockProc
+directories with the same hard-coded names (e.g. "mock_proc_query_net_filter") under CWD,
+causing concurrent create/delete races and flaky failures. Fix: prefix the root path with
+the process PID so each binary instance gets an isolated namespace:
+`fs::temp_directory_path() / ("pa_" + std::to_string(getpid())) / basePath`.
+Add `<unistd.h>` include for `getpid()`.  
+**Verification:** `ctest --test-dir build -j$(nproc)` passes 100% consistently across 3 runs.  
 **Status:** [x] done
 
 ---
 
-### Item 2 — Sort by threads and priority
+### Item 2 — Fix --sort-by documentation inconsistencies
 **Mode:** improve  
 **Rung:** 2 (coverage)  
-**File:** `tests/analyzer/query.cpp`  
-**Surfaces:** `src/analyzer/query.cpp:63,69` (ProcessSortField::threads, ::priority comparators)  
-**Description:** Extend `QuerySortByStatTest` with processes differing in `num_threads` and
-`priority`. Tests verify ascending order for `ProcessSortField::threads` and
-`ProcessSortField::priority`. Both comparator branches are live but untested.  
-**Verification:** Build + ctest passes. New tests: `SortByThreadsAscending`, `SortByPriorityAscending`.  
+**File:** `docs/usage.md`  
+**Surfaces:** `docs/usage.md:144,238` (--sort-by option table + example using "cpu")  
+**Description:** The docs table lists `cpu`, `mem`, `elapsed-time`, `nice` as valid sort fields
+but none exist in `stringToProcessSortField` in `src/cli/args.cpp`. The example at line 238
+uses `--sort-by cpu` which returns an error at runtime. The docs also omit valid fields
+`io-read`, `io-write`, `cpu-user-time`, `cpu-kernel-time`, `priority`.
+Fix: replace the invalid field names with the real ones; update the example.  
+**Verification:** Build + all tests pass. Cross-check `stringToProcessSortField` in args.cpp
+matches the docs table exactly.  
 **Status:** [x] done
 
 ---
 
-### Item 3 — Sort by CPU ticks (cpuUserTime, cpuKernelTime, cpuTime)
+### Item 3 — CLI args tests for untested sort-by strings
 **Mode:** improve  
 **Rung:** 2 (coverage)  
-**File:** `tests/analyzer/query.cpp`  
-**Surfaces:** `src/analyzer/query.cpp:56,65-66` (::cpuTime, ::cpuUserTime, ::cpuKernelTime)  
-**Description:** Extend `QuerySortByStatTest` with `utime` and `stime` differences in `ProcStatData`.
-Tests verify ordering for all three CPU-tick sort fields: `cpuUserTime`, `cpuKernelTime`, and
-the combined `cpuTime` (utime+stime). The threadStatSkipFields fix in Cycle 5 ensures the right
-values are populated; this closes the coverage gap on those comparator branches.  
-**Verification:** Build + ctest passes. New tests: `SortByCpuUserTimeAscending`, `SortByCpuKernelTimeAscending`, `SortByCpuTimeAscending`.  
+**File:** `tests/cli/args.cpp`  
+**Surfaces:** `src/cli/args.cpp:26-44` (`stringToProcessSortField` branches for uid, user, rss, vm,
+state, ppid, threads, start-time)  
+**Description:** The `stringToProcessSortField` function handles 18 string-to-enum mappings. CLI
+args tests currently cover only: pid, name, cmdline, exec-path, cwd, cpu-time, cpu-user-time,
+cpu-kernel-time, io-read, io-write, priority (11 of 18). Missing tests for: uid, user, rss, vm,
+state, ppid, threads, start-time. Add one test per missing string.  
+**Verification:** Build + ctest passes. New tests verify each string maps to the correct
+`ProcessSortField` enum value.  
 **Status:** [x] done
 
 ---
 
-### Item 4 — Sort by ioReadBytes and ioWriteBytes
+### Item 4 — Integration tests for uidFilter and userFilter
 **Mode:** improve  
 **Rung:** 2 (coverage)  
 **File:** `tests/analyzer/query.cpp`  
-**Surfaces:** `src/analyzer/query.cpp:67-68` (::ioReadBytes, ::ioWriteBytes comparators)  
-**Description:** Extend `QuerySortByStatTest` with `ProcIoStats::readBytes` and `writeBytes`
-differences, using `withIoStats`. Tests verify ascending ordering for both I/O byte sort fields.
-These comparator branches are reachable only when processes have been built with io stat data.  
-**Verification:** Build + ctest passes. New tests: `SortByIoReadBytesAscending`, `SortByIoWriteBytesAscending`.  
+**Surfaces:** `src/analyzer/internal/filter_helpers.cpp:36-38` (uidFilter, userFilter paths in
+`passesStaticFilters`)  
+**Description:** `ProcessFilter::uidFilter` and `ProcessFilter::userFilter` are implemented in
+`filter_helpers.cpp` but have zero integration test coverage. The uidFilter path compares
+`pInfo.uid != *filter.uidFilter`. Add a new fixture `QueryUidUserFilterTest` with two processes
+having different UIDs (set via `withStatusField("Uid", "...")`) and tests for:
+`FilterByUidFilterMatches`, `FilterByUidFilterNoMatch`.
+For userFilter: since getpwuid depends on the system, test only that it filters by username
+string match/no-match using the uid fallback ("100" vs "200").  
+**Verification:** Build + ctest passes. New tests verify uid/user filter paths.  
 **Status:** [x] done
 
 ---
 
-### Item 5 — Sort by state and ppid
+### Item 5 — Sort-by-uid and sort-by-startTime ordering tests
 **Mode:** improve  
 **Rung:** 2 (coverage)  
 **File:** `tests/analyzer/query.cpp`  
-**Surfaces:** `src/analyzer/query.cpp:52,62` (::ppid, ::state comparators)  
-**Description:** Add `QuerySortByStateAndPpidTest` fixture with two processes: one with state='R'
-and ppid=1, another with state='S' and ppid=2. Tests verify `ProcessSortField::state` and
-`ProcessSortField::ppid` ascending ordering. State and ppid comparators exist but have no tests.  
-**Verification:** Build + ctest passes. New tests: `SortByStateAscending`, `SortByPpidAscending`.  
+**Surfaces:** `src/analyzer/query.cpp:60,55` (ProcessSortField::uid, ::startTime comparators)  
+**Description:** `ProcessSortField::uid` and `ProcessSortField::startTime` comparators are live but
+have no ordering test. For uid: use `QueryUidUserFilterTest` fixture (Item 4), asserting ascending
+uid order. For startTime: create a fixture with two processes having different `starttime` values in
+`ProcStatData` (field exists: `unsigned long long starttime = 0`), asserting ascending
+startTimeUnix order.  
+**Verification:** Build + ctest passes. New tests: `SortByUidAscending`, `SortByStartTimeAscending`.  
 **Status:** [x] done
 
 ---
 
-### Item 6 — Sort by executablePath, cmdline, cwd
+### Item 6 — remoteAddressRegex network filter test
 **Mode:** improve  
 **Rung:** 2 (coverage)  
 **File:** `tests/analyzer/query.cpp`  
-**Surfaces:** `src/analyzer/query.cpp:58-59,64` (::executablePath, ::cmdline, ::cwd comparators)  
-**Description:** Add `QuerySortByPathTest` fixture with two processes differing in executable path
-(`withExe`), cmdline (`withCmdline`), and cwd (`withCwd`). Tests verify ascending ordering for
-`ProcessSortField::executablePath`, `::cmdline`, and `::cwd`. All three comparator branches are
-untested despite being on live code paths.  
-**Verification:** Build + ctest passes. New tests: `SortByExecPathAscending`, `SortByCmdlineAscending`, `SortByCwdAscending`.  
+**Surfaces:** `src/analyzer/internal/filter_helpers.cpp:57-59` (`remoteAddressRegex` path in
+`passesNetworkFilter`)  
+**Description:** `NetworkFilterCriteria::remoteAddressRegex` is implemented in filter_helpers.cpp
+but has zero tests. `QueryNetworkRemoteFilterTest` already has a process with remoteAddress
+"10.2.3.4". Add two tests: `FilterByRemoteAddressRegexMatches` (regex `"^10\\.2"` → kEstabPid),
+`FilterByRemoteAddressRegexNoMatch` (regex `"^192\\."` → empty).  
+**Verification:** Build + ctest passes. New tests cover the remoteAddressRegex branch.  
 **Status:** [x] done
 
 ---
 
-### Item 7 — cmdlineRegex and executablePathRegex filter tests
+### Item 7 — Sort-by-user ordering test
 **Mode:** improve  
 **Rung:** 2 (coverage)  
 **File:** `tests/analyzer/query.cpp`  
-**Surfaces:** `src/analyzer/internal/filter_helpers.cpp:34-35` (`cmdlineRegex`, `executablePathRegex` paths in `applyStringFilter`)  
-**Description:** Add regex filter tests using `ProcessFilter::cmdlineRegex` and
-`executablePathRegex` with `std::regex`. The `applyStringFilter` function handles both `contains`
-and regex paths, but the regex branches for cmdline and executablePath are exercised by zero tests.
-Tests: match case (regex matches subset), no-match case (regex matches nothing).  
-**Verification:** Build + ctest passes. New tests: `FilterByCmdlineRegexMatchesSubset`,
-`FilterByCmdlineRegexNoMatch`, `FilterByExecPathRegexMatchesSubset`, `FilterByExecPathRegexNoMatch`.  
+**Surfaces:** `src/analyzer/query.cpp:61` (ProcessSortField::user comparator)  
+**Description:** `ProcessSortField::user` comparator is untested for ordering. The username is
+resolved via `getpwuid` or falls back to the numeric uid string. Use the `QueryUidUserFilterTest`
+fixture's two processes (uid 100 → username "100", uid 200 → username "200") and add
+`SortByUserAscending` test verifying "100" comes before "200" in ascending order.  
+**Verification:** Build + ctest passes. New test: `SortByUserAscending`.  
 **Status:** [x] done
 
 ---
 
-### Item 8 — remotePort and remoteAddressContains network filter tests
-**Mode:** improve  
-**Rung:** 2 (coverage)  
-**File:** `tests/analyzer/query.cpp`  
-**Surfaces:** `src/analyzer/internal/filter_helpers.cpp:53,56` (`remotePort`, `remoteAddressContains` in `passesNetworkFilter`)  
-**Description:** Extend `QueryNetworkFilterTest` to include a mock `net/tcp` entry with a
-non-zero remote port (e.g. 443) and remote address (e.g. `1.2.3.4`). Tests verify:
-`FilterByRemotePortMatches` (port 443 → returns netproc), `FilterByRemotePortNoMatch` (port 80 →
-empty), `FilterByRemoteAddressContainsMatches` ("1.2.3" → returns netproc). These filter branches
-exist in `passesNetworkFilter` but have zero test coverage.  
-**Verification:** Build + ctest passes. New tests: `FilterByRemotePortMatches`, `FilterByRemotePortNoMatch`, `FilterByRemoteAddressContainsMatches`.  
+### Item 8 — Opportunity: make sort-by fields documentation complete
+**Mode:** docs  
+**Rung:** 3 (opportunity)  
+**File:** `docs/usage.md`  
+**Surfaces:** `docs/usage.md:143-145`, `src/cli/args.cpp:23-44`  
+**Description:** After Item 2 fixes the wrong sort-by fields, this item adds the Column Reference
+table for the `--sort-by` option (currently the docs don't have a separate column reference for
+sort fields), adding one-line descriptions for each valid sort-by key (io-read, io-write,
+cpu-user-time, cpu-kernel-time, priority, start-time, ppid, uid, user, state, cwd, cmdline,
+exec-path, vm, rss, threads, cpu-time). Clarify how `--sort-by` relates to the `--columns` list.  
+**Verification:** No build changes; verify docs table has all 18 sort-by keys that match
+`stringToProcessSortField`.  
 **Status:** [x] done

@@ -916,6 +916,31 @@ TEST_F(QueryNetworkRemoteFilterTest, FilterByRemotePortNoMatch) {
     EXPECT_TRUE(result.value().empty());
 }
 
+// ── Item 6: remoteAddressRegex network filter test ─────────────────────────
+
+TEST_F(QueryNetworkRemoteFilterTest, FilterByRemoteAddressRegexMatches) {
+    ProcessFilter filter;
+    ProcessFilter::NetworkFilterCriteria netCrit;
+    netCrit.remoteAddressRegex = std::regex("^10\\.2");
+    filter.networkConnectionFilter = netCrit;
+
+    auto result = analyzer.queryProcesses(filter, ProcessSortField::pid, SortOrder::asc);
+    ASSERT_TRUE(result.has_value());
+    ASSERT_EQ(result.value().size(), 1U);
+    EXPECT_EQ(result.value().front().pid, kEstabPid);
+}
+
+TEST_F(QueryNetworkRemoteFilterTest, FilterByRemoteAddressRegexNoMatch) {
+    ProcessFilter filter;
+    ProcessFilter::NetworkFilterCriteria netCrit;
+    netCrit.remoteAddressRegex = std::regex("^192\\.");
+    filter.networkConnectionFilter = netCrit;
+
+    auto result = analyzer.queryProcesses(filter, ProcessSortField::pid, SortOrder::asc);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(result.value().empty());
+}
+
 TEST_F(QueryNetworkRemoteFilterTest, FilterByRemoteAddressContainsMatches) {
     // The ESTABLISHED entry has remoteAddress "10.2.3.4"; substring "10.2" matches it.
     ProcessFilter filter;
@@ -927,4 +952,142 @@ TEST_F(QueryNetworkRemoteFilterTest, FilterByRemoteAddressContainsMatches) {
     ASSERT_TRUE(result.has_value());
     ASSERT_EQ(result.value().size(), 1U);
     EXPECT_EQ(result.value().front().pid, kEstabPid);
+}
+
+// ── Items 4, 5, 7: uidFilter, userFilter integration + sort by uid/user/startTime ──
+
+// Fixture with two processes having distinct UIDs for filter and sort tests.
+// UIDs 100 and 200 are chosen because they are unlikely to appear in /etc/passwd
+// on most systems, so getpwuid falls back to the numeric string "100"/"200" —
+// making username comparisons environment-independent.
+class QueryUidUserFilterTest : public ::testing::Test {
+protected:
+    ProcessAnalyzer analyzer;
+    std::filesystem::path originalProcPath;
+    std::unique_ptr<MockProc> mockProc;
+
+    static constexpr pid_t kLowUidPid    = 900;
+    static constexpr pid_t kHighUidPid   = 901;
+    static constexpr uint32_t kLowUid    = 100;
+    static constexpr uint32_t kHighUid   = 200;
+    static constexpr uint32_t kAbsentUid = 999;
+
+    QueryUidUserFilterTest() : analyzer("/proc") {}
+
+    void SetUp() override {
+        mockProc = std::make_unique<MockProc>("mock_proc_uid_user_filter_test");
+        originalProcPath = analyzer.getProcPath();
+        analyzer.setProcPath(mockProc->getPath());
+
+        mockProc->buildProcess(kLowUidPid).withName("low-uid").withParent(1)
+            .withStatusField("Uid", "100 100 100 100").create();
+        mockProc->buildProcess(kHighUidPid).withName("high-uid").withParent(1)
+            .withStatusField("Uid", "200 200 200 200").create();
+    }
+
+    void TearDown() override {
+        mockProc.reset();
+        analyzer.setProcPath(originalProcPath);
+    }
+};
+
+// Item 4 — uidFilter integration
+TEST_F(QueryUidUserFilterTest, FilterByUidFilterMatches) {
+    ProcessFilter filter;
+    filter.uidFilter = kLowUid;
+
+    auto result = analyzer.queryProcesses(filter, ProcessSortField::pid, SortOrder::asc);
+    ASSERT_TRUE(result.has_value());
+    ASSERT_EQ(result.value().size(), 1U);
+    EXPECT_EQ(result.value().front().pid, kLowUidPid);
+}
+
+TEST_F(QueryUidUserFilterTest, FilterByUidFilterNoMatch) {
+    ProcessFilter filter;
+    filter.uidFilter = kAbsentUid;
+
+    auto result = analyzer.queryProcesses(filter, ProcessSortField::pid, SortOrder::asc);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(result.value().empty());
+}
+
+// Item 4 — userFilter integration (uses username string match)
+TEST_F(QueryUidUserFilterTest, FilterByUserFilterMatches) {
+    // For uid=100 without a passwd entry, username is resolved as "100".
+    ProcessFilter filter;
+    filter.userFilter = "100";
+
+    auto result = analyzer.queryProcesses(filter, ProcessSortField::pid, SortOrder::asc);
+    ASSERT_TRUE(result.has_value());
+    ASSERT_EQ(result.value().size(), 1U);
+    EXPECT_EQ(result.value().front().pid, kLowUidPid);
+}
+
+// Item 5 — sort by uid
+TEST_F(QueryUidUserFilterTest, SortByUidAscending) {
+    ProcessFilter filter;
+    auto result = analyzer.queryProcesses(filter, ProcessSortField::uid, SortOrder::asc);
+    ASSERT_TRUE(result.has_value());
+    ASSERT_EQ(result.value().size(), 2U);
+    EXPECT_EQ(result.value()[0].pid, kLowUidPid);   // uid 100 < 200
+    EXPECT_EQ(result.value()[1].pid, kHighUidPid);
+}
+
+// Item 7 — sort by user (falls back to "100" < "200" string comparison)
+TEST_F(QueryUidUserFilterTest, SortByUserAscending) {
+    ProcessFilter filter;
+    auto result = analyzer.queryProcesses(filter, ProcessSortField::user, SortOrder::asc);
+    ASSERT_TRUE(result.has_value());
+    ASSERT_EQ(result.value().size(), 2U);
+    EXPECT_EQ(result.value()[0].pid, kLowUidPid);   // "100" < "200"
+    EXPECT_EQ(result.value()[1].pid, kHighUidPid);
+}
+
+// Item 5 — sort by startTime
+class QuerySortByStartTimeTest : public ::testing::Test {
+protected:
+    ProcessAnalyzer analyzer;
+    std::filesystem::path originalProcPath;
+    std::unique_ptr<MockProc> mockProc;
+
+    static constexpr pid_t kEarlyPid = 910;
+    static constexpr pid_t kLatePid  = 911;
+    static constexpr unsigned long long kEarlyStarttime = 1000ULL;
+    static constexpr unsigned long long kLateStarttime  = 9000ULL;
+
+    QuerySortByStartTimeTest() : analyzer("/proc") {}
+
+    void SetUp() override {
+        mockProc = std::make_unique<MockProc>("mock_proc_sort_starttime_test");
+        originalProcPath = analyzer.getProcPath();
+        analyzer.setProcPath(mockProc->getPath());
+
+        // Provide a boot time so getProcessDetails can compute startTimeUnix.
+        // btime 1000000 → boot epoch = 1000000.
+        mockProc->createFileAt("stat", "cpu  0 0 0 0 0 0 0 0 0 0\nbtime 1000000\n");
+
+        MockProc::ProcStatData earlyStat;
+        earlyStat.starttime = kEarlyStarttime;
+        MockProc::ProcStatData lateStat;
+        lateStat.starttime = kLateStarttime;
+
+        mockProc->buildProcess(kEarlyPid).withName("early").withParent(1)
+            .withStat(earlyStat).create();
+        mockProc->buildProcess(kLatePid).withName("late").withParent(1)
+            .withStat(lateStat).create();
+    }
+
+    void TearDown() override {
+        mockProc.reset();
+        analyzer.setProcPath(originalProcPath);
+    }
+};
+
+TEST_F(QuerySortByStartTimeTest, SortByStartTimeAscending) {
+    ProcessFilter filter;
+    auto result = analyzer.queryProcesses(filter, ProcessSortField::startTime, SortOrder::asc);
+    ASSERT_TRUE(result.has_value());
+    ASSERT_EQ(result.value().size(), 2U);
+    EXPECT_EQ(result.value()[0].pid, kEarlyPid);
+    EXPECT_EQ(result.value()[1].pid, kLatePid);
 }

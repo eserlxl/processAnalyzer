@@ -141,8 +141,34 @@ Apply these options with the `list` command to order the results.
 
 | Option | Description |
 | :--- | :--- |
-| `--sort-by <field>` | Field to sort by. Valid fields: `pid`, `ppid`, `uid`, `user`, `name`, `state`, `rss`, `vm`, `threads`, `cpu`, `start-time`, `mem`, `cmdline`, `cwd`, `cpu-time`, `elapsed-time`, `exec-path`, `nice`. |
+| `--sort-by <field>` | Field to sort by. See **Sort Field Reference** below for valid values. |
 | `--sort-order <order>` | Sort order. Valid values: `asc` (ascending) or `desc` (descending). Default is `asc`. |
+
+### Sort Field Reference
+
+Use these values with `--sort-by`:
+
+| Field | Sorts by |
+| :--- | :--- |
+| `pid` | Process ID |
+| `ppid` | Parent process ID |
+| `uid` | Numeric user ID |
+| `user` | Username (string) |
+| `name` | Process name |
+| `state` | State character (R, S, D, Z, T, …) |
+| `rss` | Resident set size (KB) |
+| `vm` | Virtual memory size |
+| `threads` | Thread count |
+| `start-time` | Process start time |
+| `cmdline` | Full command line |
+| `cwd` | Current working directory |
+| `exec-path` | Executable path |
+| `cpu-time` | Combined user+kernel CPU ticks |
+| `cpu-user-time` | User-space CPU ticks |
+| `cpu-kernel-time` | Kernel-space CPU ticks |
+| `io-read` | I/O bytes read |
+| `io-write` | I/O bytes written |
+| `priority` | Process priority value |
 
 ### Output Control
 
@@ -235,7 +261,7 @@ Use these options with the `show` command to include additional details. May req
 
 6.  **List all processes for a user, sorted by CPU usage**:
     ```bash
-    ./processAnalyzer list --user myuser --sort-by cpu --sort-order desc
+    ./processAnalyzer list --user myuser --sort-by cpu-time --sort-order desc
     ```
 
 ### Detailed Process Inspection

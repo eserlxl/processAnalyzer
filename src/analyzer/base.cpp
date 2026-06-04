@@ -5,9 +5,11 @@
 #include "utils/core.h"
 #include "analyzer/internal/helpers.h"
 #include "analyzer/internal/filter_helpers.h"
+#include <algorithm>
 #include <filesystem>
 #include <system_error>
 #include <utility> // For std::move
+#include <vector>
 
 namespace fs = std::filesystem;
 
@@ -49,35 +51,31 @@ utils::Result<std::vector<int>> ProcessAnalyzer::getPids() const {
 }
 
 std::generator<int> ProcessAnalyzer::streamPids() const {
-    // Use the non-throwing std::error_code overloads so a filesystem error
-    // (procPath missing, not a directory, or unreadable) ends the stream
-    // gracefully instead of throwing std::filesystem_error out of the
-    // coroutine -- matching getPids()'s guarded iteration.
+    // Collect all PIDs first (just integers), sort them, then yield lazily.
+    // Buffering only the PID list keeps process-detail reads lazy while
+    // guaranteeing ascending PID order — matching real /proc behaviour on Linux
+    // where the kernel assigns PIDs sequentially.
     std::error_code ec;
     if (!fs::exists(procPath, ec) || ec) {
         co_return;
     }
 
-    fs::directory_iterator it(procPath, ec);
-    if (ec) {
-        co_return;
-    }
-    const fs::directory_iterator end;
-    while (it != end) {
-        const auto& entry = *it;
+    std::vector<int> pids;
+    for (const auto& entry : fs::directory_iterator(procPath, ec)) {
+        if (ec) co_return;
         std::error_code entryEc;
         if (entry.is_directory(entryEc) && !entryEc) {
             std::string filename = entry.path().filename().string();
             if (utils::isInteger(filename)) {
                 if (auto parsedPid = utils::parseInteger<int>(filename)) {
-                    co_yield *parsedPid;
+                    pids.push_back(*parsedPid);
                 }
             }
         }
-        it.increment(ec);
-        if (ec) {
-            co_return;
-        }
+    }
+    std::ranges::sort(pids);
+    for (int pid : pids) {
+        co_yield pid;
     }
 }
 
