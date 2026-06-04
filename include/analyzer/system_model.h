@@ -65,6 +65,14 @@ struct DiskIoDeviceStats {
     uint64_t ioWeightedTimeMs;
 };
 
+struct DiskIoDeviceRates {
+    std::string deviceName;
+    double readsPerSec;
+    double writesPerSec;
+    double sectorsReadPerSec;
+    double sectorsWrittenPerSec;
+};
+
 // New for Iteration 14: Network Interface Statistics
 struct NetworkInterfaceStats {
     std::string interfaceName; // e.g., "eth0", "lo"

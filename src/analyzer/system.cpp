@@ -7,9 +7,11 @@
 #include "utils/file.h"
 #include "utils/string.h"
 
+#include <algorithm>
 #include <string>
 #include <sstream>
 #include <thread>
+#include <unordered_map>
 #include <unistd.h>
 #include <sys/statvfs.h>
 #include <cctype>
@@ -258,6 +260,42 @@ utils::Result<std::vector<DiskIoDeviceStats>> ProcessAnalyzer::getSystemDiskIoSt
         result.push_back(std::move(dev));
     }
     return result;
+}
+
+// Implementation of ProcessAnalyzer::getSystemDiskIoRates
+utils::Result<std::vector<DiskIoDeviceRates>> ProcessAnalyzer::getSystemDiskIoRates(
+    std::chrono::milliseconds duration) const {
+    auto snap1 = getSystemDiskIoStats();
+    if (!snap1) return std::unexpected(snap1.error());
+
+    std::this_thread::sleep_for(duration);
+
+    auto snap2 = getSystemDiskIoStats();
+    if (!snap2) return std::unexpected(snap2.error());
+
+    const double secs = static_cast<double>(std::max(duration.count(), decltype(duration.count()){1})) / 1000.0;
+
+    std::unordered_map<std::string, const DiskIoDeviceStats*> map1;
+    map1.reserve(snap1->size());
+    for (const auto& s : *snap1) {
+        map1.emplace(s.deviceName, &s);
+    }
+
+    std::vector<DiskIoDeviceRates> rates;
+    rates.reserve(snap2->size());
+    for (const auto& s2 : *snap2) {
+        auto it = map1.find(s2.deviceName);
+        if (it == map1.end()) continue;
+        const auto& s1 = *it->second;
+        DiskIoDeviceRates r;
+        r.deviceName          = s2.deviceName;
+        r.readsPerSec         = static_cast<double>(s2.readsCompleted  - s1.readsCompleted)  / secs;
+        r.writesPerSec        = static_cast<double>(s2.writesCompleted - s1.writesCompleted) / secs;
+        r.sectorsReadPerSec   = static_cast<double>(s2.sectorsRead     - s1.sectorsRead)     / secs;
+        r.sectorsWrittenPerSec= static_cast<double>(s2.sectorsWritten  - s1.sectorsWritten)  / secs;
+        rates.push_back(std::move(r));
+    }
+    return rates;
 }
 
 // Implementation of ProcessAnalyzer::getSystemDiskUsage

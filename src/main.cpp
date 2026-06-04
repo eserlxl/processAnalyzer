@@ -155,6 +155,25 @@ int main(int argc, char* argv[]) {
                               << "\n";
                 }
             }
+            // Network interface rates
+            auto netRatesResult = analyzer.getNetworkInterfaceRates(std::chrono::milliseconds(kCpuSampleMs));
+            if (netRatesResult && !netRatesResult->empty()) {
+                constexpr int ifNameWidth = 12;
+                constexpr int numWidth = 16;
+                std::cout << "\n=== Network Interface Rates (" << kCpuSampleMs << " ms sample) ===\n";
+                std::cout << std::left << std::setw(ifNameWidth) << "Interface"
+                          << std::right << std::setw(numWidth) << "RX bytes/s"
+                          << std::setw(numWidth) << "TX bytes/s"
+                          << "\n";
+                std::cout << std::string(ifNameWidth + (numWidth * 2), '-') << "\n";
+                for (const auto& iface : *netRatesResult) {
+                    std::cout << std::left << std::setw(ifNameWidth) << iface.interfaceName
+                              << std::right << std::fixed << std::setprecision(0)
+                              << std::setw(numWidth) << iface.rxBytesPerSec
+                              << std::setw(numWidth) << iface.txBytesPerSec
+                              << "\n";
+                }
+            }
             // Disk I/O stats
             auto diskIoResult = analyzer.getSystemDiskIoStats();
             if (diskIoResult && !diskIoResult->empty()) {

@@ -6,6 +6,7 @@
 #include "analyzer/system_model.h"
 #include "utils/testing_framework.h"
 
+#include <chrono>
 #include <filesystem>
 #include <memory>
 #include <string>
@@ -66,5 +67,25 @@ TEST_F(GetSystemDiskIoStatsTest, ParsesMultipleDevices) {
 
 TEST_F(GetSystemDiskIoStatsTest, MissingDiskstatsReturnsError) {
     auto result = analyzer.getSystemDiskIoStats();
+    EXPECT_FALSE(result.has_value());
+}
+
+TEST(SystemDiskIoRatesTest, ReturnsNonNegativeRates) {
+    ProcessAnalyzer analyzer("/proc");
+    auto result = analyzer.getSystemDiskIoRates(std::chrono::milliseconds(1));
+    ASSERT_TRUE(result.has_value());
+    for (const auto& r : *result) {
+        EXPECT_FALSE(r.deviceName.empty());
+        EXPECT_GE(r.readsPerSec,          0.0);
+        EXPECT_GE(r.writesPerSec,         0.0);
+        EXPECT_GE(r.sectorsReadPerSec,    0.0);
+        EXPECT_GE(r.sectorsWrittenPerSec, 0.0);
+    }
+}
+
+TEST(SystemDiskIoRatesTest, MissingDiskstatsReturnsError) {
+    MockProc mockProc("mock_proc_disk_io_rates_absent");
+    ProcessAnalyzer analyzer(mockProc.getPath());
+    auto result = analyzer.getSystemDiskIoRates(std::chrono::milliseconds(1));
     EXPECT_FALSE(result.has_value());
 }

@@ -151,6 +151,44 @@ int main() {
 For bulk snapshots across all processes, use `getAllProcessesCpuUsage(duration)` and
 `getAllProcessesDiskIoUsage(duration)` — both complete in a single sleep interval.
 
+## Monitoring Network Throughput
+
+Use `getNetworkInterfaceStats()` for cumulative byte/packet counters, or
+`getNetworkInterfaceRates(duration)` for live bytes-per-second rates (sampled over
+`duration`).
+
+```cpp
+#include "analyzer/core.h"
+#include <chrono>
+#include <iostream>
+
+int main() {
+    ProcessAnalyzer analyzer;
+
+    // Cumulative counters (total since boot)
+    auto statsResult = analyzer.getNetworkInterfaceStats();
+    if (statsResult) {
+        for (const auto& iface : *statsResult) {
+            std::cout << iface.interfaceName
+                      << "  RX: " << iface.rxBytes << " bytes"
+                      << "  TX: " << iface.txBytes << " bytes\n";
+        }
+    }
+
+    // Live throughput over 200 ms
+    auto ratesResult = analyzer.getNetworkInterfaceRates(std::chrono::milliseconds(200));
+    if (ratesResult) {
+        for (const auto& r : *ratesResult) {
+            std::cout << r.interfaceName
+                      << "  RX: " << r.rxBytesPerSec << " bytes/s"
+                      << "  TX: " << r.txBytesPerSec << " bytes/s\n";
+        }
+    }
+
+    return 0;
+}
+```
+
 ## ⚡ Library Quick Start
 
 The C++ API allows you to integrate process and system monitoring directly into your applications. You can link against the library by adding the project as a subdirectory in your CMake configuration.

@@ -60,6 +60,7 @@ public:
     [[nodiscard]] utils::Result<SystemLoadAverage> getSystemLoadAverage() const;
     [[nodiscard]] utils::Result<std::vector<MountPointInfo>> getSystemDiskUsage() const;
     [[nodiscard]] utils::Result<std::vector<DiskIoDeviceStats>> getSystemDiskIoStats() const;
+    [[nodiscard]] utils::Result<std::vector<DiskIoDeviceRates>> getSystemDiskIoRates(std::chrono::milliseconds duration) const;
     [[nodiscard]] utils::Result<std::vector<NetworkInterfaceStats>> getNetworkInterfaceStats() const;
     [[nodiscard]] utils::Result<std::vector<NetworkInterfaceRates>> getNetworkInterfaceRates(std::chrono::milliseconds duration) const;
     [[nodiscard]] utils::Result<SystemActivityStats> getSystemActivityStats() const;

@@ -6,6 +6,7 @@
 #include "utils/string.h"
 #include "analyzer/network_model.h"
 
+#include <algorithm>
 #include <filesystem>
 #include <sstream>
 #include <thread>
@@ -286,7 +287,7 @@ utils::Result<std::vector<NetworkInterfaceRates>> ProcessAnalyzer::getNetworkInt
     auto snap2 = getNetworkInterfaceStats();
     if (!snap2) return std::unexpected(snap2.error());
 
-    const double secs = static_cast<double>(duration.count()) / 1000.0;
+    const double secs = static_cast<double>(std::max(duration.count(), decltype(duration.count()){1})) / 1000.0;
 
     std::unordered_map<std::string, const NetworkInterfaceStats*> map1;
     map1.reserve(snap1->size());
