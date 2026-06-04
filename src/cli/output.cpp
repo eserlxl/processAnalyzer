@@ -35,6 +35,40 @@ namespace {
         if (col == "nice") return std::to_string(info.priority);
         std::unreachable();
     }
+
+    // Escape a string for embedding in a JSON string literal (RFC 8259 §7):
+    // the short escapes for the common control characters, \uXXXX for any
+    // other control byte below 0x20, and \" / \\ for quote and backslash.
+    std::string jsonEscape(std::string_view value) {
+        constexpr unsigned char firstPrintableChar = 0x20U; // chars below this are control chars
+        constexpr unsigned int nibbleBits = 4U;
+        constexpr unsigned int nibbleMask = 0xFU;
+        std::string out;
+        out.reserve(value.size());
+        for (const char ch : value) {
+            const auto byte = static_cast<unsigned char>(ch);
+            switch (ch) {
+                case '"':  out += "\\\""; break;
+                case '\\': out += "\\\\"; break;
+                case '\b': out += "\\b";  break;
+                case '\f': out += "\\f";  break;
+                case '\n': out += "\\n";  break;
+                case '\r': out += "\\r";  break;
+                case '\t': out += "\\t";  break;
+                default:
+                    if (byte < firstPrintableChar) {
+                        constexpr std::string_view hexDigits = "0123456789abcdef";
+                        out += "\\u00";
+                        out += hexDigits[(byte >> nibbleBits) & nibbleMask];
+                        out += hexDigits[byte & nibbleMask];
+                    } else {
+                        out += ch;
+                    }
+                    break;
+            }
+        }
+        return out;
+    }
 }
 
 
@@ -109,7 +143,7 @@ void printProcessTable(const std::vector<ProcessInfo>& processes, const std::vec
             if (col == "cmdline" && noTruncateCmdline) {
                  std::cout << std::left << value;
             } else {
-                if (value.length() > (size_t)width) {
+                if (value.length() > static_cast<size_t>(width)) {
                     value = value.substr(0, width - 1) + "~";
                 }
                 std::cout << std::left << std::setw(width) << value;
@@ -130,7 +164,7 @@ void printProcessCsv(const std::vector<ProcessInfo>& processes, const std::vecto
             std::string value = getProcessInfoValue(info, col);
 
             // Quote if necessary
-            if (value.find(',') != std::string::npos || value.find('"') != std::string::npos) {
+            if (value.contains(',') || value.contains('"')) {
                 value = std::string("\"") + utils::replaceAll(value, "\"", "\"\"") + "\"";
             }
             values.push_back(value);
@@ -154,10 +188,8 @@ void printProcessJson(const std::vector<ProcessInfo>& processes, const std::vect
             if (col == "pid" || col == "ppid" || col == "uid" || col == "rss" || col == "vm" || col == "threads") {
                 ss << value; // Numerical values as is
             } else {
-                // Escape quotes and backslashes for string values
-                value = utils::replaceAll(value, "\\", "\\\\");
-                value = utils::replaceAll(value, "\"", "\\\"");
-                ss << "\"" << value << "\"";
+                // Escape string values (quotes, backslashes, and control chars)
+                ss << "\"" << jsonEscape(value) << "\"";
             }
             pairs.push_back(ss.str());
         }
