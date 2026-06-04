@@ -127,3 +127,37 @@ TEST_F(QueryProcessesTest, FilterByState) {
     ASSERT_EQ(result.value().size(), 1U);
     EXPECT_EQ(result.value().front().pid, kPidCharlie);
 }
+
+// All fixture processes have the default thread count of 1, so the range-filter
+// boundaries exercise both branches of applyRangeFilter.
+TEST_F(QueryProcessesTest, FilterByMinThreadsInclusive) {
+    ProcessFilter filter;
+    filter.minThreads = 1;
+    auto result = analyzer.queryProcesses(filter, ProcessSortField::pid, SortOrder::asc);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result.value().size(), 4U);
+}
+
+TEST_F(QueryProcessesTest, FilterByMinThreadsExcludesAll) {
+    ProcessFilter filter;
+    filter.minThreads = 2;
+    auto result = analyzer.queryProcesses(filter, ProcessSortField::pid, SortOrder::asc);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_TRUE(result.value().empty());
+}
+
+TEST_F(QueryProcessesTest, FilterByMaxThreadsInclusive) {
+    ProcessFilter filter;
+    filter.maxThreads = 1;
+    auto result = analyzer.queryProcesses(filter, ProcessSortField::pid, SortOrder::asc);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result.value().size(), 4U);
+}
+
+TEST_F(QueryProcessesTest, SortDescendingByPid) {
+    ProcessFilter filter;
+    auto result = analyzer.queryProcesses(filter, ProcessSortField::pid, SortOrder::desc);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(pids(result.value()),
+              (std::vector<pid_t>{kPidCharlie, kPidAlphaB, kPidBravo, kPidAlphaA}));
+}
