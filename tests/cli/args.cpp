@@ -353,18 +353,12 @@ TEST_F(ArgsTestFixture, ParseCommandLineWithPpidFilter) {
     }
 }
 
-TEST_F(ArgsTestFixture, ParseCommandLineWithConfigFile) {
+TEST_F(ArgsTestFixture, ParseCommandLineRejectsConfigFile) {
+    // --config-file was removed (it was parsed but silently ignored); now an unknown option.
     std::vector<std::string> args = {"processAnalyzer", "list", "--config-file", testConfigFileDefault};
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
-
-    if (parsedArgs.has_value()) {
-        EXPECT_EQ(parsedArgs.value().command, "list");
-        ASSERT_TRUE(parsedArgs.value().configFilePath.has_value());
-        EXPECT_EQ(parsedArgs.value().configFilePath.value(), testConfigFileDefault);
-    } else {
-        FAIL() << "Expected a valid parsed argument object.";
-    }
+    ASSERT_FALSE(parsedArgs.has_value());
 }
 
 TEST_F(ArgsTestFixture, ParseCommandLineInvalidPid) {
@@ -438,7 +432,6 @@ TEST_F(ArgsTestFixture, ParseCommandLineMultipleOptions) {
         "--no-truncate-cmdline",
         "--output", testOutputCsv,
         "--ppid", std::to_string(testPpidMultipleOptions),
-        "--config-file", testConfigFileCustom
     };
     std::vector<char*> argv = makeArgv(args);
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
@@ -461,8 +454,6 @@ TEST_F(ArgsTestFixture, ParseCommandLineMultipleOptions) {
         EXPECT_EQ(parsedArgs.value().outputFormat, testOutputCsv);
         ASSERT_TRUE(parsedArgs.value().ppidFilter.has_value());
         EXPECT_EQ(parsedArgs.value().ppidFilter, testPpidMultipleOptions);
-        ASSERT_TRUE(parsedArgs.value().configFilePath.has_value());
-        EXPECT_EQ(parsedArgs.value().configFilePath, testConfigFileCustom);
     } else {
         FAIL() << "Expected a valid parsed argument object.";
     }
@@ -567,4 +558,83 @@ TEST_F(ArgsTestFixture, ParseCommandLineRejectsOutOfRangePpid) {
     std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
 
     ASSERT_FALSE(parsedArgs.has_value());
+}
+
+// Tests for the expanded sort-field mappings added in Cycle 2
+TEST_F(ArgsTestFixture, SortByCmdline) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--sort-by", "cmdline"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_TRUE(parsed->sortBy.has_value());
+    EXPECT_EQ(parsed->sortBy.value(), ProcessSortField::cmdline);
+}
+
+TEST_F(ArgsTestFixture, SortByExecPath) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--sort-by", "exec-path"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_TRUE(parsed->sortBy.has_value());
+    EXPECT_EQ(parsed->sortBy.value(), ProcessSortField::executablePath);
+}
+
+TEST_F(ArgsTestFixture, SortByCwd) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--sort-by", "cwd"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_TRUE(parsed->sortBy.has_value());
+    EXPECT_EQ(parsed->sortBy.value(), ProcessSortField::cwd);
+}
+
+TEST_F(ArgsTestFixture, SortByCpuTime) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--sort-by", "cpu-time"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_TRUE(parsed->sortBy.has_value());
+    EXPECT_EQ(parsed->sortBy.value(), ProcessSortField::cpuTime);
+}
+
+TEST_F(ArgsTestFixture, SortByCpuUserTime) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--sort-by", "cpu-user-time"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_TRUE(parsed->sortBy.has_value());
+    EXPECT_EQ(parsed->sortBy.value(), ProcessSortField::cpuUserTime);
+}
+
+TEST_F(ArgsTestFixture, SortByCpuKernelTime) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--sort-by", "cpu-kernel-time"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_TRUE(parsed->sortBy.has_value());
+    EXPECT_EQ(parsed->sortBy.value(), ProcessSortField::cpuKernelTime);
+}
+
+TEST_F(ArgsTestFixture, SortByIoRead) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--sort-by", "io-read"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_TRUE(parsed->sortBy.has_value());
+    EXPECT_EQ(parsed->sortBy.value(), ProcessSortField::ioReadBytes);
+}
+
+TEST_F(ArgsTestFixture, SortByIoWrite) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--sort-by", "io-write"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_TRUE(parsed->sortBy.has_value());
+    EXPECT_EQ(parsed->sortBy.value(), ProcessSortField::ioWriteBytes);
+}
+
+TEST_F(ArgsTestFixture, SortByPriority) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--sort-by", "priority"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_TRUE(parsed->sortBy.has_value());
+    EXPECT_EQ(parsed->sortBy.value(), ProcessSortField::priority);
+}
+
+TEST_F(ArgsTestFixture, SortByUnknownFieldReturnsNullopt) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--sort-by", "not-a-field"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_FALSE(parsed.has_value());
 }

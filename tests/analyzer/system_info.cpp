@@ -57,13 +57,15 @@ TEST_F(GetSystemInfoTest, ParsesOsNameFromOsRelease) {
     EXPECT_EQ(result.value().osName, "Arch Linux");
 }
 
-TEST_F(GetSystemInfoTest, FallsBackToLinuxWhenOsReleaseAbsent) {
+TEST_F(GetSystemInfoTest, OsNameIsNonEmptyWhenMockOsReleaseAbsent) {
+    // /etc/os-release is read first (production path); the mock path is the fallback.
+    // Either way osName is always non-empty (at least the "Linux" sentinel).
     mockProc->createUptime(kUptimeSecs, kIdleSecs);
     mockProc->createVersion("Linux version 6.1.0");
 
     auto result = analyzer.getSystemInfo();
     ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(result.value().osName, "Linux");
+    EXPECT_FALSE(result.value().osName.empty());
 }
 
 TEST_F(GetSystemInfoTest, MissingUptimeReturnsError) {

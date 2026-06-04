@@ -51,7 +51,7 @@ public:
 
     //- System-wide Information & Statistics
     [[nodiscard]] utils::Result<SystemInfo> getSystemInfo() const;
-    static utils::Result<long long> getSystemBootTimeUnix();
+    [[nodiscard]] utils::Result<long long> getSystemBootTimeUnix() const;
     static utils::Result<long> getSystemClockTicksPerSecond();
     [[nodiscard]] utils::Result<SystemMemoryInfo> getSystemMemoryInfo() const;
     [[nodiscard]] utils::Result<SystemLoadAverage> getSystemLoadAverage() const;
@@ -66,6 +66,12 @@ public:
         ProcessSortField sortBy = ProcessSortField::pid,
         SortOrder sortOrder = SortOrder::asc
     ) const;
+
+    //- Process Control
+    [[nodiscard]] utils::Result<void> sendSignal(int pid, int signal) const;
+
+    //- Process Performance
+    [[nodiscard]] utils::Result<void> setProcessPriority(int pid, int niceValue) const;
 
     //- C++23 Streaming API (Generators)
     //- WARNING: The returned generator MUST NOT outlive the ProcessAnalyzer instance.

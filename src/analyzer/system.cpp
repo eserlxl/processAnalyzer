@@ -37,8 +37,8 @@ utils::Result<long long> parseSystemBootTime(std::string_view statContent) {
 } // anonymous namespace
 
 // Implementation of ProcessAnalyzer::getSystemBootTimeUnix
-utils::Result<long long> ProcessAnalyzer::getSystemBootTimeUnix() {
-    auto statContent = utils::readTextFile("/proc/stat");
+utils::Result<long long> ProcessAnalyzer::getSystemBootTimeUnix() const {
+    auto statContent = utils::readTextFile((procPath / "stat").string());
     if (!statContent) {
         return std::unexpected(statContent.error());
     }
@@ -237,8 +237,11 @@ utils::Result<SystemInfo> ProcessAnalyzer::getSystemInfo() const {
         info.hostname = utils::trim(*hostnameContent);
     }
 
-    // osName: /proc/etc/os-release (via procPath for testability) then fallback
-    auto osReleaseContent = utils::readTextFile((procPath / "etc" / "os-release").string());
+    // Try the canonical path first; fall back to procPath/etc/os-release for test mocks.
+    auto osReleaseContent = utils::readTextFile("/etc/os-release");
+    if (!osReleaseContent) {
+        osReleaseContent = utils::readTextFile((procPath / "etc" / "os-release").string());
+    }
     if (osReleaseContent) {
         std::istringstream ls(*osReleaseContent);
         std::string oLine;

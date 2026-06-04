@@ -28,7 +28,6 @@ struct ParsedArguments {
     bool showHelp = false;
     std::optional<int> ppidFilter;       // Stores the PPID value for the --ppid filter.
     bool showNetworkConnections = false; // Flag to indicate if --network option was used.
-    std::optional<std::string> configFilePath; // Path to a user-specified configuration file.
 };
 
 std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const> argv);

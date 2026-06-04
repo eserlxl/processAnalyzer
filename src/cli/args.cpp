@@ -33,6 +33,15 @@ namespace {
         if (lowerS == "vm") return ProcessSortField::vmsize;
         if (lowerS == "threads") return ProcessSortField::threads;
         if (lowerS == "start-time") return ProcessSortField::startTime;
+        if (lowerS == "cmdline") return ProcessSortField::cmdline;
+        if (lowerS == "exec-path") return ProcessSortField::executablePath;
+        if (lowerS == "cwd") return ProcessSortField::cwd;
+        if (lowerS == "cpu-time") return ProcessSortField::cpuTime;
+        if (lowerS == "cpu-user-time") return ProcessSortField::cpuUserTime;
+        if (lowerS == "cpu-kernel-time") return ProcessSortField::cpuKernelTime;
+        if (lowerS == "io-read") return ProcessSortField::ioReadBytes;
+        if (lowerS == "io-write") return ProcessSortField::ioWriteBytes;
+        if (lowerS == "priority") return ProcessSortField::priority;
         return std::nullopt;
     }
 
@@ -57,13 +66,16 @@ void printUsage() {
               << "  pid <pid>                Alias for 'show --pid <pid>'\n"
               << "  name <process_name>      Search processes by name\n"
               << "  user <username>          Search processes by user\n"
+              << "  system                   Display system-wide information and statistics\n"
               << "\nOptions:\n"
               << "  -h, --help               Show this help message\n"
               << "  -p, --pid <pid>          Filter or show details for a specific Process ID\n"
               << "  --name <name>            Filter processes by name (contains)\n"
               << "  -u, --user <username>    Filter processes by username\n"
               << "  -s, --state <char>       Filter processes by state (e.g., 'R', 'S', 'Z')\n"
-              << "  --sort-by <field>        Sort processes by a specific field (pid, ppid, name, rss, vm, etc.)\n"
+              << "  --sort-by <field>        Sort processes by a specific field (pid, ppid, uid, user, name, state,\n"
+              << "                           rss, vm, threads, start-time, cmdline, exec-path, cwd,\n"
+              << "                           cpu-time, cpu-user-time, cpu-kernel-time, io-read, io-write, priority)\n"
               << "  --sort-order <asc|desc>  Sort order (ascending or descending, default: asc)\n"
               << "  -b, --brief              Show brief process information (less columns)\n"
               << "  --columns <col1,col2,...> Select specific columns to display\n"
@@ -74,7 +86,6 @@ void printUsage() {
               << "  --threads                (With 'show' or 'pid') Show threads for process\n"
               << "  --network                (With 'show' or 'pid') Show network connections for process\n"
               << "  --ppid <ppid>            Filter processes by Parent Process ID\n"
-              << "  --config-file <path>     Specify a configuration file\n"
               << std::endl;
 }
 
@@ -91,7 +102,7 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
         std::string potentialCommand = cliArgs[0];
         if (!utils::startsWith(potentialCommand, "-")) { // It's a positional argument, so it could be a command
             if (potentialCommand == "list" || potentialCommand == "show" || potentialCommand == "pid" ||
-                potentialCommand == "name" || potentialCommand == "user") {
+                potentialCommand == "name" || potentialCommand == "user" || potentialCommand == "system") {
                 args.command = potentialCommand;
                 cliArgs.erase(cliArgs.begin()); // Consume the command
                 if (args.command == "pid") {
@@ -254,12 +265,6 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
             }
         } else if (arg == "--network") {
             args.showNetworkConnections = true;
-        } else if (arg == "--config-file") { // Renamed from --config to --config-file
-            if (i + 1 >= cliArgs.size()) {
-                std::cerr << "Error: --config-file requires a path.\n";
-                return std::nullopt;
-            }
-            args.configFilePath = cliArgs[++i];
         } else if (utils::startsWith(arg, "-")) {
             // This catches any unknown options that start with '-'
             std::cerr << "Error: Unknown option '" << arg << "'.\n";

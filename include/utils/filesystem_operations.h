@@ -26,7 +26,7 @@ Result<void> copyFile(const std::filesystem::path& source, const std::filesystem
 
 // Enum to control directory traversal flow
 enum class TraversalControl {
-    Continue,    // Continue traversal normally.
+    Continue,    // Continue traversal normally. (PascalCase: 'continue' is a reserved keyword.)
     skipDir,     // When returned from a callback for a directory, the traversal will not recurse into that directory. It will continue with the next sibling.
     stop,        // Stop traversal immediately.
 };
