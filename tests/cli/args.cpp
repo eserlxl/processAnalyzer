@@ -338,6 +338,15 @@ TEST_F(ArgsTestFixture, ParseCommandLineWithNetwork) {
     }
 }
 
+TEST_F(ArgsTestFixture, NetworkPortFilterForList) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--network", "8080"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_TRUE(parsed->networkPortFilter.has_value());
+    EXPECT_EQ(*parsed->networkPortFilter, static_cast<uint16_t>(8080));
+    EXPECT_FALSE(parsed->showNetworkConnections);
+}
+
 TEST_F(ArgsTestFixture, ParseCommandLineWithPpidFilter) {
     std::vector<std::string> args = {"processAnalyzer", "list", "--ppid", std::to_string(testPpid)};
     std::vector<char*> argv = makeArgv(args);

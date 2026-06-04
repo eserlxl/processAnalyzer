@@ -28,6 +28,7 @@ struct ParsedArguments {
     bool showHelp = false;
     std::optional<int> ppidFilter;            // Stores the PPID value for the --ppid filter.
     bool showNetworkConnections = false;      // Flag to indicate if --network option was used.
+    std::optional<uint16_t> networkPortFilter; // Local port for --network <port> list filter.
     std::optional<long long> minRssKb;        // Minimum resident memory in KB (--min-rss).
     std::optional<long long> maxRssKb;        // Maximum resident memory in KB (--max-rss).
     std::optional<long> minThreads;           // Minimum thread count (--min-threads).

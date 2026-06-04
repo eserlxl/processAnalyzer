@@ -44,3 +44,9 @@ TEST_F(GetSystemLoadAverageTest, MissingLoadavgReturnsError) {
     auto result = analyzer.getSystemLoadAverage();
     EXPECT_FALSE(result.has_value());
 }
+
+TEST_F(GetSystemLoadAverageTest, MalformedLoadavgReturnsError) {
+    mockProc->createFileAt("loadavg", "not a number\n");
+    auto result = analyzer.getSystemLoadAverage();
+    EXPECT_FALSE(result.has_value());
+}

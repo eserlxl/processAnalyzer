@@ -56,6 +56,16 @@ namespace {
         }
         return static_cast<int>(*parsed);
     }
+
+    std::optional<uint16_t> parsePort(std::string_view value) {
+        constexpr int base10 = 10;
+        constexpr long kMaxPort = 65535;
+        const auto parsed = utils::toLong(value, base10);
+        if (!parsed || *parsed < 1 || *parsed > kMaxPort) {
+            return std::nullopt;
+        }
+        return static_cast<uint16_t>(*parsed);
+    }
 }
 
 void printUsage() {
@@ -280,7 +290,17 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
                 return std::nullopt;
             }
         } else if (arg == "--network") {
-            args.showNetworkConnections = true;
+            // If the next token is a valid port number, treat as list-filter.
+            if (i + 1 < cliArgs.size()) {
+                if (auto port = parsePort(cliArgs[i + 1])) {
+                    args.networkPortFilter = port;
+                    ++i;
+                } else {
+                    args.showNetworkConnections = true;
+                }
+            } else {
+                args.showNetworkConnections = true;
+            }
         } else if (arg == "--env" || arg == "--environment") {
             args.showEnv = true;
         } else if (arg == "--maps") {
@@ -433,6 +453,13 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
          args.showLimits || args.showCgroupInfo) &&
         args.command != "show" && args.command != "pid") {
         std::cerr << "Error: --children, --open-files, --threads, --network, --env, --maps, --limits, and --cgroup are only valid with 'show' or 'pid' commands.\n";
+        return std::nullopt;
+    }
+
+    // --network <port> (port filter) is only valid with 'list' command.
+    if (args.networkPortFilter.has_value() &&
+        args.command != "list" && args.command != "name" && args.command != "user") {
+        std::cerr << "Error: --network <port> filter is only valid with the 'list' command.\n";
         return std::nullopt;
     }
 

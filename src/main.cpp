@@ -44,6 +44,11 @@ int main(int argc, char* argv[]) {
         filter.maxVirtualMemoryKB = args.maxVmKb;
         filter.minPriority = args.minPriority;
         filter.maxPriority = args.maxPriority;
+        if (args.networkPortFilter) {
+            ProcessFilter::NetworkFilterCriteria netCrit;
+            netCrit.localPort = args.networkPortFilter;
+            filter.networkConnectionFilter = netCrit;
+        }
 
         if (args.command == "system") {
             constexpr int labelWidth = 20;

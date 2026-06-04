@@ -189,3 +189,16 @@ TEST(OutputTest, VerticalDetailsPrintsCpuTime) {
     EXPECT_NE(out.find("4200"), std::string::npos);
     EXPECT_NE(out.find("1800"), std::string::npos);
 }
+
+TEST(OutputTest, DefaultColumnsFullDetails) {
+    const auto cols = getDefaultColumnsForTable(true);
+    const std::vector<std::string> expected = {
+        "pid", "user", "name", "state", "rss", "vm", "threads", "cmdline"};
+    EXPECT_EQ(cols, expected);
+}
+
+TEST(OutputTest, DefaultColumnsBrief) {
+    const auto cols = getDefaultColumnsForTable(false);
+    const std::vector<std::string> expected = {"pid", "user", "name", "state", "rss"};
+    EXPECT_EQ(cols, expected);
+}
