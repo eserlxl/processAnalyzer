@@ -64,3 +64,21 @@ TEST_F(GetSystemMemoryInfoTest, MissingMeminfoReturnsError) {
     auto result = analyzer.getSystemMemoryInfo();
     EXPECT_FALSE(result.has_value());
 }
+
+TEST_F(GetSystemMemoryInfoTest, ParsesMeminfoWithoutSwapFields) {
+    // Meminfo with no swap lines — swapTotal and swapFree must default to 0.
+    mockProc->createFileAt("meminfo",
+        "MemTotal:      16384 kB\n"
+        "MemFree:        8192 kB\n"
+        "MemAvailable:  10000 kB\n"
+        "Buffers:         256 kB\n"
+        "Cached:         4096 kB\n");
+
+    auto result = analyzer.getSystemMemoryInfo();
+    ASSERT_TRUE(result.has_value());
+    const SystemMemoryInfo& info = result.value();
+    EXPECT_EQ(info.memTotal, 16384UL);
+    EXPECT_EQ(info.memFree, 8192UL);
+    EXPECT_EQ(info.swapTotal, 0UL);
+    EXPECT_EQ(info.swapFree, 0UL);
+}
