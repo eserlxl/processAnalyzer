@@ -41,10 +41,10 @@ ProcessAnalyzer analyzer; // Create an instance
 -   `getNetworkConnections(pid)`: Shows network connections (TCP, UDP, UNIX) associated with the process.
 
 ### Process Performance Metrics
--   `getProcessCpuUsage(pid, duration)`: Calculates the CPU usage of a single process as a percentage over a specified `std::chrono::duration`.
--   `getAllProcessesCpuUsage(duration)`: Calculates CPU usage for all currently running processes.
--   `getProcessDiskIoUsage(pid, duration)`: Measures the disk I/O (bytes read/written) of a single process over a duration.
--.  `getAllProcessesDiskIoUsage(duration)`: Measures disk I/O for all processes.
+-   `getProcessCpuUsage(pid, duration)`: Snapshots `/proc/<pid>/stat` and `/proc/stat` before and after the given `std::chrono::milliseconds` sleep; returns `ProcessCpuUsage{pid, cpuPercentage}` — process ticks delta divided by system total ticks delta.
+-   `getAllProcessesCpuUsage(duration)`: Same delta-based calculation for every running process in one sleep interval; returns `std::vector<ProcessCpuUsage>`. PIDs that disappear between snapshots are silently skipped.
+-   `getProcessDiskIoUsage(pid, duration)`: Snapshots `/proc/<pid>/io` bytes before and after the given `std::chrono::milliseconds` sleep; returns `ProcessDiskIoUsage{pid, readBytesPerSec, writeBytesPerSec}`.
+-   `getAllProcessesDiskIoUsage(duration)`: Same I/O-rate calculation for every running process in one sleep interval; returns `std::vector<ProcessDiskIoUsage>`.
 
 ### Process Control & Manipulation
 *Note: These functions often require elevated privileges.*
@@ -67,7 +67,7 @@ ProcessAnalyzer analyzer; // Create an instance
 
 ### System Performance Metrics
 -   `getSystemCpuUsage(duration)`: Samples `/proc/stat` before and after the given `std::chrono::milliseconds` sleep, returns `SystemCpuUsage.cpuPercentage` in `[0, 100]`.
--   `getPerCpuUsage(duration)`: Calculates the CPU utilization for each CPU core individually (not yet implemented).
+-   `getPerCpuUsage(duration)`: Samples `/proc/stat` per-CPU lines before and after the given `std::chrono::milliseconds` sleep; returns `PerCpuUsage.cpuUsages` — one `SingleCpuUsage{cpuId, cpuPercentage}` per core, each in `[0, 100]`.
 
 ### Process Query & Filtering
 -   `queryProcesses(filter, sortBy, sortOrder)`: A powerful method to find, filter, and sort processes based on flexible criteria. The `filter` is a `ProcessFilter` struct, and sorting can be done on attributes like `cpu`, `memory`, `pid`, etc.

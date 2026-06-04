@@ -55,6 +55,7 @@ public:
     static utils::Result<long> getSystemClockTicksPerSecond();
     [[nodiscard]] utils::Result<SystemCpuStats> getSystemCpuStats() const;
     [[nodiscard]] utils::Result<SystemCpuUsage> getSystemCpuUsage(std::chrono::milliseconds duration) const;
+    [[nodiscard]] utils::Result<PerCpuUsage> getPerCpuUsage(std::chrono::milliseconds duration) const;
     [[nodiscard]] utils::Result<SystemMemoryInfo> getSystemMemoryInfo() const;
     [[nodiscard]] utils::Result<SystemLoadAverage> getSystemLoadAverage() const;
     [[nodiscard]] utils::Result<std::vector<MountPointInfo>> getSystemDiskUsage() const;
@@ -76,6 +77,10 @@ public:
     [[nodiscard]] utils::Result<void> setProcessPriority(int pid, int niceValue) const;
     [[nodiscard]] utils::Result<CpuSet> getProcessCpuAffinity(int pid) const;
     [[nodiscard]] utils::Result<void> setProcessCpuAffinity(int pid, const CpuSet& affinity) const;
+    [[nodiscard]] utils::Result<ProcessCpuUsage> getProcessCpuUsage(int pid, std::chrono::milliseconds duration) const;
+    [[nodiscard]] utils::Result<std::vector<ProcessCpuUsage>> getAllProcessesCpuUsage(std::chrono::milliseconds duration) const;
+    [[nodiscard]] utils::Result<ProcessDiskIoUsage> getProcessDiskIoUsage(int pid, std::chrono::milliseconds duration) const;
+    [[nodiscard]] utils::Result<std::vector<ProcessDiskIoUsage>> getAllProcessesDiskIoUsage(std::chrono::milliseconds duration) const;
 
     //- C++23 Streaming API (Generators)
     //- WARNING: The returned generator MUST NOT outlive the ProcessAnalyzer instance.

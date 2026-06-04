@@ -37,6 +37,17 @@ struct ProcessInfo {
     int priority = 0;               // Process priority (nice value)
 };
 
+struct ProcessCpuUsage {
+    int pid;
+    double cpuPercentage;
+};
+
+struct ProcessDiskIoUsage {
+    int pid;
+    long long readBytesPerSec;
+    long long writeBytesPerSec;
+};
+
 // New for Iteration 9: Process Threads Details
 struct ThreadInfo {
     pid_t tid = 0;                // Thread ID (which is also the PID of the kernel's representation of the thread)

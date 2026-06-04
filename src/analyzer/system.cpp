@@ -12,10 +12,45 @@
 #include <thread>
 #include <unistd.h>
 #include <sys/statvfs.h>
+#include <cctype>
 #include <set>
 
 // Anonymous namespace for helper functions
 namespace {
+
+struct RawCpuLine {
+    int cpuId = -1;
+    unsigned long long user = 0;
+    unsigned long long nice = 0;
+    unsigned long long system = 0;
+    unsigned long long idle = 0;
+    unsigned long long iowait = 0;
+    unsigned long long irq = 0;
+    unsigned long long softirq = 0;
+    unsigned long long steal = 0;
+};
+
+// Parse all per-CPU lines (cpu0, cpu1, ...) from /proc/stat content.
+// Lines starting with "cpu " (aggregate) or non-digit suffix are skipped.
+std::vector<RawCpuLine> parsePerCpuLines(const std::string& content) {
+    std::vector<RawCpuLine> result;
+    std::istringstream iss{content};
+    std::string line;
+    while (std::getline(iss, line)) {
+        if (!line.starts_with("cpu") || line.size() < 4) continue;
+        if (!std::isdigit(static_cast<unsigned char>(line[3]))) continue;
+        std::istringstream ls(line);
+        std::string label;
+        RawCpuLine raw;
+        if (!(ls >> label >> raw.user >> raw.nice >> raw.system >> raw.idle
+                        >> raw.iowait >> raw.irq >> raw.softirq >> raw.steal)) {
+            continue;
+        }
+        raw.cpuId = std::stoi(label.substr(3));
+        result.push_back(raw);
+    }
+    return result;
+}
 
 // Helper to parse /proc/stat for system boot time
 utils::Result<long long> parseSystemBootTime(std::string_view statContent) {
@@ -332,3 +367,38 @@ utils::Result<SystemInfo> ProcessAnalyzer::getSystemInfo() const {
     return info;
 }
 
+// Implementation of ProcessAnalyzer::getPerCpuUsage
+utils::Result<PerCpuUsage> ProcessAnalyzer::getPerCpuUsage(std::chrono::milliseconds duration) const {
+    auto content1 = utils::readTextFile((procPath / "stat").string());
+    if (!content1) {
+        return std::unexpected(content1.error());
+    }
+
+    std::this_thread::sleep_for(duration);
+
+    auto content2 = utils::readTextFile((procPath / "stat").string());
+    if (!content2) {
+        return std::unexpected(content2.error());
+    }
+
+    const auto snap1 = parsePerCpuLines(*content1);
+    const auto snap2 = parsePerCpuLines(*content2);
+
+    PerCpuUsage result;
+    const auto count = std::min(snap1.size(), snap2.size());
+    for (std::size_t i = 0; i < count; ++i) {
+        const auto& s1 = snap1[i];
+        const auto& s2 = snap2[i];
+        const auto active1 = s1.user + s1.nice + s1.system + s1.irq + s1.softirq + s1.steal;
+        const auto active2 = s2.user + s2.nice + s2.system + s2.irq + s2.softirq + s2.steal;
+        const auto total1  = active1 + s1.idle + s1.iowait;
+        const auto total2  = active2 + s2.idle + s2.iowait;
+        const auto totalDelta = total2 - total1;
+        double pct = 0.0;
+        if (totalDelta > 0ULL) {
+            pct = static_cast<double>(active2 - active1) / static_cast<double>(totalDelta) * 100.0;
+        }
+        result.cpuUsages.push_back(SingleCpuUsage{.cpuId = s2.cpuId, .cpuPercentage = pct});
+    }
+    return result;
+}

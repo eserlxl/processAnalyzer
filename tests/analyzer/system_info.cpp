@@ -128,6 +128,19 @@ TEST(SystemCpuStatsTest, MalformedCpuLineReturnsError) {
     EXPECT_FALSE(result.has_value());
 }
 
+TEST(SystemCpuStatsTest, StatFileWithNoCpuAggregateLineReturnsError) {
+    MockProc mockProc("mock_proc_cpu_stats_no_aggregate_test");
+    ProcessAnalyzer analyzer(mockProc.getPath());
+    // Only per-CPU lines — no "cpu " aggregate line. The loop exits without returning,
+    // falling through to the final error return.
+    mockProc.createFileAt("stat",
+        "cpu0 100 20 50 800 10 5 3 1 0 0\n"
+        "cpu1 80 10 40 900 5 2 1 0 0 0\n");
+
+    auto result = analyzer.getSystemCpuStats();
+    EXPECT_FALSE(result.has_value());
+}
+
 TEST(SystemCpuUsageTest, ReturnsPercentageInRange) {
     // Use real /proc so both snapshots read actual CPU data.
     ProcessAnalyzer analyzer("/proc");
@@ -142,5 +155,25 @@ TEST(SystemCpuUsageTest, MissingStatReturnsError) {
     ProcessAnalyzer analyzer(mockProc.getPath());
     // No stat file — getSystemCpuStats() will fail on the first call.
     auto result = analyzer.getSystemCpuUsage(std::chrono::milliseconds(1));
+    EXPECT_FALSE(result.has_value());
+}
+
+TEST(PerCpuUsageTest, ReturnsUsageForEachCoreInRange) {
+    ProcessAnalyzer analyzer("/proc");
+    auto result = analyzer.getPerCpuUsage(std::chrono::milliseconds(1));
+    ASSERT_TRUE(result.has_value());
+    const PerCpuUsage& usage = result.value();
+    EXPECT_FALSE(usage.cpuUsages.empty());
+    for (const auto& core : usage.cpuUsages) {
+        EXPECT_GE(core.cpuId, 0);
+        EXPECT_GE(core.cpuPercentage, 0.0);
+        EXPECT_LE(core.cpuPercentage, 100.0);
+    }
+}
+
+TEST(PerCpuUsageTest, MissingStatReturnsError) {
+    MockProc mockProc("mock_proc_per_cpu_usage_absent_test");
+    ProcessAnalyzer analyzer(mockProc.getPath());
+    auto result = analyzer.getPerCpuUsage(std::chrono::milliseconds(1));
     EXPECT_FALSE(result.has_value());
 }

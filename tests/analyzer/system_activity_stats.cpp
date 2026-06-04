@@ -61,6 +61,22 @@ TEST_F(GetSystemActivityStatsTest, ParsesInterruptsTotal) {
     EXPECT_EQ(stats.processesForked, kProcesses);
 }
 
+TEST_F(GetSystemActivityStatsTest, ParsesInterruptsPerCpuMap) {
+    mockProc->createFileAt("stat",
+        "cpu  100 0 50 800 0 0 0 0 0 0\n"
+        "intr 1000000 500 200 300\n"
+        "ctxt 54321\n"
+        "processes 678\n");
+
+    auto result = analyzer.getSystemActivityStats();
+    ASSERT_TRUE(result.has_value());
+    const SystemActivityStats& stats = result.value();
+    ASSERT_EQ(stats.interruptsPerCpu.size(), 3ULL);
+    EXPECT_EQ(stats.interruptsPerCpu.at("cpu0"), 500ULL);
+    EXPECT_EQ(stats.interruptsPerCpu.at("cpu1"), 200ULL);
+    EXPECT_EQ(stats.interruptsPerCpu.at("cpu2"), 300ULL);
+}
+
 TEST_F(GetSystemActivityStatsTest, MissingStatReturnsError) {
     auto result = analyzer.getSystemActivityStats();
     EXPECT_FALSE(result.has_value());

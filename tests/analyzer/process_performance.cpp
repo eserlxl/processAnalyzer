@@ -128,3 +128,43 @@ TEST(SetProcessCpuAffinityTest, NonexistentPidReturnsError) {
     auto result = analyzer.setProcessCpuAffinity(kAbsentPid, affinity);
     EXPECT_FALSE(result.has_value());
 }
+
+// ── getProcessCpuUsage ────────────────────────────────────────────────────────
+
+TEST(ProcessCpuUsageTest, ReturnsPercentageInRangeForSelf) {
+    ProcessAnalyzer analyzer("/proc");
+    const auto selfPid = static_cast<int>(::getpid());
+    auto result = analyzer.getProcessCpuUsage(selfPid, std::chrono::milliseconds(1));
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result.value().pid, selfPid);
+    EXPECT_GE(result.value().cpuPercentage, 0.0);
+    EXPECT_LE(result.value().cpuPercentage, 100.0);
+}
+
+TEST(ProcessCpuUsageTest, AbsentPidReturnsError) {
+    MockProc mockProc("mock_proc_cpu_usage_pid_absent_test");
+    ProcessAnalyzer analyzer(mockProc.getPath());
+    constexpr int kAbsentPid = 77777;
+    auto result = analyzer.getProcessCpuUsage(kAbsentPid, std::chrono::milliseconds(1));
+    EXPECT_FALSE(result.has_value());
+}
+
+// ── getProcessDiskIoUsage ─────────────────────────────────────────────────────
+
+TEST(ProcessDiskIoUsageTest, ReturnsNonNegativeRatesForSelf) {
+    ProcessAnalyzer analyzer("/proc");
+    const auto selfPid = static_cast<int>(::getpid());
+    auto result = analyzer.getProcessDiskIoUsage(selfPid, std::chrono::milliseconds(1));
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result.value().pid, selfPid);
+    EXPECT_GE(result.value().readBytesPerSec, 0LL);
+    EXPECT_GE(result.value().writeBytesPerSec, 0LL);
+}
+
+TEST(ProcessDiskIoUsageTest, AbsentPidReturnsError) {
+    MockProc mockProc("mock_proc_disk_io_pid_absent_test");
+    ProcessAnalyzer analyzer(mockProc.getPath());
+    constexpr int kAbsentPid = 77778;
+    auto result = analyzer.getProcessDiskIoUsage(kAbsentPid, std::chrono::milliseconds(1));
+    EXPECT_FALSE(result.has_value());
+}
