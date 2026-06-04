@@ -16,7 +16,7 @@ namespace {
 bool applyStringFilter(const std::optional<std::string>& containsFilter,
                        const std::optional<std::regex>& regexFilter,
                        const std::string& targetString) {
-    if (containsFilter && targetString.find(*containsFilter) == std::string::npos) {
+    if (containsFilter && !targetString.contains(*containsFilter)) {
         return false;
     }
     if (regexFilter && !std::regex_search(targetString, *regexFilter)) {
@@ -100,7 +100,7 @@ utils::Result<std::vector<ProcessInfo>> ProcessAnalyzer::queryProcesses(
                 if (netFilter.protocol && conn.protocol != *netFilter.protocol) currentConnMatch = false;
                 if (netFilter.state && conn.state != *netFilter.state) currentConnMatch = false;
 
-                if (netFilter.remoteAddressContains && conn.remoteAddress.find(*netFilter.remoteAddressContains) == std::string::npos) currentConnMatch = false;
+                if (netFilter.remoteAddressContains && !conn.remoteAddress.contains(*netFilter.remoteAddressContains)) currentConnMatch = false;
                 if (netFilter.remoteAddressRegex && !std::regex_search(conn.remoteAddress, *netFilter.remoteAddressRegex)) currentConnMatch = false;
 
                 if (currentConnMatch) {
