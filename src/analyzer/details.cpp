@@ -405,3 +405,17 @@ utils::Result<std::vector<OpenFileDescriptorInfo>> ProcessAnalyzer::getProcessOp
     }
     return openFiles;
 }
+
+// Implementation of ProcessAnalyzer::getProcessEnvironment
+utils::Result<std::vector<std::string>> ProcessAnalyzer::getProcessEnvironment(int pid) const {
+    auto check = Internal::checkPidPathExistsAndPermissions(procPath, pid);
+    if (!check) return std::unexpected(check.error());
+
+    std::filesystem::path environPath = procPath / std::to_string(pid) / "environ";
+    auto content = utils::readTextFile(environPath.string());
+    if (!content) return std::unexpected(content.error());
+
+    // /proc/[pid]/environ holds the environment as null-separated KEY=VALUE
+    // entries; skip the empty trailing token after the final separator.
+    return utils::split(*content, '\0', /*skipEmpty=*/true);
+}
