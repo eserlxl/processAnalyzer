@@ -5,6 +5,7 @@
 #include "utils/core.h"
 #include "analyzer/internal/helpers.h" // For checkPidPathExistsAndPermissions
 #include <filesystem>
+#include <system_error>
 #include <utility> // For std::move
 
 namespace fs = std::filesystem;
@@ -47,18 +48,34 @@ utils::Result<std::vector<int>> ProcessAnalyzer::getPids() const {
 }
 
 std::generator<int> ProcessAnalyzer::streamPids() const {
-    if (!fs::exists(procPath)) {
-        co_return; 
+    // Use the non-throwing std::error_code overloads so a filesystem error
+    // (procPath missing, not a directory, or unreadable) ends the stream
+    // gracefully instead of throwing std::filesystem_error out of the
+    // coroutine -- matching getPids()'s guarded iteration.
+    std::error_code ec;
+    if (!fs::exists(procPath, ec) || ec) {
+        co_return;
     }
 
-    for (const auto& entry : fs::directory_iterator(procPath)) {
-        if (entry.is_directory()) {
+    fs::directory_iterator it(procPath, ec);
+    if (ec) {
+        co_return;
+    }
+    const fs::directory_iterator end;
+    while (it != end) {
+        const auto& entry = *it;
+        std::error_code entryEc;
+        if (entry.is_directory(entryEc) && !entryEc) {
             std::string filename = entry.path().filename().string();
             if (utils::isInteger(filename)) {
                 if (auto parsedPid = utils::parseInteger<int>(filename)) {
                     co_yield *parsedPid;
                 }
             }
+        }
+        it.increment(ec);
+        if (ec) {
+            co_return;
         }
     }
 }
