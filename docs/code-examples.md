@@ -226,6 +226,33 @@ int main() {
 }
 ```
 
+## Monitoring System Activity Rates
+
+Use `getSystemActivityRates(duration)` for a live, per-second view of kernel
+scheduling activity (context switches, interrupts, and process forks), sampled
+from `/proc/stat` over the given interval.
+
+```cpp
+#include "analyzer/core.h"
+#include <chrono>
+#include <iostream>
+
+int main() {
+    ProcessAnalyzer analyzer;
+
+    // Live activity rates over 200 ms
+    auto ratesResult = analyzer.getSystemActivityRates(std::chrono::milliseconds(200));
+    if (ratesResult) {
+        const auto& r = *ratesResult;
+        std::cout << "context switches/s: " << r.contextSwitchesPerSec << "\n"
+                  << "interrupts/s: "       << r.interruptsPerSec      << "\n"
+                  << "forks/s: "            << r.processForkRate       << "\n";
+    }
+
+    return 0;
+}
+```
+
 ## ⚡ Library Quick Start
 
 The C++ API allows you to integrate process and system monitoring directly into your applications. You can link against the library by adding the project as a subdirectory in your CMake configuration.

@@ -106,6 +106,7 @@ The `system` command prints a snapshot of system-wide resource usage.
 - **Disk I/O Stats** — for each block device: reads, writes, sectors read, sectors written.
 - **Disk I/O Rates** — per-device reads and writes per second (200 ms sample).
 - **System Activity** — total context switches, interrupts, and process forks since boot.
+- **System Activity Rates** — context switches, interrupts, and process forks per second (200 ms sample).
 
 **Example:**
 ```bash
