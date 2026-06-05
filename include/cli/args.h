@@ -48,6 +48,8 @@ struct ParsedArguments {
     int perfDurationMs = kDefaultPerfDurationMs; // Sample duration in ms for --perf.
     static constexpr int kDefaultWatchIntervalSeconds = 2;
     std::optional<int> watchIntervalSeconds;  // --watch [SECONDS]: continuous refresh of the system command.
+    std::optional<int> topCount;              // --count N: row limit for the top command.
+    bool topByIo = false;                     // --io: rank the top command by disk I/O instead of CPU.
 };
 
 std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const> argv);

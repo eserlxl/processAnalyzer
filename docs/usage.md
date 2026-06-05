@@ -136,6 +136,14 @@ prints the busiest processes, ordered by descending CPU percentage.
 It lists up to 15 processes with their PID, live CPU%, and name — useful for
 quickly spotting the heaviest consumers during performance diagnosis.
 
+**Options:**
+- `--count N` — limit the output to the top `N` processes (default 15).
+- `--io` — rank by disk I/O (read + write bytes per second) instead of CPU.
+
+```bash
+./processAnalyzer top --io --count 10
+```
+
 ---
 
 ## ⚙️ Options Reference

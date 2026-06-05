@@ -328,6 +328,19 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
                     ++i;
                 }
             }
+        } else if (arg == "--count") {
+            if (i + 1 >= cliArgs.size()) {
+                std::cerr << "Error: --count requires a positive integer argument.\n";
+                return std::nullopt;
+            }
+            if (auto count = parseIntWithinRange(cliArgs[++i]); count && *count > 0) {
+                args.topCount = static_cast<int>(*count);
+            } else {
+                std::cerr << "Error: Invalid value for --count '" << cliArgs[i] << "'.\n";
+                return std::nullopt;
+            }
+        } else if (arg == "--io") {
+            args.topByIo = true;
         } else if (arg == "--uid") {
             if (i + 1 >= cliArgs.size()) {
                 std::cerr << "Error: --uid requires an argument.\n";
@@ -491,6 +504,12 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
     // --watch only refreshes the system command.
     if (args.watchIntervalSeconds.has_value() && args.command != "system") {
         std::cerr << "Error: --watch is only valid with the 'system' command.\n";
+        return std::nullopt;
+    }
+
+    // --count and --io only apply to the top command.
+    if ((args.topCount.has_value() || args.topByIo) && args.command != "top") {
+        std::cerr << "Error: --count and --io are only valid with the 'top' command.\n";
         return std::nullopt;
     }
 
