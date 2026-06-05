@@ -36,40 +36,40 @@ namespace {
         if (col == "cwd") return info.currentWorkingDirectory;
         std::unreachable();
     }
+}
 
-    // Escape a string for embedding in a JSON string literal (RFC 8259 §7):
-    // the short escapes for the common control characters, \uXXXX for any
-    // other control byte below 0x20, and \" / \\ for quote and backslash.
-    std::string jsonEscape(std::string_view value) {
-        constexpr unsigned char firstPrintableChar = 0x20U; // chars below this are control chars
-        constexpr unsigned int nibbleBits = 4U;
-        constexpr unsigned int nibbleMask = 0xFU;
-        std::string out;
-        out.reserve(value.size());
-        for (const char ch : value) {
-            const auto byte = static_cast<unsigned char>(ch);
-            switch (ch) {
-                case '"':  out += "\\\""; break;
-                case '\\': out += "\\\\"; break;
-                case '\b': out += "\\b";  break;
-                case '\f': out += "\\f";  break;
-                case '\n': out += "\\n";  break;
-                case '\r': out += "\\r";  break;
-                case '\t': out += "\\t";  break;
-                default:
-                    if (byte < firstPrintableChar) {
-                        constexpr std::string_view hexDigits = "0123456789abcdef";
-                        out += "\\u00";
-                        out += hexDigits[(byte >> nibbleBits) & nibbleMask];
-                        out += hexDigits[byte & nibbleMask];
-                    } else {
-                        out += ch;
-                    }
-                    break;
-            }
+// Escape a string for embedding in a JSON string literal (RFC 8259 §7):
+// the short escapes for the common control characters, \uXXXX for any
+// other control byte below 0x20, and \" / \\ for quote and backslash.
+std::string jsonEscape(std::string_view value) {
+    constexpr unsigned char firstPrintableChar = 0x20U; // chars below this are control chars
+    constexpr unsigned int nibbleBits = 4U;
+    constexpr unsigned int nibbleMask = 0xFU;
+    std::string out;
+    out.reserve(value.size());
+    for (const char ch : value) {
+        const auto byte = static_cast<unsigned char>(ch);
+        switch (ch) {
+            case '"':  out += "\\\""; break;
+            case '\\': out += "\\\\"; break;
+            case '\b': out += "\\b";  break;
+            case '\f': out += "\\f";  break;
+            case '\n': out += "\\n";  break;
+            case '\r': out += "\\r";  break;
+            case '\t': out += "\\t";  break;
+            default:
+                if (byte < firstPrintableChar) {
+                    constexpr std::string_view hexDigits = "0123456789abcdef";
+                    out += "\\u00";
+                    out += hexDigits[(byte >> nibbleBits) & nibbleMask];
+                    out += hexDigits[byte & nibbleMask];
+                } else {
+                    out += ch;
+                }
+                break;
         }
-        return out;
     }
+    return out;
 }
 
 

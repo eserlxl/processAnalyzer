@@ -202,3 +202,22 @@ TEST(OutputTest, DefaultColumnsBrief) {
     const std::vector<std::string> expected = {"pid", "user", "name", "state", "rss"};
     EXPECT_EQ(cols, expected);
 }
+
+TEST(JsonEscapeTest, PrintableAsciiPassesThrough) {
+    EXPECT_EQ(jsonEscape("hello world/123"), "hello world/123");
+    EXPECT_EQ(jsonEscape(""), "");
+}
+
+TEST(JsonEscapeTest, QuoteAndBackslashEscaped) {
+    EXPECT_EQ(jsonEscape("a\"b"), "a\\\"b");
+    EXPECT_EQ(jsonEscape("a\\b"), "a\\\\b");
+}
+
+TEST(JsonEscapeTest, ShortControlEscapes) {
+    EXPECT_EQ(jsonEscape("\b\f\n\r\t"), "\\b\\f\\n\\r\\t");
+}
+
+TEST(JsonEscapeTest, LowControlBytesUseUnicodeEscape) {
+    EXPECT_EQ(jsonEscape(std::string(1, '\x01')), "\\u0001");
+    EXPECT_EQ(jsonEscape(std::string(1, '\x1f')), "\\u001f");
+}
