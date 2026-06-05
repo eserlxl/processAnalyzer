@@ -396,6 +396,7 @@ int main(int argc, char* argv[]) {
             constexpr int ioWidth = 14;
             const auto sample = std::chrono::milliseconds(kTopSampleMs);
             const auto topCount = static_cast<std::size_t>(args.topCount.value_or(kDefaultTopCount));
+            const bool asJson = (args.outputFormat == "json");
 
             auto nameOf = [&analyzer](int pid) -> std::string {
                 if (auto details = analyzer.getProcessDetails(pid)) {
@@ -414,12 +415,27 @@ int main(int argc, char* argv[]) {
                 std::ranges::sort(usages, [](const ProcessDiskIoUsage& a, const ProcessDiskIoUsage& b) {
                     return (a.readBytesPerSec + a.writeBytesPerSec) > (b.readBytesPerSec + b.writeBytesPerSec);
                 });
+                const std::size_t count = std::min(topCount, usages.size());
+                if (asJson) {
+                    std::ostringstream out;
+                    out << "[";
+                    for (std::size_t i = 0; i < count; ++i) {
+                        const auto& u = usages[i];
+                        if (i != 0) { out << ", "; }
+                        out << R"({"pid": )" << u.pid
+                            << R"(, "read_bytes_per_sec": )" << u.readBytesPerSec
+                            << R"(, "write_bytes_per_sec": )" << u.writeBytesPerSec
+                            << R"(, "name": ")" << jsonEscape(nameOf(u.pid)) << "\"}";
+                    }
+                    out << "]";
+                    std::cout << out.str() << "\n";
+                    return 0;
+                }
                 std::cout << "=== Top processes by disk I/O (" << kTopSampleMs << " ms sample) ===\n";
                 std::cout << std::left << std::setw(pidWidth) << "PID"
                           << std::right << std::setw(ioWidth) << "Read B/s"
                           << std::setw(ioWidth) << "Write B/s"
                           << "  " << std::left << "NAME" << "\n";
-                const std::size_t count = std::min(topCount, usages.size());
                 for (std::size_t i = 0; i < count; ++i) {
                     const auto& u = usages[i];
                     std::cout << std::left << std::setw(pidWidth) << u.pid
@@ -439,11 +455,25 @@ int main(int argc, char* argv[]) {
             std::ranges::sort(usages, [](const ProcessCpuUsage& a, const ProcessCpuUsage& b) {
                 return a.cpuPercentage > b.cpuPercentage;
             });
+            const std::size_t count = std::min(topCount, usages.size());
+            if (asJson) {
+                std::ostringstream out;
+                out << "[";
+                for (std::size_t i = 0; i < count; ++i) {
+                    const auto& u = usages[i];
+                    if (i != 0) { out << ", "; }
+                    out << R"({"pid": )" << u.pid
+                        << R"(, "cpu_percent": )" << u.cpuPercentage
+                        << R"(, "name": ")" << jsonEscape(nameOf(u.pid)) << "\"}";
+                }
+                out << "]";
+                std::cout << out.str() << "\n";
+                return 0;
+            }
             std::cout << "=== Top processes by CPU (" << kTopSampleMs << " ms sample) ===\n";
             std::cout << std::left << std::setw(pidWidth) << "PID"
                       << std::right << std::setw(cpuWidth) << "CPU%"
                       << "  " << std::left << "NAME" << "\n";
-            const std::size_t count = std::min(topCount, usages.size());
             for (std::size_t i = 0; i < count; ++i) {
                 const auto& u = usages[i];
                 std::cout << std::left << std::setw(pidWidth) << u.pid
