@@ -11,6 +11,7 @@
 #include "cli/args.h"
 #include "cli/output.h"
 #include "utils/time.h"
+#include "utils/string.h"
 
 int main(int argc, char* argv[]) {
     try {
@@ -53,6 +54,139 @@ int main(int argc, char* argv[]) {
         if (args.command == "system") {
             constexpr int labelWidth = 20;
             constexpr int kCpuSampleMs = 200;
+
+            // Machine-readable JSON output for automation/diagnostics tooling.
+            if (args.outputFormat == "json") {
+                const auto sampleDuration = std::chrono::milliseconds(kCpuSampleMs);
+                std::vector<std::string> members;
+                auto quote = [](std::string_view s) { return "\"" + jsonEscape(s) + "\""; };
+
+                if (auto r = analyzer.getSystemInfo()) {
+                    std::ostringstream s;
+                    s << R"("system_info": {"hostname": )" << quote(r->hostname)
+                      << ", \"os_name\": " << quote(r->osName)
+                      << ", \"kernel_version\": " << quote(r->kernelVersion)
+                      << ", \"uptime_seconds\": "
+                      << std::chrono::duration_cast<std::chrono::seconds>(r->uptime).count() << "}";
+                    members.push_back(s.str());
+                }
+                if (auto r = analyzer.getSystemLoadAverage()) {
+                    std::ostringstream s;
+                    s << R"("load_average": {"one": )" << r->oneMin << ", \"five\": " << r->fiveMin
+                      << ", \"fifteen\": " << r->fifteenMin << "}";
+                    members.push_back(s.str());
+                }
+                if (auto r = analyzer.getSystemCpuUsage(sampleDuration)) {
+                    std::ostringstream s;
+                    s << "\"cpu_usage_percent\": " << r->cpuPercentage;
+                    members.push_back(s.str());
+                }
+                if (auto r = analyzer.getPerCpuUsage(sampleDuration)) {
+                    std::ostringstream s;
+                    s << "\"per_cpu\": [";
+                    for (std::size_t i = 0; i < r->cpuUsages.size(); ++i) {
+                        const auto& c = r->cpuUsages[i];
+                        if (i != 0) { s << ", "; }
+                        s << "{\"cpu_id\": " << c.cpuId << ", \"usage_percent\": " << c.cpuPercentage << "}";
+                    }
+                    s << "]";
+                    members.push_back(s.str());
+                }
+                if (auto r = analyzer.getSystemMemoryInfo()) {
+                    std::ostringstream s;
+                    s << R"("memory_kb": {"total": )" << r->memTotal << ", \"free\": " << r->memFree
+                      << ", \"available\": " << r->memAvailable << ", \"buffers\": " << r->buffers
+                      << ", \"cached\": " << r->cached << ", \"swap_total\": " << r->swapTotal
+                      << ", \"swap_free\": " << r->swapFree << "}";
+                    members.push_back(s.str());
+                }
+                if (auto r = analyzer.getSystemDiskUsage()) {
+                    std::ostringstream s;
+                    s << "\"disk_usage\": [";
+                    for (std::size_t i = 0; i < r->size(); ++i) {
+                        const auto& m = (*r)[i];
+                        if (i != 0) { s << ", "; }
+                        s << "{\"device\": " << quote(m.device) << ", \"mount_point\": " << quote(m.mountPoint)
+                          << ", \"filesystem_type\": " << quote(m.filesystemType)
+                          << ", \"total_bytes\": " << m.totalSpaceBytes
+                          << ", \"free_bytes\": " << m.freeSpaceBytes
+                          << ", \"available_bytes\": " << m.availableSpaceBytes << "}";
+                    }
+                    s << "]";
+                    members.push_back(s.str());
+                }
+                if (auto r = analyzer.getNetworkInterfaceStats()) {
+                    std::ostringstream s;
+                    s << "\"network_interfaces\": [";
+                    for (std::size_t i = 0; i < r->size(); ++i) {
+                        const auto& n = (*r)[i];
+                        if (i != 0) { s << ", "; }
+                        s << "{\"interface\": " << quote(n.interfaceName) << ", \"rx_bytes\": " << n.rxBytes
+                          << ", \"tx_bytes\": " << n.txBytes << ", \"rx_packets\": " << n.rxPackets
+                          << ", \"tx_packets\": " << n.txPackets << "}";
+                    }
+                    s << "]";
+                    members.push_back(s.str());
+                }
+                if (auto r = analyzer.getNetworkInterfaceRates(sampleDuration)) {
+                    std::ostringstream s;
+                    s << "\"network_interface_rates\": [";
+                    for (std::size_t i = 0; i < r->size(); ++i) {
+                        const auto& n = (*r)[i];
+                        if (i != 0) { s << ", "; }
+                        s << "{\"interface\": " << quote(n.interfaceName)
+                          << ", \"rx_bytes_per_sec\": " << n.rxBytesPerSec
+                          << ", \"tx_bytes_per_sec\": " << n.txBytesPerSec
+                          << ", \"rx_packets_per_sec\": " << n.rxPacketsPerSec
+                          << ", \"tx_packets_per_sec\": " << n.txPacketsPerSec << "}";
+                    }
+                    s << "]";
+                    members.push_back(s.str());
+                }
+                if (auto r = analyzer.getSystemDiskIoStats()) {
+                    std::ostringstream s;
+                    s << "\"disk_io_stats\": [";
+                    for (std::size_t i = 0; i < r->size(); ++i) {
+                        const auto& d = (*r)[i];
+                        if (i != 0) { s << ", "; }
+                        s << "{\"device\": " << quote(d.deviceName) << ", \"reads_completed\": " << d.readsCompleted
+                          << ", \"writes_completed\": " << d.writesCompleted << ", \"sectors_read\": " << d.sectorsRead
+                          << ", \"sectors_written\": " << d.sectorsWritten << "}";
+                    }
+                    s << "]";
+                    members.push_back(s.str());
+                }
+                if (auto r = analyzer.getSystemDiskIoRates(sampleDuration)) {
+                    std::ostringstream s;
+                    s << "\"disk_io_rates\": [";
+                    for (std::size_t i = 0; i < r->size(); ++i) {
+                        const auto& d = (*r)[i];
+                        if (i != 0) { s << ", "; }
+                        s << "{\"device\": " << quote(d.deviceName) << ", \"reads_per_sec\": " << d.readsPerSec
+                          << ", \"writes_per_sec\": " << d.writesPerSec
+                          << ", \"sectors_read_per_sec\": " << d.sectorsReadPerSec
+                          << ", \"sectors_written_per_sec\": " << d.sectorsWrittenPerSec << "}";
+                    }
+                    s << "]";
+                    members.push_back(s.str());
+                }
+                if (auto r = analyzer.getSystemActivityStats()) {
+                    std::ostringstream s;
+                    s << R"("system_activity": {"context_switches": )" << r->contextSwitches
+                      << ", \"interrupts\": " << r->interruptsTotal << ", \"forks\": " << r->processesForked << "}";
+                    members.push_back(s.str());
+                }
+                if (auto r = analyzer.getSystemActivityRates(sampleDuration)) {
+                    std::ostringstream s;
+                    s << R"("system_activity_rates": {"context_switches_per_sec": )" << r->contextSwitchesPerSec
+                      << ", \"interrupts_per_sec\": " << r->interruptsPerSec
+                      << ", \"forks_per_sec\": " << r->processForkRate << "}";
+                    members.push_back(s.str());
+                }
+
+                std::cout << "{\n  " << utils::join(members, ",\n  ") << "\n}\n";
+                return 0;
+            }
             // System info
             auto infoResult = analyzer.getSystemInfo();
             if (infoResult) {
