@@ -44,6 +44,7 @@
 *   **Process Hierarchy Traversal**: Navigate parent, child, and descendant process relationships.
 *   **Advanced Filtering & Sorting**: Query processes by name, user, resource usage, and other attributes.
 *   **Comprehensive System Metrics**: Monitor global and per-CPU usage, memory statistics, load average, and network interfaces.
+*   **Real-Time Monitoring CLI**: Rank processes by live CPU or disk I/O with the `top` command (`--io`, `--count`), refresh system metrics continuously with `system --watch [SECONDS]`, and emit machine-readable metrics with `system --output json`.
 *   **Process Control (API Only)**: Programmatically send signals to processes and adjust their priorities.
 
 For a complete list of features, see [docs/features.md](docs/features.md).
