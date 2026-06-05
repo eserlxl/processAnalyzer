@@ -503,9 +503,10 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
         return std::nullopt;
     }
 
-    // --watch only refreshes the system command.
-    if (args.watchIntervalSeconds.has_value() && args.command != "system") {
-        std::cerr << "Error: --watch is only valid with the 'system' command.\n";
+    // --watch refreshes the system and top commands.
+    if (args.watchIntervalSeconds.has_value() &&
+        args.command != "system" && args.command != "top") {
+        std::cerr << "Error: --watch is only valid with the 'system' and 'top' commands.\n";
         return std::nullopt;
     }
 

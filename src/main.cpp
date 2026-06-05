@@ -421,6 +421,8 @@ int main(int argc, char* argv[]) {
                 return "?";
             };
 
+            // Render one frame of the ranking; --watch repeats this below.
+            auto runTopOnce = [&]() -> int {
             if (args.topByMem) {
                 auto snapResult = analyzer.snapshot();
                 if (!snapResult) {
@@ -536,6 +538,22 @@ int main(int argc, char* argv[]) {
                           << "  " << std::left << nameOf(u.pid) << "\n";
             }
             return 0;
+            };  // runTopOnce
+
+            // JSON output and the default one-shot run render a single frame.
+            if (asJson || !args.watchIntervalSeconds.has_value()) {
+                return runTopOnce();
+            }
+            // --watch: refresh the ranking until interrupted (Ctrl-C).
+            while (true) {
+                std::cout << "\033[2J\033[H";  // clear screen, move cursor home
+                const int rc = runTopOnce();
+                if (rc != 0) {
+                    return rc;
+                }
+                std::cout.flush();
+                std::this_thread::sleep_for(std::chrono::seconds(*args.watchIntervalSeconds));
+            }
         }
         if (args.command == "list" || args.command == "name" || args.command == "user") {
             auto processesResult = analyzer.queryProcesses(filter, args.sortBy.value_or(ProcessSortField::pid), args.sortOrder);

@@ -141,10 +141,12 @@ quickly spotting the heaviest consumers during performance diagnosis.
 - `--io` — rank by disk I/O (read + write bytes per second) instead of CPU.
 - `--mem` — rank by resident memory (no sampling delay). Mutually exclusive with `--io`.
 - `--output json` — emit the ranking as a JSON array instead of a table.
+- `--watch [SECONDS]` — refresh the ranking continuously (clearing the screen each cycle) until interrupted with Ctrl-C; defaults to 2 seconds.
 
 ```bash
 ./processAnalyzer top --io --count 10
 ./processAnalyzer top --output json
+./processAnalyzer top --watch 2
 ```
 
 ---

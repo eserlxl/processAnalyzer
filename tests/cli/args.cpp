@@ -399,6 +399,18 @@ TEST_F(ArgsTestFixture, ParseTopIoAndMemMutuallyExclusive) {
     EXPECT_FALSE(parsedArgs.has_value());
 }
 
+TEST_F(ArgsTestFixture, ParseTopWatchAccepted) {
+    constexpr int kInterval = 2;
+    std::vector<std::string> args = {"processAnalyzer", "top", "--watch", std::to_string(kInterval)};
+    std::vector<char*> argv = makeArgv(args);
+    std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
+
+    ASSERT_TRUE(parsedArgs.has_value());
+    EXPECT_EQ(parsedArgs.value().command, "top");
+    ASSERT_TRUE(parsedArgs.value().watchIntervalSeconds.has_value());
+    EXPECT_EQ(parsedArgs.value().watchIntervalSeconds.value(), kInterval);
+}
+
 TEST_F(ArgsTestFixture, ParseCommandLineWithThreads) {
     std::vector<std::string> args = {"processAnalyzer", "show", "--pid", std::to_string(testPidGeneric), "--threads"};
     std::vector<char*> argv = makeArgv(args);
