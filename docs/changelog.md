@@ -21,6 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Added process control capabilities: `sendSignal`, `setProcessNiceness`, `setProcessCpuAffinity`.
     - Extended `ProcessFilter` with regex capabilities, min/max for various metrics, network connection filtering, and CPU/memory usage percentage filtering.
     - Expanded `ProcessSortField` options to include `cpuTime`, `cpuUsage`, `memoryPercentage`, and more.
+- **Real-Time Monitoring CLI:**
+    - Added the `top` command, ranking processes by live CPU usage (via `getAllProcessesCpuUsage`) or disk I/O (`--io`, via `getAllProcessesDiskIoUsage`), with a configurable row limit (`--count N`).
+    - Added `system --watch [SECONDS]` to continuously refresh the system report until interrupted.
+    - Added `system --output json` to emit the full system metrics as a single machine-readable JSON object.
+    - Added `getSystemActivityRates` (per-second context switches, interrupts, and forks) and its `System Activity Rates` section in the `system` command.
+    - Added direct unit tests for the `Internal` process filter helpers and the JSON string escaper.
 
 ### Changed
 - Refactored `Utils` library to use `std::expected` (as `Result<T>`) for robust error handling.
