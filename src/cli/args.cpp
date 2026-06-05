@@ -341,6 +341,8 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
             }
         } else if (arg == "--io") {
             args.topByIo = true;
+        } else if (arg == "--mem") {
+            args.topByMem = true;
         } else if (arg == "--uid") {
             if (i + 1 >= cliArgs.size()) {
                 std::cerr << "Error: --uid requires an argument.\n";
@@ -507,9 +509,14 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
         return std::nullopt;
     }
 
-    // --count and --io only apply to the top command.
-    if ((args.topCount.has_value() || args.topByIo) && args.command != "top") {
-        std::cerr << "Error: --count and --io are only valid with the 'top' command.\n";
+    // --count, --io, and --mem only apply to the top command.
+    if ((args.topCount.has_value() || args.topByIo || args.topByMem) && args.command != "top") {
+        std::cerr << "Error: --count, --io, and --mem are only valid with the 'top' command.\n";
+        return std::nullopt;
+    }
+    // --io and --mem select mutually exclusive ranking modes.
+    if (args.topByIo && args.topByMem) {
+        std::cerr << "Error: --io and --mem cannot be combined.\n";
         return std::nullopt;
     }
 

@@ -381,6 +381,24 @@ TEST_F(ArgsTestFixture, ParseTopCountRejectsNonPositive) {
     EXPECT_FALSE(parsedArgs.has_value());
 }
 
+TEST_F(ArgsTestFixture, ParseTopByMem) {
+    std::vector<std::string> args = {"processAnalyzer", "top", "--mem"};
+    std::vector<char*> argv = makeArgv(args);
+    std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
+
+    ASSERT_TRUE(parsedArgs.has_value());
+    EXPECT_TRUE(parsedArgs.value().topByMem);
+    EXPECT_FALSE(parsedArgs.value().topByIo);
+}
+
+TEST_F(ArgsTestFixture, ParseTopIoAndMemMutuallyExclusive) {
+    std::vector<std::string> args = {"processAnalyzer", "top", "--io", "--mem"};
+    std::vector<char*> argv = makeArgv(args);
+    std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
+
+    EXPECT_FALSE(parsedArgs.has_value());
+}
+
 TEST_F(ArgsTestFixture, ParseCommandLineWithThreads) {
     std::vector<std::string> args = {"processAnalyzer", "show", "--pid", std::to_string(testPidGeneric), "--threads"};
     std::vector<char*> argv = makeArgv(args);

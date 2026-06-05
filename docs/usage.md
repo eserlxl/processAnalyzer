@@ -139,6 +139,7 @@ quickly spotting the heaviest consumers during performance diagnosis.
 **Options:**
 - `--count N` — limit the output to the top `N` processes (default 15).
 - `--io` — rank by disk I/O (read + write bytes per second) instead of CPU.
+- `--mem` — rank by resident memory (no sampling delay). Mutually exclusive with `--io`.
 - `--output json` — emit the ranking as a JSON array instead of a table.
 
 ```bash

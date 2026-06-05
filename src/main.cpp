@@ -405,6 +405,44 @@ int main(int argc, char* argv[]) {
                 return "?";
             };
 
+            if (args.topByMem) {
+                auto snapResult = analyzer.snapshot();
+                if (!snapResult) {
+                    std::cerr << "Error reading process snapshot: " << snapResult.error().message() << "\n";
+                    return 1;
+                }
+                auto procs = *snapResult;
+                std::ranges::sort(procs, [](const ProcessInfo& a, const ProcessInfo& b) {
+                    return a.residentMemory > b.residentMemory;
+                });
+                const std::size_t count = std::min(topCount, procs.size());
+                if (asJson) {
+                    std::ostringstream out;
+                    out << "[";
+                    for (std::size_t i = 0; i < count; ++i) {
+                        const auto& p = procs[i];
+                        if (i != 0) { out << ", "; }
+                        out << R"({"pid": )" << p.pid
+                            << R"(, "resident_kb": )" << p.residentMemory
+                            << R"(, "name": ")" << jsonEscape(p.name) << "\"}";
+                    }
+                    out << "]";
+                    std::cout << out.str() << "\n";
+                    return 0;
+                }
+                std::cout << "=== Top processes by resident memory ===\n";
+                std::cout << std::left << std::setw(pidWidth) << "PID"
+                          << std::right << std::setw(ioWidth) << "RSS (KB)"
+                          << "  " << std::left << "NAME" << "\n";
+                for (std::size_t i = 0; i < count; ++i) {
+                    const auto& p = procs[i];
+                    std::cout << std::left << std::setw(pidWidth) << p.pid
+                              << std::right << std::setw(ioWidth) << p.residentMemory
+                              << "  " << std::left << p.name << "\n";
+                }
+                return 0;
+            }
+
             if (args.topByIo) {
                 auto ioResult = analyzer.getAllProcessesDiskIoUsage(sample);
                 if (!ioResult) {
