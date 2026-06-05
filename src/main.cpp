@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <thread>
 #include <algorithm>
+#include <future>
 
 #include "analyzer/core.h"
 #include "cli/args.h"
@@ -60,6 +61,13 @@ int main(int argc, char* argv[]) {
             // Machine-readable JSON output for automation/diagnostics tooling.
             if (args.outputFormat == "json") {
                 const auto sampleDuration = std::chrono::milliseconds(kCpuSampleMs);
+                // The five rate samples are independent /proc reads; run them
+                // concurrently so the command waits one window, not five.
+                auto fCpu       = std::async(std::launch::async, [&]{ return analyzer.getSystemCpuUsage(sampleDuration); });
+                auto fPerCpu    = std::async(std::launch::async, [&]{ return analyzer.getPerCpuUsage(sampleDuration); });
+                auto fNetRates  = std::async(std::launch::async, [&]{ return analyzer.getNetworkInterfaceRates(sampleDuration); });
+                auto fDiskRates = std::async(std::launch::async, [&]{ return analyzer.getSystemDiskIoRates(sampleDuration); });
+                auto fActRates  = std::async(std::launch::async, [&]{ return analyzer.getSystemActivityRates(sampleDuration); });
                 std::vector<std::string> members;
                 auto quote = [](std::string_view s) { return "\"" + jsonEscape(s) + "\""; };
 
@@ -78,12 +86,12 @@ int main(int argc, char* argv[]) {
                       << ", \"fifteen\": " << r->fifteenMin << "}";
                     members.push_back(s.str());
                 }
-                if (auto r = analyzer.getSystemCpuUsage(sampleDuration)) {
+                if (auto r = fCpu.get()) {
                     std::ostringstream s;
                     s << "\"cpu_usage_percent\": " << r->cpuPercentage;
                     members.push_back(s.str());
                 }
-                if (auto r = analyzer.getPerCpuUsage(sampleDuration)) {
+                if (auto r = fPerCpu.get()) {
                     std::ostringstream s;
                     s << "\"per_cpu\": [";
                     for (std::size_t i = 0; i < r->cpuUsages.size(); ++i) {
@@ -130,7 +138,7 @@ int main(int argc, char* argv[]) {
                     s << "]";
                     members.push_back(s.str());
                 }
-                if (auto r = analyzer.getNetworkInterfaceRates(sampleDuration)) {
+                if (auto r = fNetRates.get()) {
                     std::ostringstream s;
                     s << "\"network_interface_rates\": [";
                     for (std::size_t i = 0; i < r->size(); ++i) {
@@ -158,7 +166,7 @@ int main(int argc, char* argv[]) {
                     s << "]";
                     members.push_back(s.str());
                 }
-                if (auto r = analyzer.getSystemDiskIoRates(sampleDuration)) {
+                if (auto r = fDiskRates.get()) {
                     std::ostringstream s;
                     s << "\"disk_io_rates\": [";
                     for (std::size_t i = 0; i < r->size(); ++i) {
@@ -178,7 +186,7 @@ int main(int argc, char* argv[]) {
                       << ", \"interrupts\": " << r->interruptsTotal << ", \"forks\": " << r->processesForked << "}";
                     members.push_back(s.str());
                 }
-                if (auto r = analyzer.getSystemActivityRates(sampleDuration)) {
+                if (auto r = fActRates.get()) {
                     std::ostringstream s;
                     s << R"("system_activity_rates": {"context_switches_per_sec": )" << r->contextSwitchesPerSec
                       << ", \"interrupts_per_sec\": " << r->interruptsPerSec
@@ -197,6 +205,14 @@ int main(int argc, char* argv[]) {
             if (watchMode) {
                 std::cout << "\033[2J\033[H";  // clear screen, move cursor home
             }
+            // Launch the five independent rate samples concurrently so the report
+            // waits a single 200 ms window instead of five sequential ones.
+            const auto rateSample = std::chrono::milliseconds(kCpuSampleMs);
+            auto fCpuUsage   = std::async(std::launch::async, [&]{ return analyzer.getSystemCpuUsage(rateSample); });
+            auto fPerCpu     = std::async(std::launch::async, [&]{ return analyzer.getPerCpuUsage(rateSample); });
+            auto fNetRates   = std::async(std::launch::async, [&]{ return analyzer.getNetworkInterfaceRates(rateSample); });
+            auto fDiskRates  = std::async(std::launch::async, [&]{ return analyzer.getSystemDiskIoRates(rateSample); });
+            auto fActRates   = std::async(std::launch::async, [&]{ return analyzer.getSystemActivityRates(rateSample); });
             // System info
             auto infoResult = analyzer.getSystemInfo();
             if (infoResult) {
@@ -219,8 +235,8 @@ int main(int argc, char* argv[]) {
                 std::cout << std::left << std::setw(labelWidth) << "15 min:" << avg.fifteenMin << "\n";
             }
             // CPU usage (sampled over 200 ms)
-            auto cpuUsageResult = analyzer.getSystemCpuUsage(std::chrono::milliseconds(kCpuSampleMs));
-            auto perCpuResult   = analyzer.getPerCpuUsage(std::chrono::milliseconds(kCpuSampleMs));
+            auto cpuUsageResult = fCpuUsage.get();
+            auto perCpuResult   = fPerCpu.get();
             if (cpuUsageResult || perCpuResult) {
                 std::cout << "\n=== CPU Usage (200 ms sample) ===\n";
                 if (cpuUsageResult) {
@@ -300,7 +316,7 @@ int main(int argc, char* argv[]) {
                 }
             }
             // Network interface rates
-            auto netRatesResult = analyzer.getNetworkInterfaceRates(std::chrono::milliseconds(kCpuSampleMs));
+            auto netRatesResult = fNetRates.get();
             if (netRatesResult && !netRatesResult->empty()) {
                 constexpr int ifNameWidth = 12;
                 constexpr int numWidth = 16;
@@ -341,7 +357,7 @@ int main(int argc, char* argv[]) {
                 }
             }
             // Disk I/O rates
-            auto diskRatesResult = analyzer.getSystemDiskIoRates(std::chrono::milliseconds(kCpuSampleMs));
+            auto diskRatesResult = fDiskRates.get();
             if (diskRatesResult && !diskRatesResult->empty()) {
                 constexpr int devWidth = 14;
                 constexpr int numWidth = 14;
@@ -369,7 +385,7 @@ int main(int argc, char* argv[]) {
                 std::cout << std::left << std::setw(labelWidth) << "Forks:" << act.processesForked << "\n";
             }
             // System activity rates (live, sampled over kCpuSampleMs)
-            auto activityRatesResult = analyzer.getSystemActivityRates(std::chrono::milliseconds(kCpuSampleMs));
+            auto activityRatesResult = fActRates.get();
             if (activityRatesResult) {
                 const auto& rates = *activityRatesResult;
                 std::cout << "\n=== System Activity Rates (" << kCpuSampleMs << " ms sample) ===\n";
