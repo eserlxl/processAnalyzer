@@ -11,6 +11,7 @@ This document provides detailed instructions for using the `processAnalyzer` com
   - [`list`](#list-command)
   - [`show`](#show-command)
   - [`system`](#system-command)
+  - [`top`](#top-command)
 - [Options Reference](#-options-reference)
   - [Filtering Options](#filtering-options)
   - [Sorting Options](#sorting-options)
@@ -112,6 +113,28 @@ The `system` command prints a snapshot of system-wide resource usage.
 ```bash
 ./processAnalyzer system
 ```
+
+**Live monitoring:** pass `--watch [SECONDS]` to refresh the report continuously
+(clearing the screen each cycle) until interrupted with Ctrl-C. The interval
+defaults to 2 seconds.
+```bash
+./processAnalyzer system --watch 1
+```
+
+---
+
+### `top` Command
+
+The `top` command samples every process's CPU usage over a short window and
+prints the busiest processes, ordered by descending CPU percentage.
+
+**Syntax:**
+```bash
+./processAnalyzer top
+```
+
+It lists up to 15 processes with their PID, live CPU%, and name — useful for
+quickly spotting the heaviest consumers during performance diagnosis.
 
 ---
 

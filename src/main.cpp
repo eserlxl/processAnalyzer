@@ -7,6 +7,7 @@
 #include <iomanip>
 #include <filesystem>
 #include <thread>
+#include <algorithm>
 
 #include "analyzer/core.h"
 #include "cli/args.h"
@@ -384,6 +385,40 @@ int main(int argc, char* argv[]) {
             }
             std::cout.flush();
             std::this_thread::sleep_for(std::chrono::seconds(*args.watchIntervalSeconds));
+            }
+            return 0;
+        }
+        if (args.command == "top") {
+            constexpr int kTopSampleMs = 500;   // longer window than --perf for steadier CPU%
+            constexpr std::size_t kTopCount = 15;
+            constexpr int pidWidth = 8;
+            constexpr int cpuWidth = 8;
+
+            auto usageResult = analyzer.getAllProcessesCpuUsage(std::chrono::milliseconds(kTopSampleMs));
+            if (!usageResult) {
+                std::cerr << "Error sampling process CPU usage: " << usageResult.error().message() << "\n";
+                return 1;
+            }
+            auto usages = *usageResult;
+            std::ranges::sort(usages, [](const ProcessCpuUsage& a, const ProcessCpuUsage& b) {
+                return a.cpuPercentage > b.cpuPercentage;
+            });
+
+            std::cout << "=== Top processes by CPU (" << kTopSampleMs << " ms sample) ===\n";
+            std::cout << std::left << std::setw(pidWidth) << "PID"
+                      << std::right << std::setw(cpuWidth) << "CPU%"
+                      << "  " << std::left << "NAME" << "\n";
+            const std::size_t count = std::min(kTopCount, usages.size());
+            for (std::size_t i = 0; i < count; ++i) {
+                const auto& u = usages[i];
+                std::string name = "?";
+                if (auto details = analyzer.getProcessDetails(u.pid)) {
+                    name = details->name;
+                }
+                std::cout << std::left << std::setw(pidWidth) << u.pid
+                          << std::right << std::setw(cpuWidth) << std::fixed << std::setprecision(1)
+                          << u.cpuPercentage
+                          << "  " << std::left << name << "\n";
             }
             return 0;
         }

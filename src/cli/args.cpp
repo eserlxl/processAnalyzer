@@ -77,8 +77,10 @@ void printUsage() {
               << "  name <process_name>      Search processes by name\n"
               << "  user <username>          Search processes by user\n"
               << "  system                   Display system-wide information and statistics\n"
+              << "  top                      Show processes ranked by live CPU usage\n"
               << "\nOptions:\n"
               << "  -h, --help               Show this help message\n"
+              << "  --watch [SECONDS]        Continuously refresh the system command output (default 2s)\n"
               << "  -p, --pid <pid>          Filter or show details for a specific Process ID\n"
               << "  --name <name>            Filter processes by name (contains)\n"
               << "  -u, --user <username>    Filter processes by username\n"
@@ -128,7 +130,8 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
         std::string potentialCommand = cliArgs[0];
         if (!utils::startsWith(potentialCommand, "-")) { // It's a positional argument, so it could be a command
             if (potentialCommand == "list" || potentialCommand == "show" || potentialCommand == "pid" ||
-                potentialCommand == "name" || potentialCommand == "user" || potentialCommand == "system") {
+                potentialCommand == "name" || potentialCommand == "user" || potentialCommand == "system" ||
+                potentialCommand == "top") {
                 args.command = potentialCommand;
                 cliArgs.erase(cliArgs.begin()); // Consume the command
                 if (args.command == "pid") {
