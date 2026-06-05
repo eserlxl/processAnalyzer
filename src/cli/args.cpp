@@ -317,6 +317,14 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
                     ++i;
                 }
             }
+        } else if (arg == "--watch") {
+            args.watchIntervalSeconds = ParsedArguments::kDefaultWatchIntervalSeconds;
+            if (i + 1 < cliArgs.size()) {
+                if (auto secs = parseIntWithinRange(cliArgs[i + 1]); secs && *secs > 0) {
+                    args.watchIntervalSeconds = static_cast<int>(*secs);
+                    ++i;
+                }
+            }
         } else if (arg == "--uid") {
             if (i + 1 >= cliArgs.size()) {
                 std::cerr << "Error: --uid requires an argument.\n";
@@ -474,6 +482,12 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
     // --ppid cannot be used with single-PID commands.
     if (args.ppidFilter.has_value() && (args.command == "show" || args.command == "pid")) {
         std::cerr << "Error: --ppid cannot be used with 'show' or 'pid' command.\n";
+        return std::nullopt;
+    }
+
+    // --watch only refreshes the system command.
+    if (args.watchIntervalSeconds.has_value() && args.command != "system") {
+        std::cerr << "Error: --watch is only valid with the 'system' command.\n";
         return std::nullopt;
     }
 

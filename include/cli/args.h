@@ -46,6 +46,8 @@ struct ParsedArguments {
     bool showPerf = false;                    // Show performance metrics (--perf).
     static constexpr int kDefaultPerfDurationMs = 200;
     int perfDurationMs = kDefaultPerfDurationMs; // Sample duration in ms for --perf.
+    static constexpr int kDefaultWatchIntervalSeconds = 2;
+    std::optional<int> watchIntervalSeconds;  // --watch [SECONDS]: continuous refresh of the system command.
 };
 
 std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const> argv);

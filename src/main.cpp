@@ -6,6 +6,7 @@
 #include <span>
 #include <iomanip>
 #include <filesystem>
+#include <thread>
 
 #include "analyzer/core.h"
 #include "cli/args.h"
@@ -186,6 +187,14 @@ int main(int argc, char* argv[]) {
 
                 std::cout << "{\n  " << utils::join(members, ",\n  ") << "\n}\n";
                 return 0;
+            }
+
+            // --watch repeats the human-readable report until interrupted (Ctrl-C);
+            // without it the body runs exactly once and breaks at the bottom.
+            const bool watchMode = args.watchIntervalSeconds.has_value();
+            while (true) {
+            if (watchMode) {
+                std::cout << "\033[2J\033[H";  // clear screen, move cursor home
             }
             // System info
             auto infoResult = analyzer.getSystemInfo();
@@ -369,6 +378,12 @@ int main(int argc, char* argv[]) {
                           << std::fixed << std::setprecision(1) << rates.interruptsPerSec << "\n";
                 std::cout << std::left << std::setw(labelWidth) << "Forks/s:"
                           << std::fixed << std::setprecision(1) << rates.processForkRate << "\n";
+            }
+            if (!watchMode) {
+                break;
+            }
+            std::cout.flush();
+            std::this_thread::sleep_for(std::chrono::seconds(*args.watchIntervalSeconds));
             }
             return 0;
         }

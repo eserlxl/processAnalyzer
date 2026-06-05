@@ -312,6 +312,37 @@ TEST_F(ArgsTestFixture, ParseCommandLineWithOpenFiles) {
     }
 }
 
+TEST_F(ArgsTestFixture, ParseSystemWatchWithInterval) {
+    constexpr int kInterval = 5;
+    std::vector<std::string> args = {"processAnalyzer", "system", "--watch", std::to_string(kInterval)};
+    std::vector<char*> argv = makeArgv(args);
+    std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
+
+    ASSERT_TRUE(parsedArgs.has_value());
+    EXPECT_EQ(parsedArgs.value().command, "system");
+    ASSERT_TRUE(parsedArgs.value().watchIntervalSeconds.has_value());
+    EXPECT_EQ(parsedArgs.value().watchIntervalSeconds.value(), kInterval);
+}
+
+TEST_F(ArgsTestFixture, ParseSystemWatchDefaultsInterval) {
+    std::vector<std::string> args = {"processAnalyzer", "system", "--watch"};
+    std::vector<char*> argv = makeArgv(args);
+    std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
+
+    ASSERT_TRUE(parsedArgs.has_value());
+    ASSERT_TRUE(parsedArgs.value().watchIntervalSeconds.has_value());
+    EXPECT_EQ(parsedArgs.value().watchIntervalSeconds.value(),
+              ParsedArguments::kDefaultWatchIntervalSeconds);
+}
+
+TEST_F(ArgsTestFixture, ParseWatchRejectedOutsideSystem) {
+    std::vector<std::string> args = {"processAnalyzer", "list", "--watch"};
+    std::vector<char*> argv = makeArgv(args);
+    std::optional<ParsedArguments> parsedArgs = parseCommandLine(static_cast<int>(argv.size()), argv);
+
+    EXPECT_FALSE(parsedArgs.has_value());
+}
+
 TEST_F(ArgsTestFixture, ParseCommandLineWithThreads) {
     std::vector<std::string> args = {"processAnalyzer", "show", "--pid", std::to_string(testPidGeneric), "--threads"};
     std::vector<char*> argv = makeArgv(args);
