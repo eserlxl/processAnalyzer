@@ -224,6 +224,18 @@ int main(int argc, char* argv[]) {
                 std::cout << std::left << std::setw(labelWidth) << "Interrupts:" << act.interruptsTotal << "\n";
                 std::cout << std::left << std::setw(labelWidth) << "Forks:" << act.processesForked << "\n";
             }
+            // System activity rates (live, sampled over kCpuSampleMs)
+            auto activityRatesResult = analyzer.getSystemActivityRates(std::chrono::milliseconds(kCpuSampleMs));
+            if (activityRatesResult) {
+                const auto& rates = *activityRatesResult;
+                std::cout << "\n=== System Activity Rates (" << kCpuSampleMs << " ms sample) ===\n";
+                std::cout << std::left << std::setw(labelWidth) << "Context Switches/s:"
+                          << std::fixed << std::setprecision(1) << rates.contextSwitchesPerSec << "\n";
+                std::cout << std::left << std::setw(labelWidth) << "Interrupts/s:"
+                          << std::fixed << std::setprecision(1) << rates.interruptsPerSec << "\n";
+                std::cout << std::left << std::setw(labelWidth) << "Forks/s:"
+                          << std::fixed << std::setprecision(1) << rates.processForkRate << "\n";
+            }
             return 0;
         }
         if (args.command == "list" || args.command == "name" || args.command == "user") {
