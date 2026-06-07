@@ -1061,3 +1061,20 @@ TEST_F(ArgsTestFixture, SystemAcceptsJsonOutputFormat) {
     ASSERT_TRUE(parsed->outputFormat.has_value());
     EXPECT_EQ(parsed->outputFormat.value(), "json");
 }
+
+// The built-in --help text must document the top command's options so users can
+// discover them without reading docs/usage.md; --watch applies to top as well.
+TEST(PrintUsageTest, DocumentsTopOptions) {
+    testing::internal::CaptureStdout();
+    printUsage();
+    const std::string out = testing::internal::GetCapturedStdout();
+
+    EXPECT_NE(out.find("--count"), std::string::npos);
+    EXPECT_NE(out.find("--io"), std::string::npos);
+    EXPECT_NE(out.find("--mem"), std::string::npos);
+    // The --watch line must name the top command, not only system.
+    const std::string::size_type watchPos = out.find("--watch");
+    ASSERT_NE(watchPos, std::string::npos);
+    const std::string::size_type lineEnd = out.find('\n', watchPos);
+    EXPECT_NE(out.substr(watchPos, lineEnd - watchPos).find("top"), std::string::npos);
+}
