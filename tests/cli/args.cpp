@@ -1062,6 +1062,17 @@ TEST_F(ArgsTestFixture, SystemAcceptsJsonOutputFormat) {
     EXPECT_EQ(parsed->outputFormat.value(), "json");
 }
 
+TEST_F(ArgsTestFixture, ParseTopWithNameAndUserFilters) {
+    auto argv = makeArgv({"processAnalyzer", "top", "--name", "firefox", "--user", "root"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    EXPECT_EQ(parsed->command, "top");
+    ASSERT_TRUE(parsed->name.has_value());
+    EXPECT_EQ(parsed->name.value(), "firefox");
+    ASSERT_TRUE(parsed->user.has_value());
+    EXPECT_EQ(parsed->user.value(), "root");
+}
+
 TEST_F(ArgsTestFixture, ParseShowWithDescendants) {
     auto argv = makeArgv({"processAnalyzer", "show", "--pid", "1", "--descendants"});
     auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);

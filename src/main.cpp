@@ -11,6 +11,7 @@
 #include <future>
 
 #include "analyzer/core.h"
+#include "analyzer/internal/filter_helpers.h"
 #include "cli/args.h"
 #include "cli/output.h"
 #include "utils/time.h"
@@ -421,6 +422,20 @@ int main(int argc, char* argv[]) {
                 return "?";
             };
 
+            // When any static process filter is set, top ranks only matching
+            // processes (mirroring list); an unfiltered top skips this entirely.
+            const bool topFiltering = args.name || args.user || args.stateFilter ||
+                args.uidFilter || args.ppidFilter || args.minRssKb || args.maxRssKb ||
+                args.minThreads || args.maxThreads || args.cmdlineFilter ||
+                args.minVmKb || args.maxVmKb || args.minPriority || args.maxPriority;
+            // The CPU and I/O rankings carry only a pid, so resolve each
+            // candidate's details once to evaluate the filter.
+            auto pidPassesFilter = [&](int pid) -> bool {
+                if (!topFiltering) { return true; }
+                auto details = analyzer.getProcessDetails(pid);
+                return details && Internal::passesStaticFilters(filter, *details);
+            };
+
             // Render one frame of the ranking; --watch repeats this below.
             auto runTopOnce = [&]() -> int {
             if (args.topByMem) {
@@ -430,6 +445,11 @@ int main(int argc, char* argv[]) {
                     return 1;
                 }
                 auto procs = *snapResult;
+                if (topFiltering) {
+                    std::erase_if(procs, [&](const ProcessInfo& p) {
+                        return !Internal::passesStaticFilters(filter, p);
+                    });
+                }
                 std::ranges::sort(procs, [](const ProcessInfo& a, const ProcessInfo& b) {
                     return a.residentMemory > b.residentMemory;
                 });
@@ -468,6 +488,11 @@ int main(int argc, char* argv[]) {
                     return 1;
                 }
                 auto usages = *ioResult;
+                if (topFiltering) {
+                    std::erase_if(usages, [&](const ProcessDiskIoUsage& u) {
+                        return !pidPassesFilter(u.pid);
+                    });
+                }
                 std::ranges::sort(usages, [](const ProcessDiskIoUsage& a, const ProcessDiskIoUsage& b) {
                     return (a.readBytesPerSec + a.writeBytesPerSec) > (b.readBytesPerSec + b.writeBytesPerSec);
                 });
@@ -508,6 +533,11 @@ int main(int argc, char* argv[]) {
                 return 1;
             }
             auto usages = *usageResult;
+            if (topFiltering) {
+                std::erase_if(usages, [&](const ProcessCpuUsage& u) {
+                    return !pidPassesFilter(u.pid);
+                });
+            }
             std::ranges::sort(usages, [](const ProcessCpuUsage& a, const ProcessCpuUsage& b) {
                 return a.cpuPercentage > b.cpuPercentage;
             });

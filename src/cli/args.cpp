@@ -83,6 +83,7 @@ void printUsage() {
               << "  --io                     Rank by disk I/O instead of CPU\n"
               << "  --mem                    Rank by resident memory (no sampling delay; excludes --io)\n"
               << "  --output json            Emit the ranking as JSON (system and top accept json only)\n"
+              << "  --name/--user/--state    Rank only processes matching the standard filters\n"
               << "\nOptions:\n"
               << "  -h, --help               Show this help message\n"
               << "  --watch [SECONDS]        Continuously refresh the system or top command output (default 2s)\n"
