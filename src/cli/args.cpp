@@ -521,5 +521,15 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
         return std::nullopt;
     }
 
+    // The system and top commands render only their own human report or a JSON
+    // payload; csv/table/vertical are accepted by the generic --output parser but
+    // never honored here, so reject them instead of silently discarding the flag.
+    if ((args.command == "system" || args.command == "top") &&
+        args.outputFormat.has_value() && *args.outputFormat != "json") {
+        std::cerr << "Error: the '" << args.command
+                  << "' command supports '--output json' only.\n";
+        return std::nullopt;
+    }
+
     return args;
 }

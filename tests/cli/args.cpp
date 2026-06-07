@@ -1033,3 +1033,31 @@ TEST_F(ArgsTestFixture, PerfFlagWithListCommandReturnsNullopt) {
     auto argv = makeArgv({"processAnalyzer", "list", "--perf"});
     ASSERT_FALSE(parseCommandLine(static_cast<int>(argv.size()), argv).has_value());
 }
+
+TEST_F(ArgsTestFixture, TopRejectsNonJsonOutputFormat) {
+    auto argv = makeArgv({"processAnalyzer", "top", "--output", "csv"});
+    EXPECT_FALSE(parseCommandLine(static_cast<int>(argv.size()), argv).has_value());
+}
+
+TEST_F(ArgsTestFixture, SystemRejectsNonJsonOutputFormat) {
+    auto argv = makeArgv({"processAnalyzer", "system", "--output", "vertical"});
+    EXPECT_FALSE(parseCommandLine(static_cast<int>(argv.size()), argv).has_value());
+}
+
+TEST_F(ArgsTestFixture, TopAcceptsJsonOutputFormat) {
+    auto argv = makeArgv({"processAnalyzer", "top", "--output", "json"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    EXPECT_EQ(parsed->command, "top");
+    ASSERT_TRUE(parsed->outputFormat.has_value());
+    EXPECT_EQ(parsed->outputFormat.value(), "json");
+}
+
+TEST_F(ArgsTestFixture, SystemAcceptsJsonOutputFormat) {
+    auto argv = makeArgv({"processAnalyzer", "system", "--output", "json"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    EXPECT_EQ(parsed->command, "system");
+    ASSERT_TRUE(parsed->outputFormat.has_value());
+    EXPECT_EQ(parsed->outputFormat.value(), "json");
+}
