@@ -8,6 +8,8 @@
 #include <iomanip>
 #include <sstream>
 #include <map>
+#include <set>
+#include <vector>
 #include <algorithm>
 #include <cassert>
 #include <utility>
@@ -208,4 +210,62 @@ void printProcessJson(const std::vector<ProcessInfo>& processes, const std::vect
         std::cout << "\n";
     }
     std::cout << "]\n";
+}
+
+namespace {
+    constexpr int kForestIndentWidth = 2;
+
+    void printForestNode(const std::map<pid_t, std::vector<const ProcessInfo*>>& childrenByPpid,
+                         const ProcessInfo& node, int depth,
+                         std::set<pid_t>& visited, bool noTruncateCmdline) {
+        if (!visited.insert(node.pid).second) {
+            return; // already printed — guards against malformed ppid cycles
+        }
+        std::cout << std::string(static_cast<std::size_t>(depth) * kForestIndentWidth, ' ')
+                  << node.pid << ' ' << node.name;
+        if (noTruncateCmdline && !node.cmdline.empty()) {
+            std::cout << "  " << node.cmdline;
+        }
+        std::cout << '\n';
+        if (auto it = childrenByPpid.find(node.pid); it != childrenByPpid.end()) {
+            for (const ProcessInfo* child : it->second) {
+                printForestNode(childrenByPpid, *child, depth + 1, visited, noTruncateCmdline);
+            }
+        }
+    }
+} // namespace
+
+void printProcessForest(const std::vector<ProcessInfo>& processes, bool noTruncateCmdline) {
+    std::set<pid_t> presentPids;
+    for (const auto& proc : processes) {
+        presentPids.insert(proc.pid);
+    }
+    // A process whose ppid is also in the displayed set is a child; everything
+    // else (parent not shown, or self-referential) roots the forest.
+    std::map<pid_t, std::vector<const ProcessInfo*>> childrenByPpid;
+    std::vector<const ProcessInfo*> roots;
+    for (const auto& proc : processes) {
+        if (proc.ppid != proc.pid && presentPids.contains(proc.ppid)) {
+            childrenByPpid[proc.ppid].push_back(&proc);
+        } else {
+            roots.push_back(&proc);
+        }
+    }
+    const auto byPid = [](const ProcessInfo* lhs, const ProcessInfo* rhs) { return lhs->pid < rhs->pid; };
+    for (auto& [ppid, kids] : childrenByPpid) {
+        std::ranges::sort(kids, byPid);
+    }
+    std::ranges::sort(roots, byPid);
+
+    std::set<pid_t> visited;
+    for (const ProcessInfo* root : roots) {
+        printForestNode(childrenByPpid, *root, 0, visited, noTruncateCmdline);
+    }
+    // Any node not reached from a root (e.g. caught in a ppid cycle) is still
+    // printed so the forest never silently drops a process.
+    for (const auto& proc : processes) {
+        if (!visited.contains(proc.pid)) {
+            printForestNode(childrenByPpid, proc, 0, visited, noTruncateCmdline);
+        }
+    }
 }

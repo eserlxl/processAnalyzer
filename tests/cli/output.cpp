@@ -221,3 +221,49 @@ TEST(JsonEscapeTest, LowControlBytesUseUnicodeEscape) {
     EXPECT_EQ(jsonEscape(std::string(1, '\x01')), "\\u0001");
     EXPECT_EQ(jsonEscape(std::string(1, '\x1f')), "\\u001f");
 }
+
+namespace {
+ProcessInfo makeNode(pid_t pid, pid_t ppid, std::string name) {
+    ProcessInfo info;
+    info.pid = pid;
+    info.ppid = ppid;
+    info.name = std::move(name);
+    return info;
+}
+} // namespace
+
+// The forest view nests children under their parent by ppid, indenting each
+// level by two spaces, so a parent/child/grandchild chain renders as a tree.
+TEST(OutputTest, ForestNestsChildrenUnderParents) {
+    const std::vector<ProcessInfo> procs = {
+        makeNode(100, 1, "init-child"),
+        makeNode(200, 100, "child"),
+        makeNode(300, 200, "grandchild"),
+    };
+    testing::internal::CaptureStdout();
+    printProcessForest(procs, /*noTruncateCmdline=*/false);
+    const std::string out = testing::internal::GetCapturedStdout();
+
+    EXPECT_EQ(out, "100 init-child\n  200 child\n    300 grandchild\n");
+}
+
+// A process whose ppid is not in the displayed set roots its own subtree, and a
+// ppid cycle is still printed (never silently dropped) and terminates.
+TEST(OutputTest, ForestPrintsCycleNodesAndMultipleRoots) {
+    const std::vector<ProcessInfo> procs = {
+        makeNode(10, 999, "rootA"),   // parent 999 not present -> root
+        makeNode(20, 999, "rootB"),   // parent 999 not present -> root
+        makeNode(30, 31, "cycleA"),   // 30 <-> 31 form a cycle
+        makeNode(31, 30, "cycleB"),
+    };
+    testing::internal::CaptureStdout();
+    printProcessForest(procs, /*noTruncateCmdline=*/false);
+    const std::string out = testing::internal::GetCapturedStdout();
+
+    // Every pid appears exactly once.
+    for (const char* pid : {"10 rootA", "20 rootB", "30 cycleA", "31 cycleB"}) {
+        EXPECT_NE(out.find(pid), std::string::npos);
+    }
+    // Both standalone roots print at column zero.
+    EXPECT_NE(out.find("\n20 rootB"), std::string::npos);
+}

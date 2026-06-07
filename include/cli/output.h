@@ -17,5 +17,8 @@ void printProcessTable(const std::vector<ProcessInfo>& processes, const std::vec
 void printProcessCsv(const std::vector<ProcessInfo>& processes, const std::vector<std::string>& columns);
 void printProcessJson(const std::vector<ProcessInfo>& processes, const std::vector<std::string>& columns);
 void printVerticalProcessDetails(const ProcessInfo& info);
+// Render the processes as an indented parent/child forest keyed on ppid; any
+// process whose ppid is not present in the set is treated as a root.
+void printProcessForest(const std::vector<ProcessInfo>& processes, bool noTruncateCmdline);
 
 #endif // CLI_OUTPUT_H

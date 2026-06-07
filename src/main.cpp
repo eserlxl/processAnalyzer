@@ -833,6 +833,8 @@ int main(int argc, char* argv[]) {
                     std::cout << "\n";
                 }
             }
+        } else if (args.outputFormat == "tree") {
+            printProcessForest(processesToDisplay, args.noTruncateCmdline);
         } else {
             printProcessTable(processesToDisplay, columns, args.noTruncateCmdline);
         }
