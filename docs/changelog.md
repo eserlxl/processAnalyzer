@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **CLI capability expansion:**
+    - `show --descendants` prints a process's full descendant subtree, and `show --affinity` prints its CPU affinity mask.
+    - `list --output tree` renders the listed processes as an indented parent/child forest keyed on ppid.
+    - The `top` command now honors the standard process filters (`--name`, `--user`, `--state`, ...) to narrow the ranking.
+    - `--name-regex` and `--cmdline-regex` filter processes by regular expression (validated at parse time).
+    - The built-in `--help` now documents the full `top` option set, and `top`/`system` reject `--output` formats other than `json`.
 - **New Analyzer Features (Iterations 5, 7, 9, 13, 14):**
     - Enhanced `ProcessInfo` with fields for `startTimeUnix`, `elapsedTime`, `executablePath`, `currentWorkingDirectory`, `environmentVariables`, `cpuUserTimeTicks`, `cpuKernelTimeTicks`, `ioReadBytes`, `ioWriteBytes`, `priority`, `cpuUsage`, and `memoryPercentage`.
     - Implemented C++23 `std::generator` for lazy-loaded process streaming (`streamPids`, `streamProcesses`, `streamQueryProcesses`).

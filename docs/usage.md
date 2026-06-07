@@ -142,11 +142,13 @@ quickly spotting the heaviest consumers during performance diagnosis.
 - `--mem` — rank by resident memory (no sampling delay). Mutually exclusive with `--io`.
 - `--output json` — emit the ranking as a JSON array instead of a table.
 - `--watch [SECONDS]` — refresh the ranking continuously (clearing the screen each cycle) until interrupted with Ctrl-C; defaults to 2 seconds.
+- The standard process filters (`--name`, `--user`, `--state`, `--uid`, `--min-rss`, `--name-regex`, ...) narrow the ranking to matching processes across all three modes.
 
 ```bash
 ./processAnalyzer top --io --count 10
 ./processAnalyzer top --output json
 ./processAnalyzer top --watch 2
+./processAnalyzer top --user www-data --count 10
 ```
 
 ---
@@ -165,6 +167,8 @@ Apply these options with the `list` command to narrow down results.
 | `--uid <N>` | Filter by numeric User ID (non-negative integer). | `--uid 1000` |
 | `--state <char>` | Filter by process state (e.g., 'R', 'S', 'Z'). | `--state Z` |
 | `--cmdline <pattern>` | Filter by command-line substring. | `--cmdline --config` |
+| `--name-regex <pattern>` | Filter by process name using a regular expression. | `--name-regex '^(fire\|chrom)'` |
+| `--cmdline-regex <pattern>` | Filter by command line using a regular expression. | `--cmdline-regex '\.py$'` |
 | `--min-rss <KB>` | Minimum resident set size in KB. | `--min-rss 51200` |
 | `--max-rss <KB>` | Maximum resident set size in KB. | `--max-rss 102400` |
 | `--min-vm <KB>` | Minimum virtual memory size in KB. | `--min-vm 1024` |
@@ -216,7 +220,7 @@ Customize the appearance of the output for the `list` command.
 
 | Option | Description |
 | :--- | :--- |
-| `--output <format>` | Output format. Options: `table` (default), `csv`, `json`, `vertical`. |
+| `--output <format>` | Output format. Options: `table` (default), `csv`, `json`, `vertical`, `tree`. The `tree` format renders the listed processes as an indented parent/child forest keyed on ppid (like `pstree`). |
 | `--columns <c1,c2...>`| Comma-separated list of columns to display. See [Column Reference](#column-reference) for valid names. |
 | `--no-truncate-cmdline`| Prevents truncating long command line arguments in the output. |
 | `--brief`, `-b` | Use a brief, single-line output format. |
@@ -249,8 +253,10 @@ Use these options with the `show` command to include additional details. May req
 
 | Option | Description |
 | :--- | :--- |
-| `--children` | Show child processes recursively. |
+| `--children` | Show direct child processes. |
+| `--descendants` | Show the full descendant subtree (children, grandchildren, ...). |
 | `--threads` | Show detailed information for each thread. |
+| `--affinity` | Show the process's CPU affinity mask (the list of CPU cores it may run on). |
 | `--open-files` | List all files opened by the process. |
 | `--network` | Display active network connections (TCP/UDP/TCP6/UDP6). |
 | `--env`, `--environment` | List the process's environment variables. |
@@ -339,6 +345,11 @@ Use these options with the `show` command to include additional details. May req
 11. **Export specific columns to CSV**:
     ```bash
     ./processAnalyzer list --columns pid,name,state,rss --output csv > process_report.csv
+    ```
+
+    **Visualize the process hierarchy as a forest** with `--output tree`:
+    ```bash
+    ./processAnalyzer list --output tree
     ```
 
 12. **View a process's details in vertical format**:
