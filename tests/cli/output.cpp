@@ -267,3 +267,27 @@ TEST(OutputTest, ForestPrintsCycleNodesAndMultipleRoots) {
     // Both standalone roots print at column zero.
     EXPECT_NE(out.find("\n20 rootB"), std::string::npos);
 }
+
+// With --no-truncate-cmdline the forest appends each process's full command
+// line after its name.
+TEST(OutputTest, ForestShowsCmdlineWhenNoTruncate) {
+    constexpr pid_t kForestPid = 100;
+    constexpr pid_t kForestPpid = 1;
+    ProcessInfo proc = makeNode(kForestPid, kForestPpid, "bash");
+    proc.cmdline = "bash -c 'sleep 1000'";
+    testing::internal::CaptureStdout();
+    printProcessForest({proc}, /*noTruncateCmdline=*/true);
+    const std::string out = testing::internal::GetCapturedStdout();
+
+    EXPECT_NE(out.find("100 bash"), std::string::npos);
+    EXPECT_NE(out.find("bash -c 'sleep 1000'"), std::string::npos);
+}
+
+// An empty process set renders nothing rather than crashing.
+TEST(OutputTest, ForestEmptyInputProducesNoOutput) {
+    testing::internal::CaptureStdout();
+    printProcessForest({}, /*noTruncateCmdline=*/false);
+    const std::string out = testing::internal::GetCapturedStdout();
+
+    EXPECT_TRUE(out.empty());
+}
