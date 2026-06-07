@@ -9,6 +9,7 @@
 #include <thread>
 #include <algorithm>
 #include <future>
+#include <regex>
 
 #include "analyzer/core.h"
 #include "analyzer/internal/filter_helpers.h"
@@ -36,6 +37,9 @@ int main(int argc, char* argv[]) {
         
         // Populate filter from args
         if (args.name) filter.nameContains = *args.name;
+        // Patterns were validated during parsing, so construction will not throw.
+        if (args.nameRegexPattern) filter.nameRegex = std::regex(*args.nameRegexPattern);
+        if (args.cmdlineRegexPattern) filter.cmdlineRegex = std::regex(*args.cmdlineRegexPattern);
         if (args.user) filter.userFilter = *args.user;
         if (args.ppidFilter) filter.ppidFilter = args.ppidFilter;
         filter.stateFilter = args.stateFilter;

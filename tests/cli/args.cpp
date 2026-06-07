@@ -1062,6 +1062,27 @@ TEST_F(ArgsTestFixture, SystemAcceptsJsonOutputFormat) {
     EXPECT_EQ(parsed->outputFormat.value(), "json");
 }
 
+TEST_F(ArgsTestFixture, ParseNameRegexValidPattern) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--name-regex", "fire.*"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_TRUE(parsed->nameRegexPattern.has_value());
+    EXPECT_EQ(parsed->nameRegexPattern.value(), "fire.*");
+}
+
+TEST_F(ArgsTestFixture, ParseCmdlineRegexValidPattern) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--cmdline-regex", "^/usr/bin/"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_TRUE(parsed->cmdlineRegexPattern.has_value());
+    EXPECT_EQ(parsed->cmdlineRegexPattern.value(), "^/usr/bin/");
+}
+
+TEST_F(ArgsTestFixture, ParseNameRegexInvalidPatternReturnsNullopt) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--name-regex", "["});
+    EXPECT_FALSE(parseCommandLine(static_cast<int>(argv.size()), argv).has_value());
+}
+
 TEST_F(ArgsTestFixture, ParseTopWithNameAndUserFilters) {
     auto argv = makeArgv({"processAnalyzer", "top", "--name", "firefox", "--user", "root"});
     auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);

@@ -8,6 +8,7 @@
 #include <vector>
 #include <array>
 #include <limits>
+#include <regex>
 
 namespace {
     constexpr std::array<std::string_view, 15> validColumns = {
@@ -118,6 +119,8 @@ void printUsage() {
               << "  --min-threads <N>        Filter processes with thread count >= N\n"
               << "  --max-threads <N>        Filter processes with thread count <= N\n"
               << "  --cmdline <pattern>      Filter processes by command-line substring\n"
+              << "  --name-regex <pattern>   Filter processes by name (regular expression)\n"
+              << "  --cmdline-regex <pattern> Filter processes by command line (regular expression)\n"
               << "  --min-vm <KB>            Filter processes with virtual memory >= KB\n"
               << "  --max-vm <KB>            Filter processes with virtual memory <= KB\n"
               << "  --min-priority <N>       Filter processes with priority >= N\n"
@@ -421,6 +424,26 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
                 return std::nullopt;
             }
             args.cmdlineFilter = std::string(cliArgs[++i]);
+        } else if (arg == "--name-regex" || arg == "--cmdline-regex") {
+            if (i + 1 >= cliArgs.size()) {
+                std::cerr << "Error: " << arg << " requires a pattern argument.\n";
+                return std::nullopt;
+            }
+            const std::string& pattern = cliArgs[++i];
+            try {
+                // Validate the pattern up front so an invalid regex fails parsing
+                // rather than surfacing later when the filter is built.
+                std::regex compiled(pattern);
+                (void)compiled;
+            } catch (const std::regex_error&) {
+                std::cerr << "Error: invalid regex for " << arg << " '" << pattern << "'.\n";
+                return std::nullopt;
+            }
+            if (arg == "--name-regex") {
+                args.nameRegexPattern = pattern;
+            } else {
+                args.cmdlineRegexPattern = pattern;
+            }
         } else if (arg == "--min-vm") {
             if (i + 1 >= cliArgs.size()) {
                 std::cerr << "Error: --min-vm requires an argument (KB).\n";
