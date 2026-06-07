@@ -281,10 +281,10 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
             }
             std::string format = utils::toLower(cliArgs[++i]);
             if (format == "csv" || format == "json" || format == "table" ||
-                format == "vertical" || format == "tree") {
+                format == "vertical" || format == "tree" || format == "ndjson") {
                 args.outputFormat = format;
             } else {
-                std::cerr << "Error: Invalid output format '" << cliArgs[i] << "'. Use 'csv', 'json', 'table', 'vertical', or 'tree'.\n";
+                std::cerr << "Error: Invalid output format '" << cliArgs[i] << "'. Use 'csv', 'json', 'ndjson', 'table', 'vertical', or 'tree'.\n";
                 return std::nullopt;
             }
         } else if (arg == "--children") {

@@ -860,6 +860,8 @@ int main(int argc, char* argv[]) {
             printProcessCsv(processesToDisplay, columns);
         } else if (args.outputFormat == "json") {
             printProcessJson(processesToDisplay, columns);
+        } else if (args.outputFormat == "ndjson") {
+            printProcessNdjson(processesToDisplay, columns);
         } else if (args.outputFormat == "vertical") {
             for (size_t i = 0; i < processesToDisplay.size(); ++i) {
                 printVerticalProcessDetails(processesToDisplay[i]);

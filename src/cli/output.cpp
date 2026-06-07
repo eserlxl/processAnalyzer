@@ -6,7 +6,6 @@
 #include "utils/time.h"
 #include <iostream>
 #include <iomanip>
-#include <sstream>
 #include <map>
 #include <set>
 #include <vector>
@@ -182,25 +181,30 @@ void printProcessCsv(const std::vector<ProcessInfo>& processes, const std::vecto
     }
 }
 
+namespace {
+    // Build a single `"key": value` JSON member for a column, emitting the six
+    // known numeric columns unquoted and every other value as an escaped string.
+    std::string jsonKeyValue(const ProcessInfo& info, const std::string& col) {
+        const std::string value = getProcessInfoValue(info, col);
+        const bool numeric = (col == "pid" || col == "ppid" || col == "uid" ||
+                              col == "rss" || col == "vm" || col == "threads");
+        if (numeric) {
+            return "\"" + col + "\": " + value;
+        }
+        return "\"" + col + "\": \"" + jsonEscape(value) + "\"";
+    }
+} // namespace
+
 void printProcessJson(const std::vector<ProcessInfo>& processes, const std::vector<std::string>& columns) {
     std::cout << "[\n";
     for (size_t i = 0; i < processes.size(); ++i) {
         const auto& info = processes[i];
         std::cout << "  {\n";
-        
-        std::vector<std::string> pairs;
-        for (const auto& col : columns) {
-            std::stringstream ss;
-            std::string value = getProcessInfoValue(info, col);
 
-            ss << "    \"" << col << "\": ";
-            if (col == "pid" || col == "ppid" || col == "uid" || col == "rss" || col == "vm" || col == "threads") {
-                ss << value; // Numerical values as is
-            } else {
-                // Escape string values (quotes, backslashes, and control chars)
-                ss << "\"" << jsonEscape(value) << "\"";
-            }
-            pairs.push_back(ss.str());
+        std::vector<std::string> pairs;
+        pairs.reserve(columns.size());
+        for (const auto& col : columns) {
+            pairs.push_back("    " + jsonKeyValue(info, col));
         }
         std::cout << utils::join(pairs, ",\n");
         std::cout << "\n  }";
@@ -210,6 +214,17 @@ void printProcessJson(const std::vector<ProcessInfo>& processes, const std::vect
         std::cout << "\n";
     }
     std::cout << "]\n";
+}
+
+void printProcessNdjson(const std::vector<ProcessInfo>& processes, const std::vector<std::string>& columns) {
+    for (const auto& info : processes) {
+        std::vector<std::string> pairs;
+        pairs.reserve(columns.size());
+        for (const auto& col : columns) {
+            pairs.push_back(jsonKeyValue(info, col));
+        }
+        std::cout << "{" << utils::join(pairs, ", ") << "}\n";
+    }
 }
 
 namespace {

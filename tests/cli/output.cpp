@@ -291,3 +291,23 @@ TEST(OutputTest, ForestEmptyInputProducesNoOutput) {
 
     EXPECT_TRUE(out.empty());
 }
+
+// NDJSON emits one compact JSON object per process per line with no enclosing
+// array, so streaming consumers can parse it line by line.
+TEST(OutputTest, NdjsonEmitsOneObjectPerLineNoArray) {
+    const std::vector<ProcessInfo> procs = {
+        makeNode(100, 1, "alpha"),
+        makeNode(200, 1, "beta"),
+    };
+    testing::internal::CaptureStdout();
+    printProcessNdjson(procs, {"pid", "name"});
+    const std::string out = testing::internal::GetCapturedStdout();
+
+    EXPECT_EQ(out.find('['), std::string::npos);          // no enclosing array
+    ASSERT_FALSE(out.empty());
+    EXPECT_EQ(out.front(), '{');                           // first line is an object
+    EXPECT_EQ(out.back(), '\n');                           // trailing newline
+    EXPECT_NE(out.find("}\n{"), std::string::npos);        // two objects, one per line
+    EXPECT_NE(out.find("\"name\": \"alpha\""), std::string::npos);
+    EXPECT_NE(out.find("\"name\": \"beta\""), std::string::npos);
+}
