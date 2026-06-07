@@ -593,6 +593,20 @@ int main(int argc, char* argv[]) {
                         std::cerr << "\nError getting children: " << childrenResult.error().message() << "\n";
                     }
                 }
+                if (args.showDescendants) {
+                    auto descendantsResult = analyzer.getAllDescendantProcesses(targetPid);
+                    if (descendantsResult) {
+                        auto& descendants = *descendantsResult;
+                        if (!descendants.empty()) {
+                            std::cout << "\nDescendants:\n";
+                            printProcessTable(descendants, getDefaultColumnsForTable(false), args.noTruncateCmdline);
+                        } else {
+                            std::cout << "\nNo descendants found.\n";
+                        }
+                    } else {
+                        std::cerr << "\nError getting descendants: " << descendantsResult.error().message() << "\n";
+                    }
+                }
                 if (args.showOpenFiles) {
                     try {
                         auto fdsResult = analyzer.getProcessOpenFileDetails(targetPid);

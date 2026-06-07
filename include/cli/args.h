@@ -23,6 +23,7 @@ struct ParsedArguments {
     bool noTruncateCmdline = false;
     std::optional<std::string> outputFormat;
     bool showChildren = false;
+    bool showDescendants = false;             // Show the full descendant subtree (--descendants).
     bool showOpenFiles = false;
     bool showThreads = false;
     bool showHelp = false;

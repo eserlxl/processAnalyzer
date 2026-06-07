@@ -101,6 +101,7 @@ void printUsage() {
               << "  --no-truncate-cmdline    Do not truncate command line output\n"
               << "  -o, --output <format>    Output format (table, vertical, csv, json, default: table)\n"
               << "  --children               (With 'show' or 'pid') Show child processes\n"
+              << "  --descendants            (With 'show' or 'pid') Show the full descendant subtree\n"
               << "  --open-files             (With 'show' or 'pid') Show open files for process\n"
               << "  --threads                (With 'show' or 'pid') Show threads for process\n"
               << "  --network                (With 'show' or 'pid') Show network connections for process\n"
@@ -282,6 +283,8 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
             }
         } else if (arg == "--children") {
             args.showChildren = true;
+        } else if (arg == "--descendants") {
+            args.showDescendants = true;
         } else if (arg == "--threads") {
             args.showThreads = true;
         } else if (arg == "--open-files") {
@@ -487,11 +490,11 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
     }
 
     // Inspection flags are only valid with 'show' or 'pid' commands.
-    if ((args.showChildren || args.showOpenFiles || args.showNetworkConnections ||
+    if ((args.showChildren || args.showDescendants || args.showOpenFiles || args.showNetworkConnections ||
          args.showThreads || args.showEnv || args.showMemoryMaps ||
          args.showLimits || args.showCgroupInfo || args.showPerf) &&
         args.command != "show" && args.command != "pid") {
-        std::cerr << "Error: --children, --open-files, --threads, --network, --env, --maps, --limits, --cgroup, and --perf are only valid with 'show' or 'pid' commands.\n";
+        std::cerr << "Error: --children, --descendants, --open-files, --threads, --network, --env, --maps, --limits, --cgroup, and --perf are only valid with 'show' or 'pid' commands.\n";
         return std::nullopt;
     }
 
