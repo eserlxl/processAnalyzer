@@ -44,6 +44,7 @@ struct ParsedArguments {
     bool showMemoryMaps = false;              // Show memory maps (--maps).
     bool showLimits = false;                  // Show resource limits (--limits).
     bool showCgroupInfo = false;              // Show cgroup membership (--cgroup).
+    bool showAffinity = false;                // Show CPU affinity mask (--affinity).
     bool showPerf = false;                    // Show performance metrics (--perf).
     static constexpr int kDefaultPerfDurationMs = 200;
     int perfDurationMs = kDefaultPerfDurationMs; // Sample duration in ms for --perf.

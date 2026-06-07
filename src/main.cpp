@@ -765,6 +765,24 @@ int main(int argc, char* argv[]) {
                         std::cerr << "\nError reading cgroup info: " << cgroupResult.error().message() << "\n";
                     }
                 }
+                if (args.showAffinity) {
+                    auto affinityResult = analyzer.getProcessCpuAffinity(targetPid);
+                    if (affinityResult) {
+                        const auto& cpus = affinityResult->cpus;
+                        if (!cpus.empty()) {
+                            std::cout << "\nCPU Affinity:\n  ";
+                            for (std::size_t i = 0; i < cpus.size(); ++i) {
+                                if (i != 0) { std::cout << ", "; }
+                                std::cout << cpus[i];
+                            }
+                            std::cout << "\n";
+                        } else {
+                            std::cout << "\nNo CPU affinity information found.\n";
+                        }
+                    } else {
+                        std::cerr << "\nError reading CPU affinity: " << affinityResult.error().message() << "\n";
+                    }
+                }
                 if (args.showPerf) {
                     auto cpuResult = analyzer.getProcessCpuUsage(
                         targetPid, std::chrono::milliseconds(args.perfDurationMs));

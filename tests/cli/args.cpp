@@ -1074,6 +1074,18 @@ TEST_F(ArgsTestFixture, DescendantsFlagWithListCommandReturnsNullopt) {
     EXPECT_FALSE(parseCommandLine(static_cast<int>(argv.size()), argv).has_value());
 }
 
+TEST_F(ArgsTestFixture, ParseShowWithAffinity) {
+    auto argv = makeArgv({"processAnalyzer", "show", "--pid", "1", "--affinity"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    EXPECT_TRUE(parsed->showAffinity);
+}
+
+TEST_F(ArgsTestFixture, AffinityFlagWithListCommandReturnsNullopt) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--affinity"});
+    EXPECT_FALSE(parseCommandLine(static_cast<int>(argv.size()), argv).has_value());
+}
+
 // The built-in --help text must document the top command's options so users can
 // discover them without reading docs/usage.md; --watch applies to top as well.
 TEST(PrintUsageTest, DocumentsTopOptions) {
