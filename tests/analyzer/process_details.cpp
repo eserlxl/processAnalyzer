@@ -5,10 +5,12 @@
 #include "analyzer/core.h"
 #include "analyzer/process_model.h"
 #include "utils/testing_framework.h" // For MockProc
+#include "utils/types.h"             // For UtilsError / make_error_code
 
 #include <algorithm>
 #include <filesystem>
 #include <memory>
+#include <string>
 #include <vector>
 
 // Direct coverage for getProcessDetails parsing and the hierarchy/snapshot API.
@@ -174,4 +176,43 @@ TEST(SnapshotTest, EmptyProcReturnsEmptyVector) {
     auto result = analyzer.snapshot();
     ASSERT_TRUE(result.has_value());
     EXPECT_TRUE(result->empty());
+}
+
+// parseStatFile() must reject a /proc/[pid]/stat that lacks the comm parentheses
+// or is truncated before the fixed numeric field sequence, rather than returning
+// a half-populated ProcessInfo. Overwrite the builder's well-formed stat to drive
+// each error branch directly.
+TEST_F(ProcessDetailsTest, GetProcessDetailsMalformedStatReturnsError) {
+    const auto parsingError =
+        utils::make_error_code(utils::UtilsError::analyzerParsingError);
+
+    // (a) Valid leading PID but no comm parentheses -> paren-absence branch.
+    constexpr int kNoParenPid = 4400;
+    mockProc->buildProcess(kNoParenPid).withName("noparen").create();
+    mockProc->createFileAt(std::filesystem::path(std::to_string(kNoParenPid)) / "stat",
+                           std::to_string(kNoParenPid) + " comm-without-parens R 1\n");
+    auto noParen = analyzer.getProcessDetails(kNoParenPid);
+    ASSERT_FALSE(noParen.has_value());
+    EXPECT_EQ(noParen.error(), parsingError);
+
+    // (b) Valid PID and comm but truncated before the numeric fields -> field
+    // read-failure branch.
+    constexpr int kTruncatedPid = 4401;
+    mockProc->buildProcess(kTruncatedPid).withName("trunc").create();
+    mockProc->createFileAt(std::filesystem::path(std::to_string(kTruncatedPid)) / "stat",
+                           std::to_string(kTruncatedPid) + " (trunc) S\n");
+    auto truncated = analyzer.getProcessDetails(kTruncatedPid);
+    ASSERT_FALSE(truncated.has_value());
+    EXPECT_EQ(truncated.error(), parsingError);
+}
+
+// A process whose comm contains ')' (a real kernel case, e.g. "(sd-pam)") must
+// have its name extracted via rfind(')') so the closing parenthesis is the last
+// one on the line, not the first nested one.
+TEST_F(ProcessDetailsTest, GetProcessDetailsParsesCommWithParentheses) {
+    constexpr int kParenPid = 4402;
+    mockProc->buildProcess(kParenPid).withName("weird)proc").withParent(kInitPpid).create();
+    auto result = analyzer.getProcessDetails(kParenPid);
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result.value().name, "weird)proc");
 }
