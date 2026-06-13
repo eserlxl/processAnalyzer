@@ -113,6 +113,7 @@ void printUsage() {
               << "  system                   Display system-wide information and statistics\n"
               << "  top                      Show processes ranked by live CPU, memory, or disk I/O\n"
               << "  signal <pid> <signal>    Send a signal to a process (name or number, e.g. TERM, KILL, 9)\n"
+              << "  renice <pid> <nice>      Set a process nice value (-20..19; lower is higher priority)\n"
               << "\nTop command options:\n"
               << "  --count <N>              Limit the ranking to the top N processes (default 15)\n"
               << "  --io                     Rank by disk I/O instead of CPU\n"
@@ -176,7 +177,8 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
         if (!utils::startsWith(potentialCommand, "-")) { // It's a positional argument, so it could be a command
             if (potentialCommand == "list" || potentialCommand == "show" || potentialCommand == "pid" ||
                 potentialCommand == "name" || potentialCommand == "user" || potentialCommand == "system" ||
-                potentialCommand == "top" || potentialCommand == "signal") {
+                potentialCommand == "top" || potentialCommand == "signal" ||
+                potentialCommand == "renice") {
                 args.command = potentialCommand;
                 cliArgs.erase(cliArgs.begin()); // Consume the command
                 if (args.command == "pid") {
@@ -228,6 +230,32 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
                         std::cerr << "Error: Invalid signal '" << cliArgs.front() << "'.\n";
                         return std::nullopt;
                     }
+                } else if (args.command == "renice") {
+                    if (cliArgs.empty()) {
+                        std::cerr << "Error: 'renice' command requires a PID value.\n";
+                        return std::nullopt;
+                    }
+                    if (auto pid = parseIntWithinRange(cliArgs.front())) {
+                        args.pid = pid;
+                        cliArgs.erase(cliArgs.begin());
+                    } else {
+                        std::cerr << "Error: Invalid PID '" << cliArgs.front() << "'.\n";
+                        return std::nullopt;
+                    }
+                    if (cliArgs.empty()) {
+                        std::cerr << "Error: 'renice' command requires a nice value (-20..19).\n";
+                        return std::nullopt;
+                    }
+                    constexpr int kMinNice = -20;
+                    constexpr int kMaxNice = 19;
+                    auto nice = parseIntWithinRange(cliArgs.front());
+                    if (!nice || *nice < kMinNice || *nice > kMaxNice) {
+                        std::cerr << "Error: Invalid nice value '" << cliArgs.front()
+                                  << "' (expected -20..19).\n";
+                        return std::nullopt;
+                    }
+                    args.niceValue = nice;
+                    cliArgs.erase(cliArgs.begin());
                 }
             } else if (potentialCommand == "help") {
                 args.showHelp = true;

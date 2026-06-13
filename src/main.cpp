@@ -51,6 +51,24 @@ int main(int argc, char* argv[]) {
             return 0;
         }
 
+        // Mutating process-management command: set a process nice value.
+        if (args.command == "renice") {
+            if (!args.pid.has_value() || !args.niceValue.has_value()) {
+                std::cerr << "Internal error: renice command requires a PID and a nice value.\n";
+                return 1;
+            }
+            auto result = analyzer.setProcessPriority(*args.pid, *args.niceValue);
+            if (!result) {
+                std::cerr << "Error setting nice value " << *args.niceValue
+                          << " on process " << *args.pid << ": "
+                          << result.error().message() << "\n";
+                return 1;
+            }
+            std::cout << "Set nice value of process " << *args.pid
+                      << " to " << *args.niceValue << ".\n";
+            return 0;
+        }
+
         std::vector<ProcessInfo> processesToDisplay;
         ProcessFilter filter;
 

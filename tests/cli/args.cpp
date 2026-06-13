@@ -1220,3 +1220,56 @@ TEST_F(ArgsTestFixture, PrintUsageMentionsSignalCommand) {
     const std::string out = testing::internal::GetCapturedStdout();
     EXPECT_NE(out.find("signal"), std::string::npos);
 }
+
+TEST_F(ArgsTestFixture, ParseReniceCommandWithPositiveNice) {
+    constexpr int kNice = 10;
+    std::vector<char*> argv = makeArgv({"processAnalyzer", "renice", "1234", "10"});
+    std::optional<ParsedArguments> parsedArgs =
+        parseCommandLine(static_cast<int>(argv.size()), argv);
+
+    ASSERT_TRUE(parsedArgs.has_value());
+    EXPECT_EQ(parsedArgs->command, "renice");
+    ASSERT_TRUE(parsedArgs->pid.has_value());
+    EXPECT_EQ(parsedArgs->pid.value(), testPid);
+    ASSERT_TRUE(parsedArgs->niceValue.has_value());
+    EXPECT_EQ(parsedArgs->niceValue.value(), kNice);
+}
+
+TEST_F(ArgsTestFixture, ParseReniceCommandWithNegativeNice) {
+    constexpr int kNice = -20;
+    std::vector<char*> argv = makeArgv({"processAnalyzer", "renice", "1234", "-20"});
+    std::optional<ParsedArguments> parsedArgs =
+        parseCommandLine(static_cast<int>(argv.size()), argv);
+
+    ASSERT_TRUE(parsedArgs.has_value());
+    ASSERT_TRUE(parsedArgs->niceValue.has_value());
+    EXPECT_EQ(parsedArgs->niceValue.value(), kNice);
+}
+
+TEST_F(ArgsTestFixture, ParseReniceCommandRejectsOutOfRangeNice) {
+    std::vector<char*> argv = makeArgv({"processAnalyzer", "renice", "1234", "20"});
+    std::optional<ParsedArguments> parsedArgs =
+        parseCommandLine(static_cast<int>(argv.size()), argv);
+    EXPECT_FALSE(parsedArgs.has_value());
+}
+
+TEST_F(ArgsTestFixture, ParseReniceCommandRejectsMissingNice) {
+    std::vector<char*> argv = makeArgv({"processAnalyzer", "renice", "1234"});
+    std::optional<ParsedArguments> parsedArgs =
+        parseCommandLine(static_cast<int>(argv.size()), argv);
+    EXPECT_FALSE(parsedArgs.has_value());
+}
+
+TEST_F(ArgsTestFixture, ParseReniceCommandRejectsInvalidNice) {
+    std::vector<char*> argv = makeArgv({"processAnalyzer", "renice", "1234", "lots"});
+    std::optional<ParsedArguments> parsedArgs =
+        parseCommandLine(static_cast<int>(argv.size()), argv);
+    EXPECT_FALSE(parsedArgs.has_value());
+}
+
+TEST_F(ArgsTestFixture, ParseReniceCommandRejectsMissingPid) {
+    std::vector<char*> argv = makeArgv({"processAnalyzer", "renice"});
+    std::optional<ParsedArguments> parsedArgs =
+        parseCommandLine(static_cast<int>(argv.size()), argv);
+    EXPECT_FALSE(parsedArgs.has_value());
+}
