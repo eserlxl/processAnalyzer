@@ -32,9 +32,28 @@ int main(int argc, char* argv[]) {
         }
 
         ProcessAnalyzer analyzer(std::filesystem::path("/proc"));
+
+        // Mutating process-management command: send a signal to a process.
+        if (args.command == "signal") {
+            if (!args.pid.has_value() || !args.signalNumber.has_value()) {
+                std::cerr << "Internal error: signal command requires a PID and a signal.\n";
+                return 1;
+            }
+            auto result = analyzer.sendSignal(*args.pid, *args.signalNumber);
+            if (!result) {
+                std::cerr << "Error sending signal " << *args.signalNumber
+                          << " to process " << *args.pid << ": "
+                          << result.error().message() << "\n";
+                return 1;
+            }
+            std::cout << "Sent signal " << *args.signalNumber
+                      << " to process " << *args.pid << ".\n";
+            return 0;
+        }
+
         std::vector<ProcessInfo> processesToDisplay;
         ProcessFilter filter;
-        
+
         // Populate filter from args
         if (args.name) filter.nameContains = *args.name;
         // Patterns were validated during parsing, so construction will not throw.

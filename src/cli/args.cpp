@@ -9,6 +9,8 @@
 #include <array>
 #include <limits>
 #include <regex>
+#include <csignal>
+#include <unordered_map>
 
 namespace {
     constexpr std::array<std::string_view, 15> validColumns = {
@@ -67,6 +69,37 @@ namespace {
         }
         return static_cast<uint16_t>(*parsed);
     }
+
+    // Resolve a signal spec for the `signal` command: either a number (0 = an
+    // existence probe, through SIGRTMAX) or a case-insensitive name with an
+    // optional "SIG" prefix (e.g. TERM, SIGTERM, term). Returns nullopt when the
+    // spec is neither a known name nor an in-range number.
+    std::optional<int> resolveSignal(std::string_view spec) {
+        if (auto num = parseIntWithinRange(spec)) {
+            constexpr int kMinSignal = 0;
+            constexpr int kMaxSignal = 64; // SIGRTMAX on Linux
+            if (*num < kMinSignal || *num > kMaxSignal) {
+                return std::nullopt;
+            }
+            return num;
+        }
+        std::string name = utils::toLower(spec);
+        if (name.starts_with("sig")) {
+            name = name.substr(3);
+        }
+        static const std::unordered_map<std::string, int> kSignalNames = {
+            {"hup", SIGHUP},   {"int", SIGINT},   {"quit", SIGQUIT}, {"ill", SIGILL},
+            {"trap", SIGTRAP}, {"abrt", SIGABRT}, {"bus", SIGBUS},   {"fpe", SIGFPE},
+            {"kill", SIGKILL}, {"usr1", SIGUSR1}, {"segv", SIGSEGV}, {"usr2", SIGUSR2},
+            {"pipe", SIGPIPE}, {"alrm", SIGALRM}, {"term", SIGTERM}, {"chld", SIGCHLD},
+            {"cont", SIGCONT}, {"stop", SIGSTOP}, {"tstp", SIGTSTP}, {"ttin", SIGTTIN},
+            {"ttou", SIGTTOU}, {"winch", SIGWINCH},
+        };
+        if (auto it = kSignalNames.find(name); it != kSignalNames.end()) {
+            return it->second;
+        }
+        return std::nullopt;
+    }
 }
 
 void printUsage() {
@@ -79,6 +112,7 @@ void printUsage() {
               << "  user <username>          Search processes by user\n"
               << "  system                   Display system-wide information and statistics\n"
               << "  top                      Show processes ranked by live CPU, memory, or disk I/O\n"
+              << "  signal <pid> <signal>    Send a signal to a process (name or number, e.g. TERM, KILL, 9)\n"
               << "\nTop command options:\n"
               << "  --count <N>              Limit the ranking to the top N processes (default 15)\n"
               << "  --io                     Rank by disk I/O instead of CPU\n"
@@ -142,7 +176,7 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
         if (!utils::startsWith(potentialCommand, "-")) { // It's a positional argument, so it could be a command
             if (potentialCommand == "list" || potentialCommand == "show" || potentialCommand == "pid" ||
                 potentialCommand == "name" || potentialCommand == "user" || potentialCommand == "system" ||
-                potentialCommand == "top") {
+                potentialCommand == "top" || potentialCommand == "signal") {
                 args.command = potentialCommand;
                 cliArgs.erase(cliArgs.begin()); // Consume the command
                 if (args.command == "pid") {
@@ -171,6 +205,29 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
                     }
                     args.user = cliArgs.front();
                     cliArgs.erase(cliArgs.begin());
+                } else if (args.command == "signal") {
+                    if (cliArgs.empty()) {
+                        std::cerr << "Error: 'signal' command requires a PID value.\n";
+                        return std::nullopt;
+                    }
+                    if (auto pid = parseIntWithinRange(cliArgs.front())) {
+                        args.pid = pid;
+                        cliArgs.erase(cliArgs.begin());
+                    } else {
+                        std::cerr << "Error: Invalid PID '" << cliArgs.front() << "'.\n";
+                        return std::nullopt;
+                    }
+                    if (cliArgs.empty()) {
+                        std::cerr << "Error: 'signal' command requires a signal name or number.\n";
+                        return std::nullopt;
+                    }
+                    if (auto resolved = resolveSignal(cliArgs.front())) {
+                        args.signalNumber = resolved;
+                        cliArgs.erase(cliArgs.begin());
+                    } else {
+                        std::cerr << "Error: Invalid signal '" << cliArgs.front() << "'.\n";
+                        return std::nullopt;
+                    }
                 }
             } else if (potentialCommand == "help") {
                 args.showHelp = true;

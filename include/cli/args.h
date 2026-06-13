@@ -55,6 +55,7 @@ struct ParsedArguments {
     std::optional<int> topCount;              // --count N: row limit for the top command.
     bool topByIo = false;                     // --io: rank the top command by disk I/O instead of CPU.
     bool topByMem = false;                    // --mem: rank the top command by resident memory.
+    std::optional<int> signalNumber;          // Resolved signal number for the `signal` command.
 };
 
 std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const> argv);

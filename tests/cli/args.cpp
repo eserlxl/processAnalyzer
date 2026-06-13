@@ -8,6 +8,7 @@
 #include <string>
 #include <optional>
 #include <span>
+#include <csignal>
 
 // Define a test fixture to manage argument buffers and ensure thread-safety.
 class ArgsTestFixture : public ::testing::Test {
@@ -1133,4 +1134,89 @@ TEST(PrintUsageTest, DocumentsTopOptions) {
     ASSERT_NE(watchPos, std::string::npos);
     const std::string::size_type lineEnd = out.find('\n', watchPos);
     EXPECT_NE(out.substr(watchPos, lineEnd - watchPos).find("top"), std::string::npos);
+}
+
+TEST_F(ArgsTestFixture, ParseSignalCommandWithSignalName) {
+    std::vector<char*> argv = makeArgv({"processAnalyzer", "signal", "1234", "TERM"});
+    std::optional<ParsedArguments> parsedArgs =
+        parseCommandLine(static_cast<int>(argv.size()), argv);
+
+    ASSERT_TRUE(parsedArgs.has_value());
+    EXPECT_EQ(parsedArgs->command, "signal");
+    ASSERT_TRUE(parsedArgs->pid.has_value());
+    EXPECT_EQ(parsedArgs->pid.value(), testPid);
+    ASSERT_TRUE(parsedArgs->signalNumber.has_value());
+    EXPECT_EQ(parsedArgs->signalNumber.value(), SIGTERM);
+}
+
+TEST_F(ArgsTestFixture, ParseSignalCommandAcceptsSigPrefixAndCase) {
+    std::vector<char*> argv = makeArgv({"processAnalyzer", "signal", "1234", "sigKILL"});
+    std::optional<ParsedArguments> parsedArgs =
+        parseCommandLine(static_cast<int>(argv.size()), argv);
+
+    ASSERT_TRUE(parsedArgs.has_value());
+    ASSERT_TRUE(parsedArgs->signalNumber.has_value());
+    EXPECT_EQ(parsedArgs->signalNumber.value(), SIGKILL);
+}
+
+TEST_F(ArgsTestFixture, ParseSignalCommandWithNumber) {
+    std::vector<char*> argv = makeArgv({"processAnalyzer", "signal", "1234", "9"});
+    std::optional<ParsedArguments> parsedArgs =
+        parseCommandLine(static_cast<int>(argv.size()), argv);
+
+    ASSERT_TRUE(parsedArgs.has_value());
+    ASSERT_TRUE(parsedArgs->signalNumber.has_value());
+    EXPECT_EQ(parsedArgs->signalNumber.value(), SIGKILL); // signal 9 == SIGKILL
+}
+
+TEST_F(ArgsTestFixture, ParseSignalCommandAllowsZeroAsExistenceProbe) {
+    std::vector<char*> argv = makeArgv({"processAnalyzer", "signal", "1234", "0"});
+    std::optional<ParsedArguments> parsedArgs =
+        parseCommandLine(static_cast<int>(argv.size()), argv);
+
+    ASSERT_TRUE(parsedArgs.has_value());
+    ASSERT_TRUE(parsedArgs->signalNumber.has_value());
+    EXPECT_EQ(parsedArgs->signalNumber.value(), 0);
+}
+
+TEST_F(ArgsTestFixture, ParseSignalCommandRejectsInvalidSignal) {
+    std::vector<char*> argv = makeArgv({"processAnalyzer", "signal", "1234", "NOPE"});
+    std::optional<ParsedArguments> parsedArgs =
+        parseCommandLine(static_cast<int>(argv.size()), argv);
+    EXPECT_FALSE(parsedArgs.has_value());
+}
+
+TEST_F(ArgsTestFixture, ParseSignalCommandRejectsOutOfRangeNumber) {
+    std::vector<char*> argv = makeArgv({"processAnalyzer", "signal", "1234", "999"});
+    std::optional<ParsedArguments> parsedArgs =
+        parseCommandLine(static_cast<int>(argv.size()), argv);
+    EXPECT_FALSE(parsedArgs.has_value());
+}
+
+TEST_F(ArgsTestFixture, ParseSignalCommandRequiresSignal) {
+    std::vector<char*> argv = makeArgv({"processAnalyzer", "signal", "1234"});
+    std::optional<ParsedArguments> parsedArgs =
+        parseCommandLine(static_cast<int>(argv.size()), argv);
+    EXPECT_FALSE(parsedArgs.has_value());
+}
+
+TEST_F(ArgsTestFixture, ParseSignalCommandRejectsMissingPid) {
+    std::vector<char*> argv = makeArgv({"processAnalyzer", "signal"});
+    std::optional<ParsedArguments> parsedArgs =
+        parseCommandLine(static_cast<int>(argv.size()), argv);
+    EXPECT_FALSE(parsedArgs.has_value());
+}
+
+TEST_F(ArgsTestFixture, ParseSignalCommandRejectsInvalidPid) {
+    std::vector<char*> argv = makeArgv({"processAnalyzer", "signal", "notapid", "TERM"});
+    std::optional<ParsedArguments> parsedArgs =
+        parseCommandLine(static_cast<int>(argv.size()), argv);
+    EXPECT_FALSE(parsedArgs.has_value());
+}
+
+TEST_F(ArgsTestFixture, PrintUsageMentionsSignalCommand) {
+    testing::internal::CaptureStdout();
+    printUsage();
+    const std::string out = testing::internal::GetCapturedStdout();
+    EXPECT_NE(out.find("signal"), std::string::npos);
 }
