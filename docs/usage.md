@@ -12,6 +12,7 @@ This document provides detailed instructions for using the `processAnalyzer` com
   - [`show`](#show-command)
   - [`system`](#system-command)
   - [`top`](#top-command)
+  - [Process Management](#process-management-commands)
 - [Options Reference](#-options-reference)
   - [Filtering Options](#filtering-options)
   - [Sorting Options](#sorting-options)
@@ -149,6 +150,46 @@ quickly spotting the heaviest consumers during performance diagnosis.
 ./processAnalyzer top --output json
 ./processAnalyzer top --watch 2
 ./processAnalyzer top --user www-data --count 10
+```
+
+### Process Management Commands
+
+Beyond inspection, `processAnalyzer` can act on a process. These commands change
+process state and typically require sufficient privileges (run with `sudo` when
+targeting a process you do not own).
+
+#### `signal` Command
+
+Send a signal to a process by PID. The signal may be a number or a name, with an
+optional `SIG` prefix (case-insensitive). Both the PID and the signal are
+required — there is no implicit default — so a signal is never sent by accident.
+
+```bash
+./processAnalyzer signal 4242 TERM     # graceful termination
+./processAnalyzer signal 4242 KILL     # force kill (same as signal 9)
+./processAnalyzer signal 4242 9        # numeric form
+./processAnalyzer signal 4242 0        # existence/permission probe (sends nothing)
+```
+
+#### `renice` Command
+
+Change a process's scheduling nice value (`-20` highest priority through `19`
+lowest). Lowering a process below 0 generally requires elevated privileges.
+
+```bash
+./processAnalyzer renice 4242 10       # deprioritize
+sudo ./processAnalyzer renice 4242 -5  # raise priority (needs privileges)
+```
+
+#### `affinity` Command
+
+Pin a process to a set of CPU cores. The CPU list accepts individual indices and
+inclusive `a-b` ranges; the set is sorted and de-duplicated. Read the current
+affinity with `show --pid <PID> --affinity`.
+
+```bash
+./processAnalyzer affinity 4242 0,2-3  # restrict to CPUs 0, 2, and 3
+./processAnalyzer affinity 4242 0      # pin to a single CPU
 ```
 
 ---
