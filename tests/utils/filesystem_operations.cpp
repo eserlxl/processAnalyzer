@@ -10,7 +10,7 @@
 #include <vector>
 #include <thread>
 #include <chrono>
-#include <ranges> // Required for std::ranges::find
+#include <algorithm> // For std::ranges::find / std::ranges::any_of
 
 namespace fs = std::filesystem;
 
@@ -354,6 +354,91 @@ TEST_F(FilesystemOperationsTest, TraverseDirectorySkipDir) {
     EXPECT_TRUE(visitedDir1);
     EXPECT_FALSE(visitedSubdir1);
     EXPECT_FALSE(visitedFileInDir1);
+}
+
+TEST_F(FilesystemOperationsTest, TraverseDirectoryMaxDepth) {
+    auto root = testDir / "traverse_maxdepth";
+    ASSERT_TRUE(utils::createDirectories(root / "dir1" / "subdir1"));
+    std::ofstream(root / "dir1" / "d1_file.txt") << "d1";
+    std::ofstream(root / "dir1" / "subdir1" / "sd1_file.txt") << "sd1";
+
+    std::vector<fs::path> visited;
+    utils::TraversalOptions opts;
+    opts.recursive = true;
+    opts.maxDepth = 1; // recurse one level below root, no deeper
+
+    EXPECT_TRUE(utils::traverseDirectory(root, [&](const fs::directory_entry& entry) {
+        visited.push_back(entry.path());
+        return utils::TraversalControl::Continue;
+    }, opts).has_value());
+
+    auto seen = [&](const std::string& name) {
+        return std::ranges::any_of(visited,
+            [&](const fs::path& p) { return p.filename() == name; });
+    };
+    EXPECT_TRUE(seen("dir1"));
+    EXPECT_TRUE(seen("subdir1"));
+    EXPECT_TRUE(seen("d1_file.txt"));
+    EXPECT_FALSE(seen("sd1_file.txt")); // depth-2 content excluded by maxDepth=1
+}
+
+TEST_F(FilesystemOperationsTest, TraverseDirectoryDoesNotFollowSymlinkedDirByDefault) {
+    if (!canCreateSymlinks()) {
+        GTEST_SKIP() << "Symlink creation not supported (insufficient privileges or filesystem support).";
+    }
+    auto root = testDir / "traverse_symlink";
+    ASSERT_TRUE(utils::createDirectories(root / "realdir"));
+    std::ofstream(root / "realdir" / "inside_file.txt") << "x";
+
+    std::error_code ec;
+    fs::create_directory_symlink(root / "realdir", root / "linkdir", ec);
+    ASSERT_FALSE(ec) << ec.message();
+
+    std::vector<fs::path> visited;
+    utils::TraversalOptions opts;
+    opts.recursive = true; // followSymlinks defaults to false
+
+    EXPECT_TRUE(utils::traverseDirectory(root, [&](const fs::directory_entry& entry) {
+        visited.push_back(entry.path());
+        return utils::TraversalControl::Continue;
+    }, opts).has_value());
+
+    int insideCount = 0;
+    for (const auto& p : visited) {
+        if (p.filename() == "inside_file.txt") ++insideCount;
+    }
+    // Reached exactly once via realdir; the symlinked linkdir must not be recursed.
+    EXPECT_EQ(insideCount, 1);
+}
+
+TEST_F(FilesystemOperationsTest, TraverseDirectoryIncludeFilesOnly) {
+    auto root = testDir / "traverse_filesonly";
+    ASSERT_TRUE(utils::createDirectories(root / "dir1"));
+    std::ofstream(root / "root_file.txt") << "r";
+    std::ofstream(root / "dir1" / "d1_file.txt") << "d1";
+
+    std::vector<fs::path> visited;
+    utils::TraversalOptions opts;
+    opts.recursive = true;
+    opts.includeDirectories = false; // callback files only; dirs are still recursed
+
+    EXPECT_TRUE(utils::traverseDirectory(root, [&](const fs::directory_entry& entry) {
+        visited.push_back(entry.path());
+        return utils::TraversalControl::Continue;
+    }, opts).has_value());
+
+    ASSERT_FALSE(visited.empty());
+    for (const auto& p : visited) {
+        EXPECT_FALSE(fs::is_directory(p)) << "directory leaked into files-only traversal: " << p;
+    }
+    bool sawRootFile = false;
+    bool sawNestedFile = false;
+    for (const auto& p : visited) {
+        if (p.filename() == "root_file.txt") sawRootFile = true;
+        if (p.filename() == "d1_file.txt") sawNestedFile = true;
+    }
+    EXPECT_TRUE(sawRootFile);
+    EXPECT_TRUE(sawNestedFile); // recursion still descends despite the dir filter
 }
 
 TEST_F(FilesystemOperationsTest, SymlinkManagement) {
