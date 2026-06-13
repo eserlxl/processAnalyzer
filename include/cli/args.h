@@ -57,6 +57,7 @@ struct ParsedArguments {
     bool topByMem = false;                    // --mem: rank the top command by resident memory.
     std::optional<int> signalNumber;          // Resolved signal number for the `signal` command.
     std::optional<int> niceValue;             // Nice value (-20..19) for the `renice` command.
+    std::optional<std::vector<int>> affinityCpus; // Sorted, unique CPU set for the `affinity` command.
 };
 
 std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const> argv);

@@ -1273,3 +1273,55 @@ TEST_F(ArgsTestFixture, ParseReniceCommandRejectsMissingPid) {
         parseCommandLine(static_cast<int>(argv.size()), argv);
     EXPECT_FALSE(parsedArgs.has_value());
 }
+
+TEST_F(ArgsTestFixture, ParseAffinityCommandSingleCpu) {
+    std::vector<char*> argv = makeArgv({"processAnalyzer", "affinity", "1234", "2"});
+    std::optional<ParsedArguments> parsedArgs =
+        parseCommandLine(static_cast<int>(argv.size()), argv);
+
+    ASSERT_TRUE(parsedArgs.has_value());
+    EXPECT_EQ(parsedArgs->command, "affinity");
+    ASSERT_TRUE(parsedArgs->pid.has_value());
+    EXPECT_EQ(parsedArgs->pid.value(), testPid);
+    ASSERT_TRUE(parsedArgs->affinityCpus.has_value());
+    EXPECT_EQ(parsedArgs->affinityCpus.value(), (std::vector<int>{2}));
+}
+
+TEST_F(ArgsTestFixture, ParseAffinityCommandListWithRangeSortedUnique) {
+    std::vector<char*> argv = makeArgv({"processAnalyzer", "affinity", "1234", "3,0,2-3"});
+    std::optional<ParsedArguments> parsedArgs =
+        parseCommandLine(static_cast<int>(argv.size()), argv);
+
+    ASSERT_TRUE(parsedArgs.has_value());
+    ASSERT_TRUE(parsedArgs->affinityCpus.has_value());
+    // 3,0,2-3 -> {0,2,3} sorted and de-duplicated.
+    EXPECT_EQ(parsedArgs->affinityCpus.value(), (std::vector<int>{0, 2, 3}));
+}
+
+TEST_F(ArgsTestFixture, ParseAffinityCommandRejectsReversedRange) {
+    std::vector<char*> argv = makeArgv({"processAnalyzer", "affinity", "1234", "3-1"});
+    std::optional<ParsedArguments> parsedArgs =
+        parseCommandLine(static_cast<int>(argv.size()), argv);
+    EXPECT_FALSE(parsedArgs.has_value());
+}
+
+TEST_F(ArgsTestFixture, ParseAffinityCommandRejectsInvalidToken) {
+    std::vector<char*> argv = makeArgv({"processAnalyzer", "affinity", "1234", "0,x"});
+    std::optional<ParsedArguments> parsedArgs =
+        parseCommandLine(static_cast<int>(argv.size()), argv);
+    EXPECT_FALSE(parsedArgs.has_value());
+}
+
+TEST_F(ArgsTestFixture, ParseAffinityCommandRejectsMissingList) {
+    std::vector<char*> argv = makeArgv({"processAnalyzer", "affinity", "1234"});
+    std::optional<ParsedArguments> parsedArgs =
+        parseCommandLine(static_cast<int>(argv.size()), argv);
+    EXPECT_FALSE(parsedArgs.has_value());
+}
+
+TEST_F(ArgsTestFixture, ParseAffinityCommandRejectsMissingPid) {
+    std::vector<char*> argv = makeArgv({"processAnalyzer", "affinity"});
+    std::optional<ParsedArguments> parsedArgs =
+        parseCommandLine(static_cast<int>(argv.size()), argv);
+    EXPECT_FALSE(parsedArgs.has_value());
+}

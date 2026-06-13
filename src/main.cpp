@@ -69,6 +69,27 @@ int main(int argc, char* argv[]) {
             return 0;
         }
 
+        // Mutating process-management command: set a process CPU affinity.
+        if (args.command == "affinity") {
+            if (!args.pid.has_value() || !args.affinityCpus.has_value()) {
+                std::cerr << "Internal error: affinity command requires a PID and a CPU list.\n";
+                return 1;
+            }
+            CpuSet desired{*args.affinityCpus};
+            auto result = analyzer.setProcessCpuAffinity(*args.pid, desired);
+            if (!result) {
+                std::cerr << "Error setting CPU affinity on process " << *args.pid
+                          << ": " << result.error().message() << "\n";
+                return 1;
+            }
+            std::cout << "Set CPU affinity of process " << *args.pid << " to";
+            for (int cpu : desired.cpus) {
+                std::cout << " " << cpu;
+            }
+            std::cout << ".\n";
+            return 0;
+        }
+
         std::vector<ProcessInfo> processesToDisplay;
         ProcessFilter filter;
 

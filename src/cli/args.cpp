@@ -100,6 +100,49 @@ namespace {
         }
         return std::nullopt;
     }
+
+    // Parse a CPU list for the `affinity` command: comma-separated indices and
+    // inclusive a-b ranges (e.g. "0,2-3,5"). Returns a sorted, de-duplicated set,
+    // or nullopt for an empty token, a reversed range, or an out-of-range index.
+    std::optional<std::vector<int>> parseCpuList(std::string_view spec) {
+        constexpr int kMinCpu = 0;
+        constexpr int kMaxCpu = 4095; // generous upper bound on CPU index
+        std::vector<int> cpus;
+        std::size_t start = 0;
+        while (true) {
+            const std::size_t comma = spec.find(',', start);
+            const std::string_view token =
+                spec.substr(start, comma == std::string_view::npos ? std::string_view::npos
+                                                                   : comma - start);
+            if (token.empty()) {
+                return std::nullopt;
+            }
+            if (const std::size_t dash = token.find('-'); dash == std::string_view::npos) {
+                const auto num = parseIntWithinRange(token);
+                if (!num || *num < kMinCpu || *num > kMaxCpu) {
+                    return std::nullopt;
+                }
+                cpus.push_back(*num);
+            } else {
+                const auto lo = parseIntWithinRange(token.substr(0, dash));
+                const auto hi = parseIntWithinRange(token.substr(dash + 1));
+                if (!lo || !hi || *lo < kMinCpu || *hi > kMaxCpu || *lo > *hi) {
+                    return std::nullopt;
+                }
+                for (int cpu = *lo; cpu <= *hi; ++cpu) {
+                    cpus.push_back(cpu);
+                }
+            }
+            if (comma == std::string_view::npos) {
+                break;
+            }
+            start = comma + 1;
+        }
+        std::ranges::sort(cpus);
+        const auto dup = std::ranges::unique(cpus);
+        cpus.erase(dup.begin(), dup.end());
+        return cpus;
+    }
 }
 
 void printUsage() {
@@ -114,6 +157,7 @@ void printUsage() {
               << "  top                      Show processes ranked by live CPU, memory, or disk I/O\n"
               << "  signal <pid> <signal>    Send a signal to a process (name or number, e.g. TERM, KILL, 9)\n"
               << "  renice <pid> <nice>      Set a process nice value (-20..19; lower is higher priority)\n"
+              << "  affinity <pid> <cpus>    Set a process CPU affinity (indices/ranges, e.g. 0,2-3)\n"
               << "\nTop command options:\n"
               << "  --count <N>              Limit the ranking to the top N processes (default 15)\n"
               << "  --io                     Rank by disk I/O instead of CPU\n"
@@ -178,7 +222,7 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
             if (potentialCommand == "list" || potentialCommand == "show" || potentialCommand == "pid" ||
                 potentialCommand == "name" || potentialCommand == "user" || potentialCommand == "system" ||
                 potentialCommand == "top" || potentialCommand == "signal" ||
-                potentialCommand == "renice") {
+                potentialCommand == "renice" || potentialCommand == "affinity") {
                 args.command = potentialCommand;
                 cliArgs.erase(cliArgs.begin()); // Consume the command
                 if (args.command == "pid") {
@@ -256,6 +300,30 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
                     }
                     args.niceValue = nice;
                     cliArgs.erase(cliArgs.begin());
+                } else if (args.command == "affinity") {
+                    if (cliArgs.empty()) {
+                        std::cerr << "Error: 'affinity' command requires a PID value.\n";
+                        return std::nullopt;
+                    }
+                    if (auto pid = parseIntWithinRange(cliArgs.front())) {
+                        args.pid = pid;
+                        cliArgs.erase(cliArgs.begin());
+                    } else {
+                        std::cerr << "Error: Invalid PID '" << cliArgs.front() << "'.\n";
+                        return std::nullopt;
+                    }
+                    if (cliArgs.empty()) {
+                        std::cerr << "Error: 'affinity' command requires a CPU list (e.g. 0,2-3).\n";
+                        return std::nullopt;
+                    }
+                    if (auto cpus = parseCpuList(cliArgs.front())) {
+                        args.affinityCpus = std::move(cpus);
+                        cliArgs.erase(cliArgs.begin());
+                    } else {
+                        std::cerr << "Error: Invalid CPU list '" << cliArgs.front()
+                                  << "' (expected indices/ranges like 0,2-3).\n";
+                        return std::nullopt;
+                    }
                 }
             } else if (potentialCommand == "help") {
                 args.showHelp = true;
