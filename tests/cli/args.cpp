@@ -1242,6 +1242,17 @@ TEST(PrintUsageTest, DocumentsFieldOption) {
     EXPECT_NE(out.find("--field"), std::string::npos);
 }
 
+// The summary command parses to a recognized command (not an "unknown command"
+// error), so the dispatcher in main() reaches the aggregation path.
+TEST_F(ArgsTestFixture, ParseSummaryCommand) {
+    std::vector<char*> argv = makeArgv({"processAnalyzer", "summary"});
+    std::optional<ParsedArguments> parsedArgs =
+        parseCommandLine(static_cast<int>(argv.size()), argv);
+
+    ASSERT_TRUE(parsedArgs.has_value());
+    EXPECT_EQ(parsedArgs->command, "summary");
+}
+
 TEST(HasStaticProcessFilterTest, FalseWhenNoFilterSet) {
     ParsedArguments args;
     args.command = "top";

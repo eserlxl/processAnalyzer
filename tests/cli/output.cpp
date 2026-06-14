@@ -386,3 +386,39 @@ TEST(OutputFieldTest, ParseAcceptsValidFieldRejectsUnknown) {
     EXPECT_FALSE(parseArgsForField({"processAnalyzer", "list", "--field", "bogus"}).has_value());
     EXPECT_FALSE(parseArgsForField({"processAnalyzer", "list", "--field"}).has_value());
 }
+
+// Raw scalar mode is deliberately unescaped (unlike json/csv, which escape
+// control characters): the bytes pass through verbatim so the consumer sees the
+// real value. This pins that contract.
+TEST(OutputFieldTest, EmitsRawUnescapedValues) {
+    ProcessInfo p = makeNode(1, 0, "a\tb");
+    testing::internal::CaptureStdout();
+    printProcessField({p}, "name");
+    const std::string out = testing::internal::GetCapturedStdout();
+
+    EXPECT_EQ(out, "a\tb\n");
+    EXPECT_NE(out.find('\t'), std::string::npos);   // a raw tab byte, not "\\t"
+    EXPECT_EQ(out.find("\\t"), std::string::npos);  // never the JSON-style escape
+}
+
+// --field threads through the show/pid detail commands, not only list.
+TEST(OutputFieldTest, ParsesFieldForShowCommand) {
+    auto parsed = parseArgsForField({"processAnalyzer", "show", "--pid", "1234", "--field", "name"});
+    ASSERT_TRUE(parsed.has_value());
+    EXPECT_EQ(parsed->command, "show");
+    ASSERT_TRUE(parsed->pid.has_value());
+    EXPECT_EQ(*parsed->pid, 1234);
+    ASSERT_TRUE(parsed->singleField.has_value());
+    EXPECT_EQ(*parsed->singleField, "name");
+}
+
+// A representative sample of field types — int, string, long long, long — all
+// parse, so the whole column vocabulary is reachable via --field.
+TEST(OutputFieldTest, AcceptsDiverseFieldTypes) {
+    for (const std::string field : {"ppid", "user", "rss", "threads", "vm", "nice"}) {
+        auto parsed = parseArgsForField({"processAnalyzer", "list", "--field", field});
+        ASSERT_TRUE(parsed.has_value()) << field;
+        ASSERT_TRUE(parsed->singleField.has_value()) << field;
+        EXPECT_EQ(*parsed->singleField, field);
+    }
+}
