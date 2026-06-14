@@ -677,7 +677,8 @@ int main(int argc, char* argv[]) {
             }
             
             // If --columns is not used, print vertical details and exit.
-            if (args.selectedColumns.empty() && !args.outputFormat) {
+            // --field routes through the shared output block below instead.
+            if (args.selectedColumns.empty() && !args.outputFormat && !args.singleField) {
                 printVerticalProcessDetails(*infoResult);
                 if (args.showChildren) {
                     auto childrenResult = analyzer.getChildProcesses(targetPid);
@@ -920,7 +921,11 @@ int main(int argc, char* argv[]) {
         }
 
         // Output formatting
-        if (processesToDisplay.empty() && args.command != "pid") {
+        if (args.singleField) {
+            // Raw scalar mode: one field value per process per line, nothing else
+            // (no header, no "no processes" notice) so the output pipes cleanly.
+            printProcessField(processesToDisplay, *args.singleField);
+        } else if (processesToDisplay.empty() && args.command != "pid") {
             std::cout << "No processes found matching criteria.\n";
         } else if (args.outputFormat == "csv") {
             printProcessCsv(processesToDisplay, columns);

@@ -227,6 +227,12 @@ void printProcessNdjson(const std::vector<ProcessInfo>& processes, const std::ve
     }
 }
 
+void printProcessField(const std::vector<ProcessInfo>& processes, std::string_view field) {
+    for (const auto& info : processes) {
+        std::cout << getProcessInfoValue(info, field) << "\n";
+    }
+}
+
 namespace {
     constexpr int kForestIndentWidth = 2;
 

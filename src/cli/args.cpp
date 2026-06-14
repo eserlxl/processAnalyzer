@@ -432,6 +432,17 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
                     return std::nullopt;
                 }
             }
+        } else if (arg == "--field") {
+            if (i + 1 >= cliArgs.size()) {
+                std::cerr << "Error: --field requires a field name.\n";
+                return std::nullopt;
+            }
+            std::string field = utils::toLower(utils::trim(cliArgs[++i]));
+            if (!isValidColumn(field)) {
+                std::cerr << "Error: Invalid field '" << field << "'.\n";
+                return std::nullopt;
+            }
+            args.singleField = field;
         } else if (arg == "--no-truncate-cmdline") {
             args.noTruncateCmdline = true;
         } else if (arg == "--output" || arg == "-o") { // Renamed from --format to --output

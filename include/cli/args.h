@@ -22,6 +22,7 @@ struct ParsedArguments {
     std::vector<std::string> selectedColumns;
     bool noTruncateCmdline = false;
     std::optional<std::string> outputFormat;
+    std::optional<std::string> singleField;   // --field <NAME>: emit one raw value per process per line (no header/quotes).
     bool showChildren = false;
     bool showDescendants = false;             // Show the full descendant subtree (--descendants).
     bool showOpenFiles = false;

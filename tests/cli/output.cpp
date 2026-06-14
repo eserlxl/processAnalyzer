@@ -3,10 +3,13 @@
 
 #include "gtest/gtest.h"
 #include "cli/output.h"
+#include "cli/args.h"
 #include "analyzer/process_model.h"
 
 #include <string>
 #include <vector>
+#include <span>
+#include <optional>
 
 namespace {
 constexpr pid_t kPid = 1234;
@@ -310,4 +313,76 @@ TEST(OutputTest, NdjsonEmitsOneObjectPerLineNoArray) {
     EXPECT_NE(out.find("}\n{"), std::string::npos);        // two objects, one per line
     EXPECT_NE(out.find("\"name\": \"alpha\""), std::string::npos);
     EXPECT_NE(out.find("\"name\": \"beta\""), std::string::npos);
+}
+
+// --- OutputFieldTest: raw single-field scalar output (--field NAME) ---
+
+namespace {
+// Parse a command line from string args, mirroring main()'s entry contract.
+// Mutable copies guard against parseCommandLine touching argv contents.
+std::optional<ParsedArguments> parseArgsForField(const std::vector<std::string>& args) {
+    std::vector<std::vector<char>> bufs;
+    bufs.reserve(args.size());
+    std::vector<char*> argv;
+    argv.reserve(args.size());
+    for (const auto& a : args) {
+        bufs.emplace_back(a.begin(), a.end());
+        bufs.back().push_back('\0');
+        argv.push_back(bufs.back().data());
+    }
+    return parseCommandLine(static_cast<int>(argv.size()),
+                            std::span<char* const>(argv.data(), argv.size()));
+}
+} // namespace
+
+// A numeric field prints one raw value per process per line, nothing else.
+TEST(OutputFieldTest, EmitsOneRawValuePerLine) {
+    const std::vector<ProcessInfo> procs = {
+        makeNode(100, 1, "alpha"),
+        makeNode(200, 1, "beta"),
+    };
+    testing::internal::CaptureStdout();
+    printProcessField(procs, "pid");
+    const std::string out = testing::internal::GetCapturedStdout();
+
+    EXPECT_EQ(out, "100\n200\n");
+}
+
+// A string field is emitted verbatim — no quoting, braces, or delimiters — so
+// it pipes cleanly into a shell loop.
+TEST(OutputFieldTest, EmitsStringFieldWithoutQuotesOrBraces) {
+    const std::vector<ProcessInfo> procs = {
+        makeNode(100, 1, "alpha"),
+        makeNode(200, 1, "beta"),
+    };
+    testing::internal::CaptureStdout();
+    printProcessField(procs, "name");
+    const std::string out = testing::internal::GetCapturedStdout();
+
+    EXPECT_EQ(out, "alpha\nbeta\n");
+    EXPECT_EQ(out.find('"'), std::string::npos);
+    EXPECT_EQ(out.find('{'), std::string::npos);
+    EXPECT_EQ(out.find(','), std::string::npos);
+}
+
+// An empty process set emits nothing (not even a "no processes" notice), so an
+// empty result is an empty stream for the consumer.
+TEST(OutputFieldTest, EmptySetEmitsNothing) {
+    testing::internal::CaptureStdout();
+    printProcessField({}, "pid");
+    const std::string out = testing::internal::GetCapturedStdout();
+
+    EXPECT_TRUE(out.empty());
+}
+
+// --field accepts a known field name and rejects an unknown one (or a missing
+// argument) at parse time, so getProcessInfoValue's std::unreachable is safe.
+TEST(OutputFieldTest, ParseAcceptsValidFieldRejectsUnknown) {
+    auto ok = parseArgsForField({"processAnalyzer", "list", "--field", "pid"});
+    ASSERT_TRUE(ok.has_value());
+    ASSERT_TRUE(ok->singleField.has_value());
+    EXPECT_EQ(*ok->singleField, "pid");
+
+    EXPECT_FALSE(parseArgsForField({"processAnalyzer", "list", "--field", "bogus"}).has_value());
+    EXPECT_FALSE(parseArgsForField({"processAnalyzer", "list", "--field"}).has_value());
 }

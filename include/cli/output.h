@@ -19,6 +19,10 @@ void printProcessJson(const std::vector<ProcessInfo>& processes, const std::vect
 // Newline-delimited JSON: one compact JSON object per process per line, for
 // streaming into log/data pipelines (no enclosing array).
 void printProcessNdjson(const std::vector<ProcessInfo>& processes, const std::vector<std::string>& columns);
+// Emit a single field's raw value, one process per line, with no header,
+// quoting, or delimiters — for scripting (e.g. `--field pid` piped into a
+// shell loop). `field` must be one of the recognized column names.
+void printProcessField(const std::vector<ProcessInfo>& processes, std::string_view field);
 void printVerticalProcessDetails(const ProcessInfo& info);
 // Render the processes as an indented parent/child forest keyed on ppid; any
 // process whose ppid is not present in the set is treated as a root.
