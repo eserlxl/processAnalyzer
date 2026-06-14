@@ -321,25 +321,32 @@ utils::Result<std::vector<ThreadInfo>> ProcessAnalyzer::getProcessThreads(int pi
                 // Read comm (thread name)
                 size_t startParen = statContent->find('(');
                 size_t endParen = statContent->rfind(')');
-                if (startParen != std::string::npos && endParen != std::string::npos && endParen > startParen) {
+                bool commWellFormed = startParen != std::string::npos &&
+                                      endParen != std::string::npos && endParen > startParen;
+                if (commWellFormed) {
                     threadInfo.name = statContent->substr(startParen + 1, endParen - startParen - 1);
                 } else {
                     threadInfo.name = "Unknown";
                 }
 
-                iss.seekg(static_cast<std::streamoff>(endParen + 1));
+                // Only parse the post-comm fields when the comm parens are well formed.
+                // Otherwise endParen is std::string::npos and seekg(endParen + 1) wraps to
+                // seekg(0), rewinding the stream so a pid digit is read as the thread state.
+                if (commWellFormed) {
+                    iss.seekg(static_cast<std::streamoff>(endParen + 1));
 
-                char stateChar;
-                unsigned long utimeUl;
-                unsigned long stimeUl;
-                if (iss >> stateChar) {
-                    threadInfo.state = std::string(1, stateChar);
-                }
-                // Skip fields 4–13 (ppid through cmajflt) to reach utime (field 14).
-                for (int i = 0; i < threadStatSkipFields; ++i) iss >> token;
-                if (iss >> utimeUl >> stimeUl) {
-                    threadInfo.cpuUserTimeTicks = static_cast<long long>(utimeUl);
-                    threadInfo.cpuKernelTimeTicks = static_cast<long long>(stimeUl);
+                    char stateChar;
+                    unsigned long utimeUl;
+                    unsigned long stimeUl;
+                    if (iss >> stateChar) {
+                        threadInfo.state = std::string(1, stateChar);
+                    }
+                    // Skip fields 4–13 (ppid through cmajflt) to reach utime (field 14).
+                    for (int i = 0; i < threadStatSkipFields; ++i) iss >> token;
+                    if (iss >> utimeUl >> stimeUl) {
+                        threadInfo.cpuUserTimeTicks = static_cast<long long>(utimeUl);
+                        threadInfo.cpuKernelTimeTicks = static_cast<long long>(stimeUl);
+                    }
                 }
             }
             threads.push_back(threadInfo);

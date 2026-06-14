@@ -153,3 +153,36 @@ TEST(GetProcessThreadsCpuTicks, ReadsUtimeAndStimeNotPriorityAndNice) {
     EXPECT_EQ(it->cpuUserTimeTicks, static_cast<long long>(kUtime));
     EXPECT_EQ(it->cpuKernelTimeTicks, static_cast<long long>(kStime));
 }
+
+// Regression: a thread stat whose comm has no closing ')' must not seek to a
+// wrapped offset. endParen is std::string::npos, so the old seekg(endParen + 1)
+// wrapped to seekg(0), rewinding the stream and reading the leading pid digit as
+// the thread state. The thread is still enumerated, but with name "Unknown" and
+// the default "?" state rather than a bogus single digit (consistent with the
+// sibling parseStatFile, which rejects the same malformed input).
+TEST(GetProcessThreadsMalformedStat, ParensLessStatYieldsUnknownNameAndDefaultState) {
+    constexpr int kTestPid = 6100;
+    constexpr int kBadTid = 6101;
+
+    MockProc mockProc("mock_proc_thread_malformed_stat");
+    ProcessAnalyzer analyzer(mockProc.getPath());
+
+    mockProc.buildProcess(kTestPid).withName("main").withParent(1).create();
+    // A well-formed main thread establishes the task/ directory...
+    MockProc::AddThreadOptions mainThread;
+    mainThread.name = "main";
+    mockProc.addThread(kTestPid, kTestPid, mainThread);
+    // ...then a sibling thread whose stat has a comm with no parentheses.
+    mockProc.createFileAt(std::filesystem::path(std::to_string(kTestPid)) / "task" /
+                              std::to_string(kBadTid) / "stat",
+                          std::to_string(kBadTid) + " comm-without-parens R 1 2 3\n");
+
+    auto result = analyzer.getProcessThreads(kTestPid);
+    ASSERT_TRUE(result.has_value());
+
+    const auto& threads = result.value();
+    auto it = std::ranges::find_if(threads, [](const ThreadInfo& t) { return t.tid == kBadTid; });
+    ASSERT_NE(it, threads.end());
+    EXPECT_EQ(it->name, "Unknown");
+    EXPECT_EQ(it->state, "?");  // default sentinel, not a rewound pid digit
+}
