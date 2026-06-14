@@ -1223,6 +1223,25 @@ TEST(PrintUsageTest, DocumentsNdjsonOutputFormat) {
     EXPECT_NE(out.find("tree"), std::string::npos);
 }
 
+// The summary command must be discoverable from --help, like every other command.
+TEST(PrintUsageTest, DocumentsSummaryCommand) {
+    testing::internal::CaptureStdout();
+    printUsage();
+    const std::string out = testing::internal::GetCapturedStdout();
+
+    EXPECT_NE(out.find("summary"), std::string::npos);
+}
+
+// The --field scalar output option must be advertised so users can discover it
+// without reading docs/usage.md.
+TEST(PrintUsageTest, DocumentsFieldOption) {
+    testing::internal::CaptureStdout();
+    printUsage();
+    const std::string out = testing::internal::GetCapturedStdout();
+
+    EXPECT_NE(out.find("--field"), std::string::npos);
+}
+
 TEST(HasStaticProcessFilterTest, FalseWhenNoFilterSet) {
     ParsedArguments args;
     args.command = "top";
