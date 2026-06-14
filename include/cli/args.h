@@ -30,6 +30,11 @@ struct ParsedArguments {
     std::optional<int> ppidFilter;            // Stores the PPID value for the --ppid filter.
     bool showNetworkConnections = false;      // Flag to indicate if --network option was used.
     std::optional<uint16_t> networkPortFilter; // Local port for --network <port> list filter.
+    std::optional<uint16_t> networkRemotePort;             // Remote port (--remote-port).
+    std::optional<std::string> networkRemoteAddrFilter;       // Remote address substring (--remote-addr).
+    std::optional<std::string> networkRemoteAddrRegexPattern; // Remote address regex (--remote-addr-regex).
+    std::optional<std::string> networkProtocol;            // Connection protocol, e.g. TCP/UDP (--net-protocol).
+    std::optional<std::string> networkState;               // Connection state, e.g. LISTEN (--net-state).
     std::optional<long long> minRssKb;        // Minimum resident memory in KB (--min-rss).
     std::optional<long long> maxRssKb;        // Maximum resident memory in KB (--max-rss).
     std::optional<long> minThreads;           // Minimum thread count (--min-threads).

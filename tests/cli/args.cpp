@@ -1105,6 +1105,61 @@ TEST_F(ArgsTestFixture, ParseExecPathRegexInvalidPatternReturnsNullopt) {
     EXPECT_FALSE(parseCommandLine(static_cast<int>(argv.size()), argv).has_value());
 }
 
+TEST_F(ArgsTestFixture, ParseRemotePort) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--remote-port", "443"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_TRUE(parsed->networkRemotePort.has_value());
+    EXPECT_EQ(parsed->networkRemotePort.value(), 443);
+}
+
+TEST_F(ArgsTestFixture, ParseRemotePortRejectsOutOfRange) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--remote-port", "70000"});
+    EXPECT_FALSE(parseCommandLine(static_cast<int>(argv.size()), argv).has_value());
+}
+
+TEST_F(ArgsTestFixture, ParseRemoteAddrSubstring) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--remote-addr", "10.0.0"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_TRUE(parsed->networkRemoteAddrFilter.has_value());
+    EXPECT_EQ(parsed->networkRemoteAddrFilter.value(), "10.0.0");
+}
+
+TEST_F(ArgsTestFixture, ParseRemoteAddrRegexValidPattern) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--remote-addr-regex", "^192\\.168\\."});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_TRUE(parsed->networkRemoteAddrRegexPattern.has_value());
+    EXPECT_EQ(parsed->networkRemoteAddrRegexPattern.value(), "^192\\.168\\.");
+}
+
+TEST_F(ArgsTestFixture, ParseRemoteAddrRegexInvalidPatternReturnsNullopt) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--remote-addr-regex", "("});
+    EXPECT_FALSE(parseCommandLine(static_cast<int>(argv.size()), argv).has_value());
+}
+
+TEST_F(ArgsTestFixture, ParseNetProtocolUppercasesInput) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--net-protocol", "tcp"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_TRUE(parsed->networkProtocol.has_value());
+    EXPECT_EQ(parsed->networkProtocol.value(), "TCP");
+}
+
+TEST_F(ArgsTestFixture, ParseNetStateUppercasesInput) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--net-state", "listen"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_TRUE(parsed->networkState.has_value());
+    EXPECT_EQ(parsed->networkState.value(), "LISTEN");
+}
+
+TEST_F(ArgsTestFixture, NetworkFilterRejectedForShowCommand) {
+    auto argv = makeArgv({"processAnalyzer", "show", "--pid", "1", "--net-state", "LISTEN"});
+    EXPECT_FALSE(parseCommandLine(static_cast<int>(argv.size()), argv).has_value());
+}
+
 TEST_F(ArgsTestFixture, ParseTopWithNameAndUserFilters) {
     auto argv = makeArgv({"processAnalyzer", "top", "--name", "firefox", "--user", "root"});
     auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);

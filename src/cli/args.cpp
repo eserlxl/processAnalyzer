@@ -202,6 +202,11 @@ void printUsage() {
               << "  --name-regex <pattern>   Filter processes by name (regular expression)\n"
               << "  --cmdline-regex <pattern> Filter processes by command line (regular expression)\n"
               << "  --exec-path-regex <pattern> Filter processes by executable path (regular expression)\n"
+              << "  --remote-port <port>     Filter by a connection's remote port (list)\n"
+              << "  --remote-addr <pattern>  Filter by a connection's remote address (contains; list)\n"
+              << "  --remote-addr-regex <pattern> Filter by remote address (regular expression; list)\n"
+              << "  --net-protocol <proto>   Filter by connection protocol, e.g. TCP, UDP (list)\n"
+              << "  --net-state <state>      Filter by connection state, e.g. LISTEN, ESTABLISHED (list)\n"
               << "  --min-vm <KB>            Filter processes with virtual memory >= KB\n"
               << "  --max-vm <KB>            Filter processes with virtual memory <= KB\n"
               << "  --min-priority <N>       Filter processes with priority >= N\n"
@@ -585,8 +590,37 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
                 return std::nullopt;
             }
             args.executablePathFilter = std::string(cliArgs[++i]);
+        } else if (arg == "--remote-port") {
+            if (i + 1 >= cliArgs.size()) {
+                std::cerr << "Error: --remote-port requires a port argument.\n";
+                return std::nullopt;
+            }
+            if (auto port = parsePort(cliArgs[++i])) {
+                args.networkRemotePort = port;
+            } else {
+                std::cerr << "Error: --remote-port requires a port in 1-65535.\n";
+                return std::nullopt;
+            }
+        } else if (arg == "--remote-addr") {
+            if (i + 1 >= cliArgs.size()) {
+                std::cerr << "Error: --remote-addr requires an argument.\n";
+                return std::nullopt;
+            }
+            args.networkRemoteAddrFilter = std::string(cliArgs[++i]);
+        } else if (arg == "--net-protocol") {
+            if (i + 1 >= cliArgs.size()) {
+                std::cerr << "Error: --net-protocol requires an argument.\n";
+                return std::nullopt;
+            }
+            args.networkProtocol = utils::toUpper(cliArgs[++i]);
+        } else if (arg == "--net-state") {
+            if (i + 1 >= cliArgs.size()) {
+                std::cerr << "Error: --net-state requires an argument.\n";
+                return std::nullopt;
+            }
+            args.networkState = utils::toUpper(cliArgs[++i]);
         } else if (arg == "--name-regex" || arg == "--cmdline-regex" ||
-                   arg == "--exec-path-regex") {
+                   arg == "--exec-path-regex" || arg == "--remote-addr-regex") {
             if (i + 1 >= cliArgs.size()) {
                 std::cerr << "Error: " << arg << " requires a pattern argument.\n";
                 return std::nullopt;
@@ -605,8 +639,10 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
                 args.nameRegexPattern = pattern;
             } else if (arg == "--cmdline-regex") {
                 args.cmdlineRegexPattern = pattern;
-            } else {
+            } else if (arg == "--exec-path-regex") {
                 args.executablePathRegexPattern = pattern;
+            } else {
+                args.networkRemoteAddrRegexPattern = pattern;
             }
         } else if (arg == "--min-vm") {
             if (i + 1 >= cliArgs.size()) {
@@ -690,10 +726,16 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
         return std::nullopt;
     }
 
-    // --network <port> (port filter) is only valid with 'list' command.
-    if (args.networkPortFilter.has_value() &&
+    // Network connection filters (--network <port>, --remote-port, --remote-addr,
+    // --remote-addr-regex, --net-protocol, --net-state) are only valid with the
+    // list-style commands.
+    const bool anyNetworkFilter = args.networkPortFilter.has_value() ||
+        args.networkRemotePort.has_value() || args.networkRemoteAddrFilter.has_value() ||
+        args.networkRemoteAddrRegexPattern.has_value() || args.networkProtocol.has_value() ||
+        args.networkState.has_value();
+    if (anyNetworkFilter &&
         args.command != "list" && args.command != "name" && args.command != "user") {
-        std::cerr << "Error: --network <port> filter is only valid with the 'list' command.\n";
+        std::cerr << "Error: network connection filters are only valid with the 'list' command.\n";
         return std::nullopt;
     }
 

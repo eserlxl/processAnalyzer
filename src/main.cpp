@@ -113,9 +113,15 @@ int main(int argc, char* argv[]) {
         filter.maxVirtualMemoryKB = args.maxVmKb;
         filter.minPriority = args.minPriority;
         filter.maxPriority = args.maxPriority;
-        if (args.networkPortFilter) {
+        if (args.networkPortFilter || args.networkRemotePort || args.networkRemoteAddrFilter ||
+            args.networkRemoteAddrRegexPattern || args.networkProtocol || args.networkState) {
             ProcessFilter::NetworkFilterCriteria netCrit;
             netCrit.localPort = args.networkPortFilter;
+            netCrit.remotePort = args.networkRemotePort;
+            if (args.networkRemoteAddrFilter) netCrit.remoteAddressContains = *args.networkRemoteAddrFilter;
+            if (args.networkRemoteAddrRegexPattern) netCrit.remoteAddressRegex = std::regex(*args.networkRemoteAddrRegexPattern);
+            netCrit.protocol = args.networkProtocol;
+            netCrit.state = args.networkState;
             filter.networkConnectionFilter = netCrit;
         }
 

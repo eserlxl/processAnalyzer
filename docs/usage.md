@@ -221,6 +221,11 @@ Apply these options with the `list` command to narrow down results.
 | `--min-priority <N>` | Minimum process priority (signed; lower = higher priority). | `--min-priority 0` |
 | `--max-priority <N>` | Maximum process priority. | `--max-priority 19` |
 | `--network <port>` | Show only processes with an active connection on the given local port. | `--network 8080` |
+| `--remote-port <port>` | Filter by a connection's remote port. | `--remote-port 443` |
+| `--remote-addr <pattern>` | Filter by a connection's remote address (substring). | `--remote-addr 10.0.0` |
+| `--remote-addr-regex <pattern>` | Filter by remote address using a regular expression. | `--remote-addr-regex '^192\.168\.'` |
+| `--net-protocol <proto>` | Filter by connection protocol (case-insensitive: TCP, UDP, TCP6, UDP6). | `--net-protocol tcp` |
+| `--net-state <state>` | Filter by connection state (case-insensitive: LISTEN, ESTABLISHED, …). | `--net-state listen` |
 
 ### Sorting Options
 
