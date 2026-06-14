@@ -46,6 +46,7 @@
 *   **Comprehensive System Metrics**: Monitor global and per-CPU usage, memory statistics, load average, and network interfaces.
 *   **Real-Time Monitoring CLI**: Rank processes by live CPU or disk I/O with the `top` command (`--io`, `--count`), refresh system metrics continuously with `system --watch [SECONDS]`, and emit machine-readable metrics with `system --output json`.
 *   **Process Management CLI**: Act on processes directly — `signal <pid> <signal>` (by name or number), `renice <pid> <nice>`, and `affinity <pid> <cpus>` — backed by the same library control API.
+*   **Flexible Output Formats**: Render `list` results as a `table` (default), `vertical`, `csv`, `json`, `ndjson` (newline-delimited JSON, one object per line for streaming into tools like `jq`), or an indented `tree` process forest via `--output`.
 
 For a complete list of features, see [docs/features.md](docs/features.md).
 

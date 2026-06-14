@@ -261,7 +261,7 @@ Customize the appearance of the output for the `list` command.
 
 | Option | Description |
 | :--- | :--- |
-| `--output <format>` | Output format. Options: `table` (default), `csv`, `json`, `vertical`, `tree`. The `tree` format renders the listed processes as an indented parent/child forest keyed on ppid (like `pstree`). |
+| `--output <format>` | Output format. Options: `table` (default), `csv`, `json`, `ndjson`, `vertical`, `tree`. The `tree` format renders the listed processes as an indented parent/child forest keyed on ppid (like `pstree`). The `ndjson` format emits newline-delimited JSON — one object per line with no enclosing array — for streaming into tools like `jq` or log pipelines. |
 | `--columns <c1,c2...>`| Comma-separated list of columns to display. See [Column Reference](#column-reference) for valid names. |
 | `--no-truncate-cmdline`| Prevents truncating long command line arguments in the output. |
 | `--brief`, `-b` | Use a brief, single-line output format. |

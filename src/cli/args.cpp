@@ -180,7 +180,7 @@ void printUsage() {
               << "                           Valid: pid, ppid, uid, user, name, state, rss, vm,\n"
               << "                           threads, cmdline, start-time, elapsed-time, exec-path, nice, cwd\n"
               << "  --no-truncate-cmdline    Do not truncate command line output\n"
-              << "  -o, --output <format>    Output format (table, vertical, csv, json, default: table)\n"
+              << "  -o, --output <format>    Output format (table, vertical, csv, json, ndjson, tree, default: table)\n"
               << "  --children               (With 'show' or 'pid') Show child processes\n"
               << "  --descendants            (With 'show' or 'pid') Show the full descendant subtree\n"
               << "  --open-files             (With 'show' or 'pid') Show open files for process\n"

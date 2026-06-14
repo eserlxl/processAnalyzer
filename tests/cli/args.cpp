@@ -1136,6 +1136,17 @@ TEST(PrintUsageTest, DocumentsTopOptions) {
     EXPECT_NE(out.substr(watchPos, lineEnd - watchPos).find("top"), std::string::npos);
 }
 
+TEST(PrintUsageTest, DocumentsNdjsonOutputFormat) {
+    testing::internal::CaptureStdout();
+    printUsage();
+    const std::string out = testing::internal::GetCapturedStdout();
+
+    // The --help output must advertise every format the parser accepts, including
+    // ndjson and tree, so the help text stays in sync with parseCommandLine.
+    EXPECT_NE(out.find("ndjson"), std::string::npos);
+    EXPECT_NE(out.find("tree"), std::string::npos);
+}
+
 TEST_F(ArgsTestFixture, ParseSignalCommandWithSignalName) {
     std::vector<char*> argv = makeArgv({"processAnalyzer", "signal", "1234", "TERM"});
     std::optional<ParsedArguments> parsedArgs =
