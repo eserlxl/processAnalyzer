@@ -79,6 +79,17 @@ TEST(FilterHelpersTest, StateFilterMatchAndNonMatch) {
     EXPECT_FALSE(Internal::passesStaticFilters(nonMatch, makeProcess()));
 }
 
+TEST(FilterHelpersTest, StateFilterEmptyStateIsNonMatch) {
+    // A ProcessInfo whose state is empty must not match a state filter, and the
+    // check must not call std::string::front() on an empty string (UB).
+    ProcessInfo emptyState = makeProcess();
+    emptyState.state.clear();
+
+    ProcessFilter filter;
+    filter.stateFilter = 'S';
+    EXPECT_FALSE(Internal::passesStaticFilters(filter, emptyState));
+}
+
 TEST(FilterHelpersTest, UidFilterMatchAndNonMatch) {
     ProcessFilter match;
     match.uidFilter = static_cast<uint32_t>(kProcUid);

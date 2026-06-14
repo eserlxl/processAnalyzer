@@ -34,7 +34,7 @@ bool passesStaticFilters(const ProcessFilter& filter, const ProcessInfo& pInfo) 
     if (!applyStringFilter(filter.cmdlineContains, filter.cmdlineRegex, pInfo.cmdline)) return false;
     if (!applyStringFilter(filter.executablePathContains, filter.executablePathRegex, pInfo.executablePath)) return false;
     if (filter.userFilter && pInfo.username != *filter.userFilter) return false;
-    if (filter.stateFilter && pInfo.state.front() != *filter.stateFilter) return false;
+    if (filter.stateFilter && (pInfo.state.empty() || pInfo.state.front() != *filter.stateFilter)) return false;
     if (filter.uidFilter && pInfo.uid != *filter.uidFilter) return false;
     if (!applyRangeFilter(filter.minThreads, filter.maxThreads, pInfo.threadCount)) return false;
     if (!applyRangeFilter(filter.minResidentMemoryKB, filter.maxResidentMemoryKB, pInfo.residentMemory)) return false;
