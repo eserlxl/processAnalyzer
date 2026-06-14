@@ -208,6 +208,14 @@ TEST(TimeUtilsTest, ParseTimestamp) {
     ASSERT_TRUE(resultEpochParse.has_value());
     EXPECT_EQ(std::chrono::system_clock::to_time_t(resultEpochParse.value()), unixEpochSeconds);
 
+    // Test the pre-epoch boundary: 1969-12-31 23:59:59 UTC is exactly one second
+    // before the epoch, for which timegm returns -1. That -1 is a valid time, not a
+    // failure sentinel, so the parse must succeed.
+    auto resultPreEpoch = utils::parseTimestamp("1969-12-31 23:59:59", formatStr);
+    ASSERT_TRUE(resultPreEpoch.has_value());
+    EXPECT_EQ(std::chrono::system_clock::to_time_t(resultPreEpoch.value()),
+              static_cast<std::time_t>(-1));
+
     // Test with different format string
     auto resultAltFormat = utils::parseTimestamp("2024/03/01 10:30:00", "%Y/%m/%d %H:%M:%S");
     ASSERT_TRUE(resultAltFormat.has_value());

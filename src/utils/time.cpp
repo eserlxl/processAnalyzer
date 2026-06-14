@@ -158,10 +158,10 @@ Result<::std::chrono::system_clock::time_point> parseTimestamp(const ::std::stri
     tt = timegm(&tmBuf);
 #endif
 
-    if (tt == -1) {
-         // timegm/_mkgmtime failed, likely due to an invalid date/time combination.
-         return ::std::unexpected(make_error_code(UtilsError::invalidTimeFormat));
-    }
+    // Do not treat tt == -1 as a failure: it is the valid representation of
+    // 1969-12-31 23:59:59 UTC (one second before the epoch). The round-trip check
+    // below is the real validator — it rejects a genuine timegm failure because the
+    // reformatted -1 ("1969-12-31 23:59:59") will not match a non-pre-epoch input.
 
     // Round-trip check: Convert the time_t back to tm using gmtime, format it, and compare.
     // This is crucial for detecting invalid dates like Feb 30th that get_time might parse but timegm rejects.
