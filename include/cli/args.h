@@ -64,4 +64,12 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
 
 void printUsage();
 
+// True when any static process-filter criterion is set (name/substring, name or
+// cmdline regex, user, state, uid, ppid, thread/memory/priority ranges). The `top`
+// command uses this to decide whether to restrict its ranking to matching processes
+// (mirroring `list`). Centralizing the predicate keeps it in lockstep with the
+// ProcessFilter populated in main.cpp, so a newly added filter can never be silently
+// omitted from the gate (as the name/cmdline regex filters once were).
+[[nodiscard]] bool hasStaticProcessFilter(const ParsedArguments& args);
+
 #endif // CLI_ARGS_H

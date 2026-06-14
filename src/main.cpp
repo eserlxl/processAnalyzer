@@ -486,10 +486,10 @@ int main(int argc, char* argv[]) {
 
             // When any static process filter is set, top ranks only matching
             // processes (mirroring list); an unfiltered top skips this entirely.
-            const bool topFiltering = args.name || args.user || args.stateFilter ||
-                args.uidFilter || args.ppidFilter || args.minRssKb || args.maxRssKb ||
-                args.minThreads || args.maxThreads || args.cmdlineFilter ||
-                args.minVmKb || args.maxVmKb || args.minPriority || args.maxPriority;
+            // hasStaticProcessFilter centralizes the predicate so it stays in lockstep
+            // with the ProcessFilter built above (the name/cmdline regex filters were
+            // previously omitted from this gate and silently ignored by top).
+            const bool topFiltering = hasStaticProcessFilter(args);
             // The CPU and I/O rankings carry only a pid, so resolve each
             // candidate's details once to evaluate the filter.
             auto pidPassesFilter = [&](int pid) -> bool {

@@ -722,3 +722,16 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
 
     return args;
 }
+
+bool hasStaticProcessFilter(const ParsedArguments& args) {
+    // Must list every args field that populates a ProcessFilter static criterion in
+    // main.cpp (name/cmdline substring + regex, user, state, uid, ppid, and the
+    // thread/memory/priority ranges). The name and cmdline regex patterns were
+    // historically missing here, so `top --name-regex`/`--cmdline-regex` set a filter
+    // that was never applied.
+    return args.name || args.nameRegexPattern || args.cmdlineFilter ||
+           args.cmdlineRegexPattern || args.user || args.stateFilter ||
+           args.uidFilter || args.ppidFilter || args.minRssKb || args.maxRssKb ||
+           args.minVmKb || args.maxVmKb || args.minThreads || args.maxThreads ||
+           args.minPriority || args.maxPriority;
+}

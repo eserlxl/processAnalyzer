@@ -1147,6 +1147,46 @@ TEST(PrintUsageTest, DocumentsNdjsonOutputFormat) {
     EXPECT_NE(out.find("tree"), std::string::npos);
 }
 
+TEST(HasStaticProcessFilterTest, FalseWhenNoFilterSet) {
+    ParsedArguments args;
+    args.command = "top";
+    EXPECT_FALSE(hasStaticProcessFilter(args));
+}
+
+TEST(HasStaticProcessFilterTest, TrueForNameRegexPattern) {
+    // Regression: top --name-regex populates filter.nameRegex but was never applied
+    // because the gate omitted nameRegexPattern.
+    ParsedArguments args;
+    args.command = "top";
+    args.nameRegexPattern = "foo.*";
+    EXPECT_TRUE(hasStaticProcessFilter(args));
+}
+
+TEST(HasStaticProcessFilterTest, TrueForCmdlineRegexPattern) {
+    // Regression: top --cmdline-regex was likewise silently ignored.
+    ParsedArguments args;
+    args.command = "top";
+    args.cmdlineRegexPattern = "bar";
+    EXPECT_TRUE(hasStaticProcessFilter(args));
+}
+
+TEST(HasStaticProcessFilterTest, TrueForEachStaticCriterion) {
+    { ParsedArguments a; a.name = "x"; EXPECT_TRUE(hasStaticProcessFilter(a)); }
+    { ParsedArguments a; a.cmdlineFilter = "x"; EXPECT_TRUE(hasStaticProcessFilter(a)); }
+    { ParsedArguments a; a.user = "root"; EXPECT_TRUE(hasStaticProcessFilter(a)); }
+    { ParsedArguments a; a.stateFilter = 'R'; EXPECT_TRUE(hasStaticProcessFilter(a)); }
+    { ParsedArguments a; a.uidFilter = 1; EXPECT_TRUE(hasStaticProcessFilter(a)); }
+    { ParsedArguments a; a.ppidFilter = 1; EXPECT_TRUE(hasStaticProcessFilter(a)); }
+    { ParsedArguments a; a.minRssKb = 1; EXPECT_TRUE(hasStaticProcessFilter(a)); }
+    { ParsedArguments a; a.maxRssKb = 1; EXPECT_TRUE(hasStaticProcessFilter(a)); }
+    { ParsedArguments a; a.minVmKb = 1; EXPECT_TRUE(hasStaticProcessFilter(a)); }
+    { ParsedArguments a; a.maxVmKb = 1; EXPECT_TRUE(hasStaticProcessFilter(a)); }
+    { ParsedArguments a; a.minThreads = 1; EXPECT_TRUE(hasStaticProcessFilter(a)); }
+    { ParsedArguments a; a.maxThreads = 1; EXPECT_TRUE(hasStaticProcessFilter(a)); }
+    { ParsedArguments a; a.minPriority = 1; EXPECT_TRUE(hasStaticProcessFilter(a)); }
+    { ParsedArguments a; a.maxPriority = 1; EXPECT_TRUE(hasStaticProcessFilter(a)); }
+}
+
 TEST_F(ArgsTestFixture, ParseSignalCommandWithSignalName) {
     std::vector<char*> argv = makeArgv({"processAnalyzer", "signal", "1234", "TERM"});
     std::optional<ParsedArguments> parsedArgs =
