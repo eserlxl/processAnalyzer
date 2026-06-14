@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - The `top` command now honors the standard process filters (`--name`, `--user`, `--state`, ...) to narrow the ranking.
     - `--name-regex` and `--cmdline-regex` filter processes by regular expression (validated at parse time).
     - The built-in `--help` now documents the full `top` option set, and `top`/`system` reject `--output` formats other than `json`.
+    - The `summary` command aggregates the process population — total count, breakdown by state, zombie tally, and total thread, resident, and virtual memory footprint — with `--output json` for automation.
+    - `--field <NAME>` emits a single column's raw value, one process per line (no header or quoting), for scripting; it accepts the same field names as `--columns`.
 - **New Analyzer Features (Iterations 5, 7, 9, 13, 14):**
     - Enhanced `ProcessInfo` with fields for `startTimeUnix`, `elapsedTime`, `executablePath`, `currentWorkingDirectory`, `environmentVariables`, `cpuUserTimeTicks`, `cpuKernelTimeTicks`, `ioReadBytes`, `ioWriteBytes`, `priority`, `cpuUsage`, and `memoryPercentage`.
     - Implemented C++23 `std::generator` for lazy-loaded process streaming (`streamPids`, `streamProcesses`, `streamQueryProcesses`).

@@ -12,6 +12,7 @@ This document provides detailed instructions for using the `processAnalyzer` com
   - [`show`](#show-command)
   - [`system`](#system-command)
   - [`top`](#top-command)
+  - [`summary`](#summary-command)
   - [Process Management](#process-management-commands)
 - [Options Reference](#-options-reference)
   - [Filtering Options](#filtering-options)
@@ -152,6 +153,21 @@ quickly spotting the heaviest consumers during performance diagnosis.
 ./processAnalyzer top --user www-data --count 10
 ```
 
+### `summary` Command
+
+The `summary` command aggregates the whole process population into the
+one-glance triage numbers that neither `system` (system-wide metrics) nor `top`
+(per-process ranking) reports: the total process count, a breakdown by state,
+the zombie count, and the total thread, resident, and virtual memory footprint.
+
+```bash
+# Human-readable population summary
+./processAnalyzer summary
+
+# Machine-readable JSON (a single object) for automation
+./processAnalyzer summary --output json
+```
+
 ### Process Management Commands
 
 Beyond inspection, `processAnalyzer` can act on a process. These commands change
@@ -270,6 +286,7 @@ Customize the appearance of the output for the `list` command.
 | :--- | :--- |
 | `--output <format>` | Output format. Options: `table` (default), `csv`, `json`, `ndjson`, `vertical`, `tree`. The `tree` format renders the listed processes as an indented parent/child forest keyed on ppid (like `pstree`). The `ndjson` format emits newline-delimited JSON — one object per line with no enclosing array — for streaming into tools like `jq` or log pipelines. |
 | `--columns <c1,c2...>`| Comma-separated list of columns to display. See [Column Reference](#column-reference) for valid names. |
+| `--field <NAME>` | Emit a single column's raw value, one process per line, with no header, quoting, or delimiters — for piping into shell tools (e.g. `for pid in $(processAnalyzer list --field pid)`). Uses the same names as the [Column Reference](#column-reference). |
 | `--no-truncate-cmdline`| Prevents truncating long command line arguments in the output. |
 | `--brief`, `-b` | Use a brief, single-line output format. |
 
