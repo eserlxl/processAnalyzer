@@ -66,6 +66,7 @@ endif()
 add_library(processAnalyzerCliLib STATIC
     src/cli/args.cpp
     src/cli/output.cpp
+    src/cli/summary.cpp
 )
 target_include_directories(processAnalyzerCliLib PUBLIC ${CMAKE_SOURCE_DIR}/include)
 target_link_libraries(processAnalyzerCliLib PRIVATE processAnalyzerLib)

@@ -15,6 +15,7 @@
 #include "analyzer/internal/filter_helpers.h"
 #include "cli/args.h"
 #include "cli/output.h"
+#include "cli/summary.h"
 #include "utils/time.h"
 #include "utils/string.h"
 
@@ -473,6 +474,18 @@ int main(int argc, char* argv[]) {
             std::cout.flush();
             std::this_thread::sleep_for(std::chrono::seconds(*args.watchIntervalSeconds));
             }
+            return 0;
+        }
+        if (args.command == "summary") {
+            // Aggregate the whole process population into one-glance triage numbers
+            // (count, by-state breakdown, zombies, total threads/memory) that
+            // neither `system` (system metrics) nor `top` (ranking) reports.
+            auto snapResult = analyzer.snapshot();
+            if (!snapResult) {
+                std::cerr << "Error reading process snapshot: " << snapResult.error().message() << "\n";
+                return 1;
+            }
+            printProcessSummary(summarizeProcesses(*snapResult), args.outputFormat == "json");
             return 0;
         }
         if (args.command == "top") {

@@ -229,7 +229,8 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
             if (potentialCommand == "list" || potentialCommand == "show" || potentialCommand == "pid" ||
                 potentialCommand == "name" || potentialCommand == "user" || potentialCommand == "system" ||
                 potentialCommand == "top" || potentialCommand == "signal" ||
-                potentialCommand == "renice" || potentialCommand == "affinity") {
+                potentialCommand == "renice" || potentialCommand == "affinity" ||
+                potentialCommand == "summary") {
                 args.command = potentialCommand;
                 cliArgs.erase(cliArgs.begin()); // Consume the command
                 if (args.command == "pid") {
