@@ -10,7 +10,8 @@
 #include <filesystem>
 #include <vector>
 
-// Direct coverage for ProcessAnalyzer::getPids() — success path and fileNotFound error path.
+// Direct coverage for ProcessAnalyzer::getPids() — success path, fileNotFound error
+// path, and the filesystem-error catch block mapping to analyzerSystemError.
 
 namespace {
 constexpr int kPidA = 101;
@@ -41,4 +42,19 @@ TEST(PidsTest, ReturnsFileNotFoundWhenProcPathAbsent) {
     auto result = analyzer.getPids();
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), utils::make_error_code(utils::UtilsError::fileNotFound));
+}
+
+TEST(PidsTest, ReturnsSystemErrorWhenProcPathIsNotDirectory) {
+    MockProc mockProc("mock_proc_pids_not_a_dir");
+    // procPath exists but is a regular file, so the fs::exists guard passes and
+    // directory_iterator throws fs::filesystem_error with not_a_directory (not
+    // permission_denied), exercising the catch block's analyzerSystemError branch.
+    mockProc.createFileAt("not_a_dir", "x");
+    const std::filesystem::path filePath =
+        std::filesystem::path(mockProc.getPath()) / "not_a_dir";
+    ProcessAnalyzer analyzer(filePath);
+
+    auto result = analyzer.getPids();
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), utils::make_error_code(utils::UtilsError::analyzerSystemError));
 }
