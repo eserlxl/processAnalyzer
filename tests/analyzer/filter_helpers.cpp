@@ -69,6 +69,26 @@ TEST(FilterHelpersTest, NameContainsHitAndMiss) {
     EXPECT_FALSE(Internal::passesStaticFilters(miss, makeProcess()));
 }
 
+TEST(FilterHelpersTest, ExecutablePathContainsHitAndMiss) {
+    ProcessFilter hit;
+    hit.executablePathContains = "/usr/bin";
+    EXPECT_TRUE(Internal::passesStaticFilters(hit, makeProcess()));
+
+    ProcessFilter miss;
+    miss.executablePathContains = "/sbin";
+    EXPECT_FALSE(Internal::passesStaticFilters(miss, makeProcess()));
+}
+
+TEST(FilterHelpersTest, ExecutablePathRegexHitAndMiss) {
+    ProcessFilter hit;
+    hit.executablePathRegex = std::regex("^/usr/bin/.*fox$");
+    EXPECT_TRUE(Internal::passesStaticFilters(hit, makeProcess()));
+
+    ProcessFilter miss;
+    miss.executablePathRegex = std::regex("^/opt/");
+    EXPECT_FALSE(Internal::passesStaticFilters(miss, makeProcess()));
+}
+
 TEST(FilterHelpersTest, StateFilterMatchAndNonMatch) {
     ProcessFilter match;
     match.stateFilter = 'S';

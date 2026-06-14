@@ -198,8 +198,10 @@ void printUsage() {
               << "  --min-threads <N>        Filter processes with thread count >= N\n"
               << "  --max-threads <N>        Filter processes with thread count <= N\n"
               << "  --cmdline <pattern>      Filter processes by command-line substring\n"
+              << "  --exec-path <pattern>    Filter processes by executable path (contains)\n"
               << "  --name-regex <pattern>   Filter processes by name (regular expression)\n"
               << "  --cmdline-regex <pattern> Filter processes by command line (regular expression)\n"
+              << "  --exec-path-regex <pattern> Filter processes by executable path (regular expression)\n"
               << "  --min-vm <KB>            Filter processes with virtual memory >= KB\n"
               << "  --max-vm <KB>            Filter processes with virtual memory <= KB\n"
               << "  --min-priority <N>       Filter processes with priority >= N\n"
@@ -577,7 +579,14 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
                 return std::nullopt;
             }
             args.cmdlineFilter = std::string(cliArgs[++i]);
-        } else if (arg == "--name-regex" || arg == "--cmdline-regex") {
+        } else if (arg == "--exec-path") {
+            if (i + 1 >= cliArgs.size()) {
+                std::cerr << "Error: --exec-path requires an argument.\n";
+                return std::nullopt;
+            }
+            args.executablePathFilter = std::string(cliArgs[++i]);
+        } else if (arg == "--name-regex" || arg == "--cmdline-regex" ||
+                   arg == "--exec-path-regex") {
             if (i + 1 >= cliArgs.size()) {
                 std::cerr << "Error: " << arg << " requires a pattern argument.\n";
                 return std::nullopt;
@@ -594,8 +603,10 @@ std::optional<ParsedArguments> parseCommandLine(int argc, std::span<char* const>
             }
             if (arg == "--name-regex") {
                 args.nameRegexPattern = pattern;
-            } else {
+            } else if (arg == "--cmdline-regex") {
                 args.cmdlineRegexPattern = pattern;
+            } else {
+                args.executablePathRegexPattern = pattern;
             }
         } else if (arg == "--min-vm") {
             if (i + 1 >= cliArgs.size()) {
@@ -730,7 +741,8 @@ bool hasStaticProcessFilter(const ParsedArguments& args) {
     // historically missing here, so `top --name-regex`/`--cmdline-regex` set a filter
     // that was never applied.
     return args.name || args.nameRegexPattern || args.cmdlineFilter ||
-           args.cmdlineRegexPattern || args.user || args.stateFilter ||
+           args.cmdlineRegexPattern || args.executablePathFilter ||
+           args.executablePathRegexPattern || args.user || args.stateFilter ||
            args.uidFilter || args.ppidFilter || args.minRssKb || args.maxRssKb ||
            args.minVmKb || args.maxVmKb || args.minThreads || args.maxThreads ||
            args.minPriority || args.maxPriority;

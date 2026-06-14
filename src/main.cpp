@@ -98,6 +98,8 @@ int main(int argc, char* argv[]) {
         // Patterns were validated during parsing, so construction will not throw.
         if (args.nameRegexPattern) filter.nameRegex = std::regex(*args.nameRegexPattern);
         if (args.cmdlineRegexPattern) filter.cmdlineRegex = std::regex(*args.cmdlineRegexPattern);
+        if (args.executablePathFilter) filter.executablePathContains = *args.executablePathFilter;
+        if (args.executablePathRegexPattern) filter.executablePathRegex = std::regex(*args.executablePathRegexPattern);
         if (args.user) filter.userFilter = *args.user;
         if (args.ppidFilter) filter.ppidFilter = args.ppidFilter;
         filter.stateFilter = args.stateFilter;

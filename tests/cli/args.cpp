@@ -1084,6 +1084,27 @@ TEST_F(ArgsTestFixture, ParseNameRegexInvalidPatternReturnsNullopt) {
     EXPECT_FALSE(parseCommandLine(static_cast<int>(argv.size()), argv).has_value());
 }
 
+TEST_F(ArgsTestFixture, ParseExecPathSubstring) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--exec-path", "/usr/bin"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_TRUE(parsed->executablePathFilter.has_value());
+    EXPECT_EQ(parsed->executablePathFilter.value(), "/usr/bin");
+}
+
+TEST_F(ArgsTestFixture, ParseExecPathRegexValidPattern) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--exec-path-regex", "^/usr/bin/.*"});
+    auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
+    ASSERT_TRUE(parsed.has_value());
+    ASSERT_TRUE(parsed->executablePathRegexPattern.has_value());
+    EXPECT_EQ(parsed->executablePathRegexPattern.value(), "^/usr/bin/.*");
+}
+
+TEST_F(ArgsTestFixture, ParseExecPathRegexInvalidPatternReturnsNullopt) {
+    auto argv = makeArgv({"processAnalyzer", "list", "--exec-path-regex", "("});
+    EXPECT_FALSE(parseCommandLine(static_cast<int>(argv.size()), argv).has_value());
+}
+
 TEST_F(ArgsTestFixture, ParseTopWithNameAndUserFilters) {
     auto argv = makeArgv({"processAnalyzer", "top", "--name", "firefox", "--user", "root"});
     auto parsed = parseCommandLine(static_cast<int>(argv.size()), argv);
@@ -1173,6 +1194,8 @@ TEST(HasStaticProcessFilterTest, TrueForCmdlineRegexPattern) {
 TEST(HasStaticProcessFilterTest, TrueForEachStaticCriterion) {
     { ParsedArguments a; a.name = "x"; EXPECT_TRUE(hasStaticProcessFilter(a)); }
     { ParsedArguments a; a.cmdlineFilter = "x"; EXPECT_TRUE(hasStaticProcessFilter(a)); }
+    { ParsedArguments a; a.executablePathFilter = "x"; EXPECT_TRUE(hasStaticProcessFilter(a)); }
+    { ParsedArguments a; a.executablePathRegexPattern = "x"; EXPECT_TRUE(hasStaticProcessFilter(a)); }
     { ParsedArguments a; a.user = "root"; EXPECT_TRUE(hasStaticProcessFilter(a)); }
     { ParsedArguments a; a.stateFilter = 'R'; EXPECT_TRUE(hasStaticProcessFilter(a)); }
     { ParsedArguments a; a.uidFilter = 1; EXPECT_TRUE(hasStaticProcessFilter(a)); }

@@ -208,8 +208,10 @@ Apply these options with the `list` command to narrow down results.
 | `--uid <N>` | Filter by numeric User ID (non-negative integer). | `--uid 1000` |
 | `--state <char>` | Filter by process state (e.g., 'R', 'S', 'Z'). | `--state Z` |
 | `--cmdline <pattern>` | Filter by command-line substring. | `--cmdline --config` |
+| `--exec-path <pattern>` | Filter by executable path substring. | `--exec-path /usr/bin` |
 | `--name-regex <pattern>` | Filter by process name using a regular expression. | `--name-regex '^(fire\|chrom)'` |
 | `--cmdline-regex <pattern>` | Filter by command line using a regular expression. | `--cmdline-regex '\.py$'` |
+| `--exec-path-regex <pattern>` | Filter by executable path using a regular expression. | `--exec-path-regex '/bin/python3(\.\d+)?$'` |
 | `--min-rss <KB>` | Minimum resident set size in KB. | `--min-rss 51200` |
 | `--max-rss <KB>` | Maximum resident set size in KB. | `--max-rss 102400` |
 | `--min-vm <KB>` | Minimum virtual memory size in KB. | `--min-vm 1024` |
