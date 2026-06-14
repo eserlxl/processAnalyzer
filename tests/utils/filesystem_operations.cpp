@@ -441,6 +441,36 @@ TEST_F(FilesystemOperationsTest, TraverseDirectoryIncludeFilesOnly) {
     EXPECT_TRUE(sawNestedFile); // recursion still descends despite the dir filter
 }
 
+TEST_F(FilesystemOperationsTest, TraverseDirectoryFilesOnlyNonRecursiveExcludesDirs) {
+    // Regression: a shallow, files-only walk (recursive=false, includeDirectories=false)
+    // must never invoke the callback on a subdirectory. Previously isDir was only computed
+    // when includeDirectories || recursive was set, so with both off every subdirectory
+    // entry was misclassified as a file and leaked into the callback.
+    auto root = testDir / "traverse_filesonly_shallow";
+    ASSERT_TRUE(utils::createDirectories(root / "subdir"));
+    std::ofstream(root / "afile.txt") << "a";
+
+    std::vector<fs::path> visited;
+    utils::TraversalOptions opts;
+    opts.recursive = false;
+    opts.includeDirectories = false;
+    opts.includeFiles = true;
+
+    EXPECT_TRUE(utils::traverseDirectory(root, [&](const fs::directory_entry& entry) {
+        visited.push_back(entry.path());
+        return utils::TraversalControl::Continue;
+    }, opts).has_value());
+
+    for (const auto& p : visited) {
+        EXPECT_FALSE(fs::is_directory(p)) << "directory leaked into files-only traversal: " << p;
+    }
+    bool sawFile = false;
+    for (const auto& p : visited) {
+        if (p.filename() == "afile.txt") sawFile = true;
+    }
+    EXPECT_TRUE(sawFile); // the regular file is still visited
+}
+
 TEST_F(FilesystemOperationsTest, SymlinkManagement) {
     if (!canCreateSymlinks()) {
         GTEST_SKIP() << "Symlink creation not supported (insufficient privileges or filesystem support).";

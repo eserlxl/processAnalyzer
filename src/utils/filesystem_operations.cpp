@@ -83,13 +83,14 @@ Result<void> traverseDirectory(const std::filesystem::path& dirPath, TraversalCa
                     bool isDir = false;
                     bool isSymlink = false;
         
-                    // Determine if it's a directory. Only needed if includeDirectories or recursive is true.
-                    if (options.includeDirectories || options.recursive) {
-                        isDir = entry.is_directory(entryStatusEc);
-                        if (entryStatusEc) {
-                            // Error getting directory status. Propagate this error.
-                            return std::unexpected(entryStatusEc);
-                        }
+                    // Determine if it's a directory. Needed both to decide recursion and to
+                    // keep directories out of the file callback when includeDirectories is
+                    // false (line 105 gates the file callback on !isDir), so it must be
+                    // computed in every configuration, not only when recursing.
+                    isDir = entry.is_directory(entryStatusEc);
+                    if (entryStatusEc) {
+                        // Error getting directory status. Propagate this error.
+                        return std::unexpected(entryStatusEc);
                     }
         
                     // Determine if it's a symlink. Only needed if !options.followSymlinks.
