@@ -85,6 +85,14 @@ TEST(StringConversionTest, ToLongInvalid) {
 
     // Prefixes not supported by std::from_chars (except sign)
     EXPECT_TRUE(hasError(utils::toLong("0xFF", 16), utils::UtilsError::invalidArgument));
+
+    // Out-of-range base: std::from_chars requires base in [2,36]; anything else
+    // (0, 1, 37, negative) must be rejected rather than invoking undefined behavior.
+    EXPECT_TRUE(hasError(utils::toLong("10", 1), utils::UtilsError::invalidArgument));
+    EXPECT_TRUE(hasError(utils::toLong("10", 0), utils::UtilsError::invalidArgument));
+    EXPECT_TRUE(hasError(utils::toLong("10", 37), utils::UtilsError::invalidArgument));
+    EXPECT_TRUE(hasError(utils::toInt("10", 1), utils::UtilsError::invalidArgument));
+    EXPECT_TRUE(hasError(utils::toInt("10", 37), utils::UtilsError::invalidArgument));
 }
 
 TEST(StringConversionTest, ToLongOutOfRange) {

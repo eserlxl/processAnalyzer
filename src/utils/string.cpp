@@ -24,6 +24,11 @@ inline unsigned char toUpperAscii(unsigned char c) {
     return c;
 }
 
+// std::from_chars accepts an integer base only in [minRadix, maxRadix]; any value
+// outside this range is undefined behavior, so parseNumeric validates against it.
+constexpr int minRadix = 2;
+constexpr int maxRadix = 36;
+
 } // namespace
 
 namespace utils {
@@ -268,6 +273,13 @@ Result<T> parseNumeric(std::string_view s, int base) {
     const char* last = trimmedSv.data() + trimmedSv.size();
 
     if constexpr (std::is_integral_v<T>) {
+        // std::from_chars has undefined behavior for any base outside [minRadix,
+        // maxRadix]; the public toInt/toLong accept an arbitrary int base, so
+        // reject an out-of-range value here rather than forwarding it (mirrors the
+        // guard in the header-only parseInteger).
+        if (base < minRadix || base > maxRadix) {
+            return std::unexpected(make_error_code(UtilsError::invalidArgument));
+        }
         res = std::from_chars(first, last, value, base);
     } else { // Floating point types
         res = std::from_chars(first, last, value);
